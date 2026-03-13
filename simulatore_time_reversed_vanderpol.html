@@ -115,15 +115,10 @@ mjx-container { display:inline !important; }
       <input type="number" id="tmax-input" class="compact" value="40" min="1" max="600" step="1">
       <span class="val"></span>
     </div>
-    <div class="btn-row" style="margin-bottom:5px;">
+    <div class="btn-row" style="margin-bottom:2px;">
       <button id="btn-simulate">▶ Simula</button>
       <button id="btn-stop" class="secondary">■ Stop</button>
       <button id="btn-reset" class="secondary">Reset</button>
-    </div>
-    <div class="param-row">
-      <label>$t$ (s):</label>
-      <input type="range" id="time-slider" min="0" max="40" value="0" step="0.05" disabled style="flex:1">
-      <span class="val" id="time-val">0.00 s</span>
     </div>
   </div>
 
@@ -171,7 +166,83 @@ mjx-container { display:inline !important; }
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let params = {}, simRunning = false, animId = null;
-let displayTime = 0;
+
+// ── MathJax → canvas image helpers ───────────────────────────────────────────
+const MI = {};
+async function makeMathImg(latex, color, heightPx) {
+  await MathJax.startup.promise;
+  const wrapper = MathJax.tex2svg(latex, {display:false});
+  const svg = wrapper.querySelector('svg');
+  const hEx = parseFloat(svg.getAttribute('height')) || 1;
+  const wEx = parseFloat(svg.getAttribute('width'))  || 1;
+  const wPx = Math.ceil(wEx / hEx * heightPx) + 2;
+  svg.setAttribute('height', heightPx); svg.setAttribute('width', wPx);
+  let s = new XMLSerializer().serializeToString(svg);
+  s = s.replace(/currentColor/g, color);
+  const url = URL.createObjectURL(new Blob([s], {type:'image/svg+xml;charset=utf-8'}));
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  URL.revokeObjectURL(url); return img;
+}
+async function preloadMath() {
+  const defs = [
+    ['eq0', '\\ddot{z} = -z + \\mu\\,(z^2-1)\\,\\dot{z}',
+            'rgba(255,255,255,0.9)', 40],
+    ['eq1', '\\begin{cases}\\dot{x} = -y \\\\[4pt] \\dot{y} = x + \\mu\\,(x^2-1)\\,y\\end{cases}',
+            'rgba(255,255,255,0.9)', 80],
+  ];
+  for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
+}
+
+// ── Equation navigator state ──────────────────────────────────────────────────
+let eqIndex = 0;
+const EQ_KEYS = ['eq0', 'eq1'];
+let _eqBtnLeft = null, _eqBtnRight = null;
+
+function drawEquation() {
+  const img = MI[EQ_KEYS[eqIndex]];
+  if (!img) return;
+  const W = canvas.width;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const cx = W / 2;
+  const y0 = 14;
+
+  const padX = 14, padY = 6;
+  const bx = cx - iw/2 - padX, by = y0 - padY;
+  const bw = iw + padX*2,      bh = ih + padY*2;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
+
+  ctx.drawImage(img, Math.round(cx - iw/2), y0);
+
+  const btnW = 22, btnH = bh, gap = 8;
+  const lx = bx - gap - btnW, rx = bx + bw + gap, btnY = by;
+
+  function drawBtn(x, label, enabled) {
+    ctx.fillStyle = enabled ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)';
+    ctx.beginPath(); ctx.roundRect(x, btnY, btnW, btnH, 4); ctx.fill();
+    ctx.fillStyle = enabled ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.2)';
+    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + btnW/2, btnY + btnH/2);
+    ctx.textBaseline = 'alphabetic';
+  }
+  drawBtn(lx, '◀', eqIndex > 0);
+  drawBtn(rx, '▶', eqIndex < EQ_KEYS.length - 1);
+
+  // Step counter
+  const label = `(${eqIndex+1}/${EQ_KEYS.length})`;
+  ctx.font = 'bold 10px "Segoe UI",sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(label, cx, by + bh + 13);
+
+  _eqBtnLeft  = {x:lx, y:btnY, w:btnW, h:btnH};
+  _eqBtnRight = {x:rx, y:btnY, w:btnW, h:btnH};
+}
+
+function hitBtn(rect, px, py) {
+  return rect && px>=rect.x && px<=rect.x+rect.w && py>=rect.y && py<=rect.y+rect.h;
+}
 
 // ── 4 independent draggable points ───────────────────────────────────────────
 const PT_COLORS = ['#e94560', '#00b4d8', '#06d6a0', '#f4a261'];
@@ -222,12 +293,6 @@ function getStateAtTime(t) {
 }
 
 function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 40; }
-
-function setTimeSlider(t, tmax) {
-  const sl = document.getElementById('time-slider');
-  sl.max = tmax; sl.value = t;
-  document.getElementById('time-val').textContent = t.toFixed(2)+' s';
-}
 
 // ── Pan/zoom view for side plots ─────────────────────────────────────────────
 class PanZoomView {
@@ -314,17 +379,6 @@ function wireSlider(id, valId, fmt) {
 }
 wireSlider('mu-slider', 'mu-val', v=>v.toFixed(2));
 
-document.getElementById('time-slider').addEventListener('input', function() {
-  if (simRunning) return;
-  displayTime = parseFloat(this.value);
-  document.getElementById('time-val').textContent = displayTime.toFixed(2)+' s';
-  const s = getStateAtTime(displayTime);
-  if (s) draw(s.x, s.y);
-});
-document.getElementById('tmax-input').addEventListener('change', function() {
-  document.getElementById('time-slider').max = getTMax();
-});
-
 // ── Physics ──────────────────────────────────────────────────────────────────
 function vdpRHS(x, y) {
   const mu = params.mu;
@@ -405,6 +459,7 @@ function draw(x_ov, y_ov) {
   updateInfo(x, y);
   drawXTime();
   drawYTime();
+  drawEquation();
 }
 
 // ── Vector field ─────────────────────────────────────────────────────────────
@@ -633,7 +688,6 @@ function startSim() {
       }
     }
     const activeState = points.find(p=>p.state)?.state;
-    if (activeState) setTimeSlider(activeState.time, getTMax());
     draw(points[0].state?.x ?? points[0].history.at(-1)?.x ?? points[0].x,
          points[0].state?.y ?? points[0].history.at(-1)?.y ?? points[0].y);
     const allDone = points.every(p=>!p.state) || (activeState && activeState.time >= getTMax());
@@ -710,6 +764,17 @@ canvas.addEventListener('wheel', e => {
   canvas.addEventListener('dblclick', ()=>{ mainView.offX=0;mainView.offY=0;mainView.zoom=1;if(!simRunning)draw(); });
 }
 
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const px = (e.clientX-rect.left)*(canvas.width/rect.width);
+  const py = (e.clientY-rect.top)*(canvas.height/rect.height);
+  if (hitBtn(_eqBtnLeft, px, py) && eqIndex > 0) {
+    eqIndex--; if (!simRunning) draw();
+  } else if (hitBtn(_eqBtnRight, px, py) && eqIndex < EQ_KEYS.length-1) {
+    eqIndex++; if (!simRunning) draw();
+  }
+});
+
 // ── Panel collapse ────────────────────────────────────────────────────────────
 function setupCollapse(btnId, panelId, openArrow, closeArrow) {
   const btn=document.getElementById(btnId), panel=document.getElementById(panelId);
@@ -736,6 +801,7 @@ setupResizer('right-resizer','right-panel','right');
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function initApp() {
+  await preloadMath();
   MathJax.typeset();
   setupPanZoom('xtime-canvas', xtimeView, XTIME_PAD, ()=>{ if(!simRunning) draw(); else drawXTime(); });
   setupPanZoom('ytime-canvas', ytimeView, YTIME_PAD, ()=>{ if(!simRunning) draw(); else drawYTime(); });

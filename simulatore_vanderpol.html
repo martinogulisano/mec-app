@@ -115,15 +115,10 @@ mjx-container { display:inline !important; }
       <input type="number" id="tmax-input" class="compact" value="40" min="1" max="600" step="1">
       <span class="val"></span>
     </div>
-    <div class="btn-row" style="margin-bottom:5px;">
+    <div class="btn-row" style="margin-bottom:2px;">
       <button id="btn-simulate">▶ Simula</button>
       <button id="btn-stop" class="secondary">■ Stop</button>
       <button id="btn-reset" class="secondary">Reset</button>
-    </div>
-    <div class="param-row">
-      <label>$t$ (s):</label>
-      <input type="range" id="time-slider" min="0" max="40" value="0" step="0.05" disabled style="flex:1">
-      <span class="val" id="time-val">0.00 s</span>
     </div>
   </div>
 
@@ -234,6 +229,14 @@ function drawEquation() {
   }
   drawBtn(lx, '◀', eqIndex > 0);
   drawBtn(rx, '▶', eqIndex < EQ_KEYS.length - 1);
+
+  // Step counter
+  const label = `(${eqIndex+1}/${EQ_KEYS.length})`;
+  ctx.font = 'bold 10px "Segoe UI",sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(label, cx, by + bh + 13);
+
   _eqBtnLeft  = {x:lx, y:btnY, w:btnW, h:btnH};
   _eqBtnRight = {x:rx, y:btnY, w:btnW, h:btnH};
 }
@@ -241,7 +244,6 @@ function drawEquation() {
 function hitBtn(rect, px, py) {
   return rect && px>=rect.x && px<=rect.x+rect.w && py>=rect.y && py<=rect.y+rect.h;
 }
-let displayTime = 0;
 
 // ── 4 independent draggable points ───────────────────────────────────────────
 const PT_COLORS = ['#e94560', '#00b4d8', '#06d6a0', '#f4a261'];
@@ -284,12 +286,6 @@ function getStateAtTime(t) {
 }
 
 function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 40; }
-
-function setTimeSlider(t, tmax) {
-  const sl = document.getElementById('time-slider');
-  sl.max = tmax; sl.value = t;
-  document.getElementById('time-val').textContent = t.toFixed(2)+' s';
-}
 
 // ── Pan/zoom view for side plots ─────────────────────────────────────────────
 class PanZoomView {
@@ -376,18 +372,7 @@ function wireSlider(id, valId, fmt) {
 }
 wireSlider('mu-slider', 'mu-val', v=>v.toFixed(2));
 
-document.getElementById('time-slider').addEventListener('input', function() {
-  if (simRunning) return;
-  displayTime = parseFloat(this.value);
-  document.getElementById('time-val').textContent = displayTime.toFixed(2)+' s';
-  const s = getStateAtTime(displayTime);
-  if (s) draw(s.x, s.y);
-});
-document.getElementById('tmax-input').addEventListener('change', function() {
-  document.getElementById('time-slider').max = getTMax();
-});
-
-// ── Physics ──────────────────────────────────────────────────────────────────
+// ── Physics
 function vdpRHS(x, y) {
   const mu = params.mu;
   return [y, mu*(1 - x*x)*y - x];
@@ -650,7 +635,6 @@ function startSim() {
       pt.history.push({t:pt.state.time, x:pt.state.x, y:pt.state.y});
       if (pt.history.length>8000) pt.history.shift();
     }
-    setTimeSlider(points[0].state.time, getTMax());
     draw(points[0].state.x, points[0].state.y);
     if (points[0].state.time < getTMax()) animId=requestAnimationFrame(step);
     else stopSim();
