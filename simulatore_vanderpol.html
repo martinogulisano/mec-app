@@ -186,10 +186,14 @@ async function makeMathImg(latex, color, heightPx) {
 }
 async function preloadMath() {
   const defs = [
-    ['eq0', '\\ddot{z} = -z - \\mu\\,(z^2-1)\\,\\dot{z}',
-            'rgba(255,255,255,0.9)', 40],
-    ['eq1', '\\begin{cases}\\dot{x} = y \\\\[4pt] \\dot{y} = -x - \\mu\\,(x^2-1)\\,y\\end{cases}',
-            'rgba(255,255,255,0.9)', 80],
+    ['eq0',    '\\ddot{z} = -z - \\mu\\,(z^2-1)\\,\\dot{z}',
+               'rgba(255,255,255,0.9)', 40],
+    ['eq1',    '\\begin{cases}\\dot{x} = y \\\\[4pt] \\dot{y} = -x - \\mu\\,(x^2-1)\\,y\\end{cases}',
+               'rgba(255,255,255,0.9)', 80],
+    ['ax_z',   'z',          'rgba(180,180,180,0.9)', 14],
+    ['ax_zdot','\\dot{z}',   'rgba(180,180,180,0.9)', 14],
+    ['ax_x',   'x',          'rgba(180,180,180,0.9)', 14],
+    ['ax_y',   'y',          'rgba(180,180,180,0.9)', 14],
   ];
   for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
 }
@@ -206,17 +210,17 @@ function drawEquation() {
   const W = canvas.width;
   const iw = img.naturalWidth, ih = img.naturalHeight;
   const cx = W / 2;
-  const y0 = 14;
-
   const padX = 14, padY = 6;
+  const bh_box = ih + padY*2;
+  const y0 = canvas.height - bh_box - padY - 18; // anchor to bottom
   const bx = cx - iw/2 - padX, by = y0 - padY;
-  const bw = iw + padX*2,      bh = ih + padY*2;
+  const bw = iw + padX*2;
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh_box, 6); ctx.fill();
 
   ctx.drawImage(img, Math.round(cx - iw/2), y0);
 
-  const btnW = 22, btnH = bh, gap = 8;
+  const btnW = 22, btnH = bh_box, gap = 8;
   const lx = bx - gap - btnW, rx = bx + bw + gap, btnY = by;
 
   function drawBtn(x, label, enabled) {
@@ -235,7 +239,7 @@ function drawEquation() {
   ctx.font = 'bold 10px "Segoe UI",sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText(label, cx, by + bh + 13);
+  ctx.fillText(label, cx, by + bh_box + 13);
 
   _eqBtnLeft  = {x:lx, y:btnY, w:btnW, h:btnH};
   _eqBtnRight = {x:rx, y:btnY, w:btnW, h:btnH};
@@ -449,8 +453,19 @@ function drawVectorField() {
   const yMin = -(H*0.5 - mainView.offY) / sc;
   const yMax =  (H*0.5 + mainView.offY) / sc;
 
+  // Pre-compute all magnitudes to normalize color mapping
+  const mags = [];
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < N; j++) {
+      const xd = xMin + (i+0.5)*(xMax-xMin)/N;
+      const yd = yMin + (j+0.5)*(yMax-yMin)/N;
+      const [fx, fy] = vdpRHS(xd, yd);
+      mags.push(Math.sqrt(fx*fx + fy*fy));
+    }
+  const logMax = Math.log1p(Math.max(...mags));
+
   const cellW = W / N, cellH = H / N;
-  const arrowBase = Math.min(cellW, cellH) * 0.36;
+  const arrowBase = Math.min(cellW, cellH) * 0.42;
 
   for (let i = 0; i < N; i++) {
     for (let j = 0; j < N; j++) {
@@ -461,27 +476,36 @@ function drawVectorField() {
       if (mag < 1e-9) continue;
       const ux = fx/mag, uy = fy/mag;
 
-      const arrowLen = arrowBase * (1 + 0.28*Math.log1p(mag));
-      const hl = Math.min(arrowLen * 0.32, 5);
+      // Normalized intensity [0,1] on log scale
+      const t = Math.log1p(mag) / logMax;
+
+      // Color: teal (180°) → gold (45°) → red (0°) as t goes 0→1
+      const hue   = Math.round(180 - t * 160);   // 180 → 20
+      const sat   = Math.round(55  + t * 35);     // 55% → 90%
+      const lum   = Math.round(45  + t * 20);     // 45% → 65%
+      const alpha = (0.30 + t * 0.50).toFixed(2); // 0.30 → 0.80
+
+      const arrowLen = arrowBase * (0.55 + 0.45 * t);
+      const hl = arrowLen * 0.38;
 
       const [px, py] = w2c(xd, yd);
-      // canvas direction: x right, y down — uy flipped
       const ex = ux * arrowLen, ey = -uy * arrowLen;
       const x1 = px - ex*0.45, y1 = py - ey*0.45;
       const x2 = px + ex*0.55, y2 = py + ey*0.55;
 
-      const alpha = 0.15 + 0.15*Math.min(Math.log1p(mag)/Math.log1p(20), 1);
-      ctx.strokeStyle = `rgba(78,205,196,${alpha.toFixed(2)})`;
-      ctx.fillStyle   = `rgba(78,205,196,${(alpha+0.08).toFixed(2)})`;
-      ctx.lineWidth = 1;
+      const col = `hsla(${hue},${sat}%,${lum}%,${alpha})`;
+      ctx.strokeStyle = col;
+      ctx.fillStyle   = col;
+      ctx.lineWidth = 1.5;
 
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
 
-      // Arrowhead
+      // Arrowhead — perpendicular vector is (-uy, ux) in world; canvas y is flipped
+      const w = hl * 0.42;
       ctx.beginPath();
       ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - hl*ux + hl*.38*(-uy), y2 + hl*uy + hl*.38*ux);
-      ctx.lineTo(x2 - hl*ux - hl*.38*(-uy), y2 + hl*uy - hl*.38*ux);
+      ctx.lineTo(x2 - hl*ux + w*uy, y2 + hl*uy + w*ux);
+      ctx.lineTo(x2 - hl*ux - w*uy, y2 + hl*uy - w*ux);
       ctx.closePath(); ctx.fill();
     }
   }
@@ -522,12 +546,14 @@ function drawPhaseAxes() {
     ctx.fillText(v.toFixed(Math.abs(v)<10?1:0), 22, py+3);
   }
 
-  // Axis labels
+  // Axis labels (MathJax images, switch with eqIndex)
   const [ax] = w2c(xMax*0.92, 0);
   const [,ay] = w2c(0, yMax*0.92);
-  ctx.fillStyle='#888'; ctx.font='12px sans-serif';
-  ctx.textAlign='center'; ctx.fillText('x', ax, w2c(0,0)[1]+14);
-  ctx.textAlign='left';   ctx.fillText('y', w2c(0,0)[0]+6, ay);
+  const [ox, oy] = w2c(0, 0);
+  const imgX    = eqIndex === 0 ? MI['ax_z']    : MI['ax_x'];
+  const imgY    = eqIndex === 0 ? MI['ax_zdot'] : MI['ax_y'];
+  if (imgX) ctx.drawImage(imgX, Math.round(ax - imgX.naturalWidth/2), Math.round(oy + 6));
+  if (imgY) ctx.drawImage(imgY, Math.round(ox + 6), Math.round(ay - imgY.naturalHeight/2));
 }
 
 // ── Info box ─────────────────────────────────────────────────────────────────
