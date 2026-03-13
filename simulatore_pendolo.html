@@ -22,12 +22,13 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:
 .panel {
   background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
   display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
   transition: width .25s cubic-bezier(.4,0,.2,1),
               min-width .25s cubic-bezier(.4,0,.2,1),
               padding .25s cubic-bezier(.4,0,.2,1);
 }
 #left-panel  { width:300px; min-width:200px; max-width:45vw; }
-#right-panel { width:320px; min-width:200px; max-width:45vw; }
+#right-panel { width:440px; min-width:200px; max-width:50vw; }
 .panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
 .panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
 .panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
@@ -46,7 +47,7 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:
   transition:background .15s, color .15s;
 }
 .collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
-.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
 .section-title {
   font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
   margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
@@ -65,9 +66,9 @@ input[type="number"].compact {
   border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
 }
 .param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
-.param-row label { flex:0 0 100px; font-size:.8em; text-align:right; }
+.param-row label { flex:0 0 72px; font-size:.8em; text-align:right; }
 .param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
-.param-row .val { flex:0 0 56px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+.param-row .val { flex:0 0 46px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
 .checkbox-row { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
 .checkbox-row input[type="checkbox"] { accent-color:var(--highlight); width:14px; height:14px; }
 .checkbox-row label { font-size:.8em; cursor:pointer; }
@@ -82,6 +83,11 @@ canvas#canvas:active { cursor:grabbing; }
 #info-box { background:rgba(0,0,0,.3); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; }
 .plot-hint { font-size:.65em; color:rgba(255,255,255,.25); text-align:right; margin-top:2px; }
 mjx-container { display:inline !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-track { background:transparent; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.35); }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
 </style>
 </head>
 <body>
@@ -106,18 +112,18 @@ mjx-container { display:inline !important; }
       <input type="range" id="g-slider" min="0" max="30" value="9.81" step="0.01">
       <span class="val" id="g-val">9.81</span></div>
     <div class="btn-row" style="margin-top:4px;">
-      <button id="btn-earth"   class="secondary" style="font-size:.72em">🌍 Terra (9.81)</button>
-      <button id="btn-moon"    class="secondary" style="font-size:.72em">🌙 Luna (1.62)</button>
-      <button id="btn-jupiter" class="secondary" style="font-size:.72em">🪐 Giove (24.79)</button>
+      <button id="btn-earth"   class="secondary" style="font-size:1.2em;padding:4px 8px" title="Terra — g = 9.81 m/s²">🌍</button>
+      <button id="btn-moon"    class="secondary" style="font-size:1.2em;padding:4px 8px" title="Luna — g = 1.62 m/s²">🌙</button>
+      <button id="btn-jupiter" class="secondary" style="font-size:1.2em;padding:4px 8px" title="Giove — g = 24.79 m/s²">⚡</button>
     </div>
   </div>
 
   <div class="section">
     <div class="section-title">Condizioni iniziali</div>
-    <div class="param-row"><label>$\theta_0$ (deg):</label>
+    <div class="param-row"><label>$\theta(0)$:</label>
       <input type="range" id="theta0-slider" min="-179" max="179" value="30" step="1">
       <span class="val" id="theta0-val">30°</span></div>
-    <div class="param-row"><label>$\dot{\theta}_0$ (rad/s):</label>
+    <div class="param-row"><label>$\dot{\theta}(0)$:</label>
       <input type="range" id="dtheta0-slider" min="-10" max="10" value="0" step="0.1">
       <span class="val" id="dtheta0-val">0.0</span></div>
   </div>
@@ -134,20 +140,15 @@ mjx-container { display:inline !important; }
 
   <div class="section">
     <div class="section-title">Simulazione</div>
-    <div class="param-row">
+    <div class="param-row" style="margin-bottom:4px;">
       <label>$T_{\max}$ (s):</label>
       <input type="number" id="tmax-input" class="compact" value="20" min="1" max="600" step="1">
       <span class="val"></span>
     </div>
-    <div class="btn-row" style="margin-bottom:5px;">
+    <div class="btn-row" style="margin-bottom:2px;">
       <button id="btn-simulate">▶ Simula</button>
       <button id="btn-stop" class="secondary">■ Stop</button>
       <button id="btn-reset" class="secondary">Reset</button>
-    </div>
-    <div class="param-row">
-      <label>$t$ (s):</label>
-      <input type="range" id="time-slider" min="0" max="20" value="0" step="0.05" disabled style="flex:1">
-      <span class="val" id="time-val">0.00 s</span>
     </div>
   </div>
 
@@ -167,19 +168,8 @@ mjx-container { display:inline !important; }
 
 <div id="right-panel" class="panel">
   <div class="section">
-    <div class="section-title collapsible" id="hdr-phase">
-      Piano delle fasi ($\theta$, $\dot{\theta}$)
-      <span class="sec-toggle">▼</span>
-    </div>
-    <div class="section-body" id="body-phase">
-      <canvas id="phase-canvas" width="340" height="220"
-        style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
-      <div class="plot-hint">scroll: zoom &nbsp;·&nbsp; drag: pan &nbsp;·&nbsp; dbl-click: reset</div>
-    </div>
-  </div>
-  <div class="section">
     <div class="section-title collapsible" id="hdr-time">
-      Legge oraria $\theta(t)$
+      <span>Legge oraria $\theta(t)$</span>
       <span class="sec-toggle">▼</span>
     </div>
     <div class="section-body" id="body-time">
@@ -190,7 +180,7 @@ mjx-container { display:inline !important; }
   </div>
   <div class="section">
     <div class="section-title collapsible" id="hdr-energy">
-      Energia potenziale $U(\theta)=-mgb\cos\theta$
+      <span>Energia potenziale $U(\theta)=-mgb\cos\theta$</span>
       <span class="sec-toggle">▼</span>
     </div>
     <div class="section-body" id="body-energy">
@@ -200,8 +190,19 @@ mjx-container { display:inline !important; }
     </div>
   </div>
   <div class="section">
+    <div class="section-title collapsible" id="hdr-phase">
+      <span>Spazio di Stato ($\theta$, $\dot{\theta}$)</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-phase">
+      <canvas id="phase-canvas" width="340" height="220"
+        style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &nbsp;·&nbsp; drag: pan &nbsp;·&nbsp; dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
     <div class="section-title collapsible" id="hdr-linphase">
-      Piano delle fasi linearizzato ($\theta$, $\dot{\theta}$)
+      <span>Spazio di Stato ($\theta$, $\dot{\theta}$) del linearizzato intorno a $\theta=0$ </span>
       <span class="sec-toggle">▼</span>
     </div>
     <div class="section-body" id="body-linphase">
@@ -214,10 +215,13 @@ mjx-container { display:inline !important; }
 
 <script>
 'use strict';
+// Fixed world-space reference: b=3 fills the canvas as default; other b values scale visually.
+const WORLD_REF = 3;
+
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let params = {}, simState = null, simRunning = false, animId = null, simHistory = [];
-let displayTime = 0;   // current time shown (used for linearized overlay and time-slider)
+let displayTime = 0;   // current time shown (used for linearized overlay)
 
 // Main canvas view (pan + zoom)
 const mainView = { offX: 0, offY: 0, zoom: 1 };
@@ -233,14 +237,6 @@ function getStateAtTime(t) {
   const f = (t-simHistory[lo].t)/(simHistory[hi].t-simHistory[lo].t);
   return { t, th: simHistory[lo].th+f*(simHistory[hi].th-simHistory[lo].th),
                dth: simHistory[lo].dth+f*(simHistory[hi].dth-simHistory[lo].dth) };
-}
-
-function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 20; }
-
-function setTimeSlider(t, tmax) {
-  const sl = document.getElementById('time-slider');
-  sl.max = tmax; sl.value = t;
-  document.getElementById('time-val').textContent = t.toFixed(2)+' s';
 }
 
 // ── Math image cache ────────────────────────────────────────────────────────
@@ -322,10 +318,10 @@ class PanZoomView {
   }
 }
 
-const PHASE_PAD  = {l:42,r:14,t:16,b:26};
-const TIME_PAD   = {l:42,r:14,t:12,b:26};
-const ENERGY_PAD = {l:44,r:14,t:12,b:26};
-const LINPHASE_PAD = {l:42,r:14,t:16,b:26};
+const PHASE_PAD  = {l:42,r:32,t:16,b:26};
+const TIME_PAD   = {l:42,r:32,t:12,b:26};
+const ENERGY_PAD = {l:44,r:32,t:12,b:26};
+const LINPHASE_PAD = {l:42,r:32,t:16,b:26};
 const phaseView  = new PanZoomView(-Math.PI, Math.PI, -6, 6);
 const timeView   = new PanZoomView(0, 5, -Math.PI-.2, Math.PI+.2);
 const energyView = new PanZoomView(-Math.PI, Math.PI, -2, 2);
@@ -406,19 +402,6 @@ wireSlider('theta0-slider',  'theta0-val',  v=>v.toFixed(0)+'°');
 wireSlider('dtheta0-slider', 'dtheta0-val', v=>v.toFixed(1));
 document.querySelectorAll('.checkbox-row input').forEach(cb=>cb.addEventListener('change',()=>{if(!simRunning)draw();}));
 
-// Time slider (manual scrub, only when sim stopped)
-document.getElementById('time-slider').addEventListener('input', function() {
-  if (simRunning) return;
-  displayTime = parseFloat(this.value);
-  document.getElementById('time-val').textContent = displayTime.toFixed(2)+' s';
-  const s = getStateAtTime(displayTime);
-  if (s) draw(s.th, s.dth);
-});
-// T_max input → update slider range
-document.getElementById('tmax-input').addEventListener('change', function() {
-  const sl = document.getElementById('time-slider');
-  sl.max = getTMax();
-});
 function setG(val) {
   document.getElementById('g-slider').value=val;
   document.getElementById('g-val').textContent=val.toFixed(2);
@@ -443,10 +426,10 @@ function rk4Step(th, dth, dt) {
 
 // ── Coordinate helpers ───────────────────────────────────────────────────────
 function w2c(x, y) {
-  const sz=canvas.width, sc=sz/(2.8*params.b)*mainView.zoom;
+  const sz=canvas.width, sc=sz/(2.8*WORLD_REF)*mainView.zoom;
   return [sz*.5 + mainView.offX + x*sc, sz*.28 + mainView.offY - y*sc];
 }
-function cLen(l) { return l*canvas.width/(2.8*params.b)*mainView.zoom; }
+function cLen(l) { return l*canvas.width/(2.8*WORLD_REF)*mainView.zoom; }
 
 function drawArrow(x1,y1,x2,y2,color,lw=2.5,miKey=null,lox=8,loy=-4) {
   const [cx1,cy1]=w2c(x1,y1), [cx2,cy2]=w2c(x2,y2);
@@ -543,8 +526,8 @@ function draw(th_ov, dth_ov) {
     if(Math.abs(Ft)>1e-6) drawArrow(mx,my, mx+Ft*sc*et[0],my+Ft*sc*et[1], '#06d6a0',2,'Ft_green',6,10);
   }
 
-  // Mass ball
-  const ballR = Math.max(8,cLen(.06*b));
+  // Mass ball — radius scales with m^(1/3), independent of b
+  const ballR = Math.max(8, cLen(0.06*WORLD_REF) * Math.cbrt(m));
   ctx.beginPath(); ctx.arc(mcx,mcy,ballR,0,2*Math.PI);
   ctx.fillStyle='#e94560'; ctx.fill(); ctx.strokeStyle='#c73e54'; ctx.lineWidth=2; ctx.stroke();
   mimg(ctx, 'm_red', mcx+ballR+4, mcy-7);
@@ -566,7 +549,7 @@ function draw(th_ov, dth_ov) {
     ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]);
 
     // Transparent mass
-    const bR = Math.max(8, cLen(.06*b));
+    const bR = Math.max(8, cLen(0.06*WORLD_REF) * Math.cbrt(m));
     ctx.beginPath(); ctx.arc(mcxL, mcyL, bR, 0, 2*Math.PI);
     ctx.fillStyle='rgba(255,165,0,0.25)'; ctx.fill();
     ctx.strokeStyle='rgba(255,165,0,0.55)'; ctx.lineWidth=1.5; ctx.stroke();
@@ -626,6 +609,13 @@ function drawEquation() {
 
   drawBtn(lx, '◀', eqIndex > 0);
   drawBtn(rx, '▶', eqIndex < EQ_KEYS.length - 1);
+
+  // Step counter below the equation pill
+  const label = `(${eqIndex+1}/${EQ_KEYS.length})`;
+  ctx.font = 'bold 10px "Segoe UI",sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(label, cx, by + bh + 13);
 
   _eqBtnLeft  = {x:lx, y:btnY, w:btnW, h:btnH};
   _eqBtnRight = {x:rx, y:btnY, w:btnW, h:btnH};
@@ -846,7 +836,7 @@ function drawThetaTime(th) {
   c.beginPath(); c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
 
   mimg(c,'thetat', pad.l+4, pad.t+1);
-  mimg(c,'t_gray', W-pad.r-9, H-pad.b+14);
+  mimg(c,'t_gray', W-pad.r+9, H-pad.b+12);
 
   if(simHistory.length<2){
     const y=toY(wrapTh(th));
@@ -941,7 +931,7 @@ function drawEnergyPlot(th) {
   c.beginPath(); c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
 
   mimg(c,'U_theta', 2, pad.t+1);
-  mimg(c,'theta_sm', W-pad.r-14, H-pad.b+14);
+  mimg(c,'theta_sm', W-pad.r-14, H-pad.b+10);
 
   // U curve
   const N=300;
@@ -1031,7 +1021,7 @@ function drawLinearPhaseSpace(th, dth) {
 
   // Axis labels
   mimg(c, 'dtheta_teal', 2, pad.t+1);
-  mimg(c, 'theta_sm', W-pad.r-14, H-pad.b+14);
+  mimg(c, 'theta_sm', W-pad.r-5, H-pad.b+11);
 
   // Ellipses: distribute nLev levels between 0 and 2*E0lin, plus E0lin
   const nLev = 7;
@@ -1139,6 +1129,8 @@ function updateInfo(th, dth) {
 }
 
 // ── Simulation ────────────────────────────────────────────────────────────────
+function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 20; }
+
 function startSim() {
   if(simRunning) return;
   const th0 =parseFloat(document.getElementById('theta0-slider').value)*Math.PI/180;
@@ -1149,11 +1141,14 @@ function startSim() {
   let lastTime=performance.now();
   function step(now){
     if(!simRunning) return;
+    const tmax=getTMax();
+    if(simState.time>=tmax){ stopSim(); draw(simState.theta,simState.dtheta); return; }
     const realDt=Math.min((now-lastTime)/1000,.05); lastTime=now;
     const substeps=20, dt=realDt/substeps;
     for(let i=0;i<substeps;i++){
       const [nt,nd]=rk4Step(simState.theta,simState.dtheta,dt);
       simState.theta=nt; simState.dtheta=nd; simState.time+=dt;
+      if(simState.time>=tmax) break;
     }
     simHistory.push({t:simState.time,th:simState.theta,dth:simState.dtheta});
     if(simHistory.length>6000) simHistory.shift();
@@ -1265,6 +1260,7 @@ async function initApp() {
       toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
     });
   });
+
   resize(); readParams(); draw();
 }
 </script>
