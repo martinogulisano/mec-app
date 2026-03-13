@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Van der Pol Oscillator — Simulatore Interattivo</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() { MathJax.startup.defaultReady(); MathJax.startup.promise.then(initApp); }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+:root { --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  transition: width .25s cubic-bezier(.4,0,.2,1),
+              min-width .25s cubic-bezier(.4,0,.2,1),
+              padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:300px; min-width:200px; max-width:45vw; }
+#right-panel { width:320px; min-width:200px; max-width:45vw; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0;
+  transition:background .15s; position:relative; display:flex;
+  align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:rgba(10,30,60,0.92);
+  border:1px solid #444; border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; display:flex; align-items:center;
+  justify-content:center; z-index:10; padding:0; line-height:1;
+  transition:background .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle {
+  font-size:11px; color:#888; cursor:pointer; user-select:none; padding:0 3px;
+  line-height:1; transition:color .15s;
+}
+.sec-toggle:hover { color:var(--highlight); }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:500px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+.section-title.collapsible:hover .sec-toggle { color:var(--highlight); }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 100px; font-size:.8em; text-align:right; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 56px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button:hover { background:#c73e54; }
+button.secondary { background:var(--accent); border:1px solid #555; }
+button.secondary:hover { background:#1a3a6a; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:#0d1117; border-radius:8px; cursor:grab; }
+canvas#canvas:active { cursor:grabbing; }
+#info-box { background:rgba(0,0,0,.3); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; }
+.plot-hint { font-size:.65em; color:rgba(255,255,255,.25); text-align:right; margin-top:2px; }
+mjx-container { display:inline !important; }
+</style>
+</head>
+<body>
+
+<div id="left-panel" class="panel">
+  <h1>Van der Pol Oscillator</h1>
+  <h2>Simulatore dinamico</h2>
+  <div style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
+    Prof. Marco Gabiccini<br>Meccanica Applicata alle Macchine<br>
+    <span style="font-size:.9em;color:#666;">Tutti i diritti riservati</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Parametri sistema</div>
+    <div style="text-align:center;font-size:.75em;color:#aaa;margin-bottom:6px;">
+      $\dot{x}=y,\quad \dot{y}=\mu(1-x^2)y-x$
+    </div>
+    <div class="param-row"><label>$\mu$:</label>
+      <input type="range" id="mu-slider" min="0.2" max="5" value="1" step="0.05">
+      <span class="val" id="mu-val">1.00</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Condizioni iniziali</div>
+    <div style="font-size:.72em;color:#aaa;text-align:center;line-height:1.5;">
+      Trascina i punti sul canvas<br>per scegliere le C.I.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulazione</div>
+    <div class="param-row">
+      <label>$T_{\max}$ (s):</label>
+      <input type="number" id="tmax-input" class="compact" value="40" min="1" max="600" step="1">
+      <span class="val"></span>
+    </div>
+    <div class="btn-row" style="margin-bottom:5px;">
+      <button id="btn-simulate">▶ Simula</button>
+      <button id="btn-stop" class="secondary">■ Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="param-row">
+      <label>$t$ (s):</label>
+      <input type="range" id="time-slider" min="0" max="40" value="0" step="0.05" disabled style="flex:1">
+      <span class="val" id="time-val">0.00 s</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Stato corrente</div>
+    <div id="info-box">Imposta le C.I. e avvia la simulazione.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Chiudi/apri pannello">◀</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Chiudi/apri pannello">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-xtime">
+      Legge oraria $x(t)$
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-xtime">
+      <canvas id="xtime-canvas" width="340" height="160"
+        style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &nbsp;·&nbsp; drag: pan &nbsp;·&nbsp; dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-ytime">
+      Legge oraria $y(t)$
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-ytime">
+      <canvas id="ytime-canvas" width="340" height="160"
+        style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &nbsp;·&nbsp; drag: pan &nbsp;·&nbsp; dbl-click: reset</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let params = {}, simRunning = false, animId = null;
+
+// ── MathJax → canvas image helpers ───────────────────────────────────────────
+const MI = {};
+async function makeMathImg(latex, color, heightPx) {
+  await MathJax.startup.promise;
+  const wrapper = MathJax.tex2svg(latex, {display:false});
+  const svg = wrapper.querySelector('svg');
+  const hEx = parseFloat(svg.getAttribute('height')) || 1;
+  const wEx = parseFloat(svg.getAttribute('width'))  || 1;
+  const wPx = Math.ceil(wEx / hEx * heightPx) + 2;
+  svg.setAttribute('height', heightPx); svg.setAttribute('width', wPx);
+  let s = new XMLSerializer().serializeToString(svg);
+  s = s.replace(/currentColor/g, color);
+  const url = URL.createObjectURL(new Blob([s], {type:'image/svg+xml;charset=utf-8'}));
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  URL.revokeObjectURL(url); return img;
+}
+async function preloadMath() {
+  const defs = [
+    ['eq0', '\\ddot{z} = -z - \\mu\\,(z^2-1)\\,\\dot{z}',
+            'rgba(255,255,255,0.9)', 40],
+    ['eq1', '\\begin{cases}\\dot{x} = y \\\\[4pt] \\dot{y} = -x - \\mu\\,(x^2-1)\\,y\\end{cases}',
+            'rgba(255,255,255,0.9)', 80],
+  ];
+  for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
+}
+
+// ── Equation navigator state ──────────────────────────────────────────────────
+let eqIndex = 0;
+const EQ_KEYS = ['eq0', 'eq1'];
+
+let _eqBtnLeft = null, _eqBtnRight = null;
+
+function drawEquation() {
+  const img = MI[EQ_KEYS[eqIndex]];
+  if (!img) return;
+  const W = canvas.width;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const cx = W / 2;
+  const y0 = 14;
+
+  const padX = 14, padY = 6;
+  const bx = cx - iw/2 - padX, by = y0 - padY;
+  const bw = iw + padX*2,      bh = ih + padY*2;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
+
+  ctx.drawImage(img, Math.round(cx - iw/2), y0);
+
+  const btnW = 22, btnH = bh, gap = 8;
+  const lx = bx - gap - btnW, rx = bx + bw + gap, btnY = by;
+
+  function drawBtn(x, label, enabled) {
+    ctx.fillStyle = enabled ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)';
+    ctx.beginPath(); ctx.roundRect(x, btnY, btnW, btnH, 4); ctx.fill();
+    ctx.fillStyle = enabled ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.2)';
+    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + btnW/2, btnY + btnH/2);
+    ctx.textBaseline = 'alphabetic';
+  }
+  drawBtn(lx, '◀', eqIndex > 0);
+  drawBtn(rx, '▶', eqIndex < EQ_KEYS.length - 1);
+  _eqBtnLeft  = {x:lx, y:btnY, w:btnW, h:btnH};
+  _eqBtnRight = {x:rx, y:btnY, w:btnW, h:btnH};
+}
+
+function hitBtn(rect, px, py) {
+  return rect && px>=rect.x && px<=rect.x+rect.w && py>=rect.y && py<=rect.y+rect.h;
+}
+let displayTime = 0;
+
+// ── 4 independent draggable points ───────────────────────────────────────────
+const PT_COLORS = ['#e94560', '#00b4d8', '#06d6a0', '#f4a261'];
+const points = [
+  { x:  0.5, y:  0.0, state: null, history: [] },
+  { x:  2.0, y:  0.0, state: null, history: [] },
+  { x: -2.0, y:  1.0, state: null, history: [] },
+  { x:  0.0, y: -3.0, state: null, history: [] },
+];
+
+// ── View (pan+zoom) for main canvas ──────────────────────────────────────────
+const mainView = { offX:0, offY:0, zoom:1 };
+
+// World-to-canvas: world center = (0,0), world range [-4,4] x [-6,6] fits canvas
+function w2c(x, y) {
+  const sz = canvas.width;
+  const sc = sz / 12 * mainView.zoom;  // 12 = total y span (-6 to 6)
+  return [sz*0.5 + mainView.offX + x*sc,
+          sz*0.5 + mainView.offY - y*sc];
+}
+// Canvas-to-world (inverse)
+function c2w(px, py) {
+  const sz = canvas.width;
+  const sc = sz / 12 * mainView.zoom;
+  return [(px - sz*0.5 - mainView.offX) / sc,
+          -(py - sz*0.5 - mainView.offY) / sc];
+}
+
+// ── Time helpers ─────────────────────────────────────────────────────────────
+function getStateAtTime(t) {
+  const h = points[0].history;
+  if (h.length === 0) return null;
+  if (t <= h[0].t) return {...h[0]};
+  const last = h[h.length-1];
+  if (t >= last.t) return {...last};
+  let lo=0, hi=h.length-1;
+  while (lo < hi-1) { const mid=(lo+hi)>>1; if(h[mid].t<=t) lo=mid; else hi=mid; }
+  const f = (t-h[lo].t)/(h[hi].t-h[lo].t);
+  return { t, x: h[lo].x+f*(h[hi].x-h[lo].x), y: h[lo].y+f*(h[hi].y-h[lo].y) };
+}
+
+function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 40; }
+
+function setTimeSlider(t, tmax) {
+  const sl = document.getElementById('time-slider');
+  sl.max = tmax; sl.value = t;
+  document.getElementById('time-val').textContent = t.toFixed(2)+' s';
+}
+
+// ── Pan/zoom view for side plots ─────────────────────────────────────────────
+class PanZoomView {
+  constructor(x0,x1,y0,y1) {
+    this._x0=x0; this._x1=x1; this._y0=y0; this._y1=y1;
+    this.xMin=x0; this.xMax=x1; this.yMin=y0; this.yMax=y1; this.active=false;
+  }
+  toX(v,pad,W) { return pad.l+(v-this.xMin)/(this.xMax-this.xMin)*(W-pad.l-pad.r); }
+  toY(v,pad,H) { return pad.t+(H-pad.t-pad.b)*(1-(v-this.yMin)/(this.yMax-this.yMin)); }
+  px2data(px,py,pad,W,H) {
+    const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+    return [this.xMin+(px-pad.l)/pw*(this.xMax-this.xMin),
+            this.yMin+(1-(py-pad.t)/ph)*(this.yMax-this.yMin)];
+  }
+  zoomAt(factor,xd,yd) {
+    this.active=true;
+    this.xMin=xd+(this.xMin-xd)*factor; this.xMax=xd+(this.xMax-xd)*factor;
+    this.yMin=yd+(this.yMin-yd)*factor; this.yMax=yd+(this.yMax-yd)*factor;
+  }
+  pan(dxd,dyd) {
+    this.active=true;
+    this.xMin-=dxd; this.xMax-=dxd; this.yMin-=dyd; this.yMax-=dyd;
+  }
+  reset() {
+    this.active=false;
+    this.xMin=this._x0; this.xMax=this._x1; this.yMin=this._y0; this.yMax=this._y1;
+  }
+  setRange(x0,x1,y0,y1) { if(!this.active){this.xMin=x0;this.xMax=x1;this.yMin=y0;this.yMax=y1;} }
+}
+
+const XTIME_PAD = {l:42,r:14,t:12,b:26};
+const YTIME_PAD = {l:42,r:14,t:12,b:26};
+const xtimeView = new PanZoomView(0,10,-3,3);
+const ytimeView = new PanZoomView(0,10,-6,6);
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect=cv.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(cv.width/rect.width);
+    const py=(e.clientY-rect.top)*(cv.height/rect.height);
+    const [xd,yd]=view.px2data(px,py,pad,cv.width,cv.height);
+    view.zoomAt(e.deltaY>0?1.15:1/1.15,xd,yd); redrawFn();
+  },{passive:false});
+  let drag=false,lx,ly;
+  cv.addEventListener('mousedown',e=>{drag=true;const rect=cv.getBoundingClientRect();lx=(e.clientX-rect.left)*(cv.width/rect.width);ly=(e.clientY-rect.top)*(cv.height/rect.height);cv.style.cursor='grabbing';});
+  window.addEventListener('mousemove',e=>{if(!drag)return;const rect=cv.getBoundingClientRect();const px=(e.clientX-rect.left)*(cv.width/rect.width);const py=(e.clientY-rect.top)*(cv.height/rect.height);const pw=cv.width-pad.l-pad.r,ph=cv.height-pad.t-pad.b;view.pan((px-lx)/pw*(view.xMax-view.xMin),-(py-ly)/ph*(view.yMax-view.yMin));lx=px;ly=py;redrawFn();});
+  window.addEventListener('mouseup',()=>{drag=false;cv.style.cursor='crosshair';});
+  cv.addEventListener('dblclick',()=>{view.reset();redrawFn();});
+}
+
+// ── Tick generation ──────────────────────────────────────────────────────────
+function niceTicks(lo,hi,target=5) {
+  if(hi<=lo) return [];
+  const range=hi-lo, rough=range/target;
+  const pow=Math.pow(10,Math.floor(Math.log10(Math.abs(rough)||1)));
+  const step=[1,2,2.5,5,10].find(f=>f*pow>=rough-1e-10)*pow;
+  const start=Math.ceil(lo/step-1e-9)*step;
+  const ticks=[];
+  for(let v=start;v<=hi+step*1e-9;v+=step) ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+// ── Resize ───────────────────────────────────────────────────────────────────
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  const sz = Math.min(cont.clientWidth-12, cont.clientHeight-12);
+  canvas.width=sz; canvas.height=sz;
+}
+window.addEventListener('resize', ()=>{ resize(); if(!simRunning) draw(); });
+
+// ── Params ───────────────────────────────────────────────────────────────────
+function readParams() {
+  params = {
+    mu: parseFloat(document.getElementById('mu-slider').value),
+  };
+}
+function wireSlider(id, valId, fmt) {
+  const sl=document.getElementById(id), vl=document.getElementById(valId);
+  const upd=()=>{ vl.textContent=fmt(parseFloat(sl.value)); readParams(); if(!simRunning) draw(); };
+  sl.addEventListener('input', upd); upd();
+}
+wireSlider('mu-slider', 'mu-val', v=>v.toFixed(2));
+
+document.getElementById('time-slider').addEventListener('input', function() {
+  if (simRunning) return;
+  displayTime = parseFloat(this.value);
+  document.getElementById('time-val').textContent = displayTime.toFixed(2)+' s';
+  const s = getStateAtTime(displayTime);
+  if (s) draw(s.x, s.y);
+});
+document.getElementById('tmax-input').addEventListener('change', function() {
+  document.getElementById('time-slider').max = getTMax();
+});
+
+// ── Physics ──────────────────────────────────────────────────────────────────
+function vdpRHS(x, y) {
+  const mu = params.mu;
+  return [y, mu*(1 - x*x)*y - x];
+}
+
+function rk4Step(x, y, dt) {
+  const [k1x,k1y] = vdpRHS(x, y);
+  const [k2x,k2y] = vdpRHS(x+.5*dt*k1x, y+.5*dt*k1y);
+  const [k3x,k3y] = vdpRHS(x+.5*dt*k2x, y+.5*dt*k2y);
+  const [k4x,k4y] = vdpRHS(x+dt*k3x, y+dt*k3y);
+  return [x+dt/6*(k1x+2*k2x+2*k3x+k4x),
+          y+dt/6*(k1y+2*k2y+2*k3y+k4y)];
+}
+
+// ── Main draw ────────────────────────────────────────────────────────────────
+function draw(x_ov, y_ov) {
+  const x = x_ov !== undefined ? x_ov : (points[0].state ? points[0].state.x : points[0].x);
+  const y = y_ov !== undefined ? y_ov : (points[0].state ? points[0].state.y : points[0].y);
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  drawPhaseAxes();
+  drawVectorField();
+
+  // Draw all 4 trajectories then dots
+  for (let k=0; k<points.length; k++) {
+    const pt = points[k];
+    const col = PT_COLORS[k];
+    const h = pt.history;
+    if (h.length > 1) {
+      ctx.strokeStyle = col.replace(')', ',0.8)').replace('rgb(','rgba(').replace('#', 'rgba(').replace('rgba(','rgba(');
+      // Use hex directly with global alpha
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      const [px0,py0] = w2c(h[0].x, h[0].y);
+      ctx.moveTo(px0,py0);
+      for (let i=1; i<h.length; i++) {
+        const [px,py] = w2c(h[i].x, h[i].y);
+        ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+  }
+  for (let k=0; k<points.length; k++) {
+    const pt = points[k];
+    const col = PT_COLORS[k];
+    const cx = pt.state ? pt.state.x : pt.x;
+    const cy = pt.state ? pt.state.y : pt.y;
+    const [pcx,pcy] = w2c(cx, cy);
+    ctx.beginPath(); ctx.arc(pcx,pcy,7,0,2*Math.PI);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  updateInfo(x, y);
+  drawEquation();
+  drawXTime();
+  drawYTime();
+}
+
+// ── Vector field ─────────────────────────────────────────────────────────────
+function drawVectorField() {
+  const W = canvas.width, H = canvas.height;
+  const sc = W / 12 * mainView.zoom;
+  const N = 18;
+
+  // Visible world range
+  const xMin = -(W*0.5 + mainView.offX) / sc;
+  const xMax =  (W*0.5 - mainView.offX) / sc;
+  const yMin = -(H*0.5 - mainView.offY) / sc;
+  const yMax =  (H*0.5 + mainView.offY) / sc;
+
+  const cellW = W / N, cellH = H / N;
+  const arrowBase = Math.min(cellW, cellH) * 0.36;
+
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      const xd = xMin + (i+0.5)*(xMax-xMin)/N;
+      const yd = yMin + (j+0.5)*(yMax-yMin)/N;
+      const [fx, fy] = vdpRHS(xd, yd);
+      const mag = Math.sqrt(fx*fx + fy*fy);
+      if (mag < 1e-9) continue;
+      const ux = fx/mag, uy = fy/mag;
+
+      const arrowLen = arrowBase * (1 + 0.28*Math.log1p(mag));
+      const hl = Math.min(arrowLen * 0.32, 5);
+
+      const [px, py] = w2c(xd, yd);
+      // canvas direction: x right, y down — uy flipped
+      const ex = ux * arrowLen, ey = -uy * arrowLen;
+      const x1 = px - ex*0.45, y1 = py - ey*0.45;
+      const x2 = px + ex*0.55, y2 = py + ey*0.55;
+
+      const alpha = 0.15 + 0.15*Math.min(Math.log1p(mag)/Math.log1p(20), 1);
+      ctx.strokeStyle = `rgba(78,205,196,${alpha.toFixed(2)})`;
+      ctx.fillStyle   = `rgba(78,205,196,${(alpha+0.08).toFixed(2)})`;
+      ctx.lineWidth = 1;
+
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+
+      // Arrowhead
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - hl*ux + hl*.38*(-uy), y2 + hl*uy + hl*.38*ux);
+      ctx.lineTo(x2 - hl*ux - hl*.38*(-uy), y2 + hl*uy - hl*.38*ux);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+// ── Phase plane axes ─────────────────────────────────────────────────────────
+function drawPhaseAxes() {
+  const W = canvas.width, H = canvas.height;
+  const sc = W / 12 * mainView.zoom;
+
+  // Compute visible world range
+  const xMin = -(W*0.5 + mainView.offX) / sc;
+  const xMax =  (W*0.5 - mainView.offX) / sc;
+  const yMin = -(H*0.5 - mainView.offY) / sc;
+  const yMax =  (H*0.5 + mainView.offY) / sc;
+
+  const xTicks = niceTicks(xMin, xMax, 6);
+  const yTicks = niceTicks(yMin, yMax, 6);
+
+  ctx.font='9px sans-serif';
+
+  for (const v of xTicks) {
+    const [px] = w2c(v, 0);
+    if (px<0||px>W) continue;
+    ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,H);
+    ctx.strokeStyle = Math.abs(v)<1e-9?'rgba(255,255,255,0.2)':'rgba(255,255,255,0.07)';
+    ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#555'; ctx.textAlign='center';
+    ctx.fillText(v.toFixed(Math.abs(v)<10?1:0), px, H-3);
+  }
+  for (const v of yTicks) {
+    const [,py] = w2c(0, v);
+    if (py<0||py>H) continue;
+    ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(W,py);
+    ctx.strokeStyle = Math.abs(v)<1e-9?'rgba(255,255,255,0.2)':'rgba(255,255,255,0.07)';
+    ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#555'; ctx.textAlign='right';
+    ctx.fillText(v.toFixed(Math.abs(v)<10?1:0), 22, py+3);
+  }
+
+  // Axis labels
+  const [ax] = w2c(xMax*0.92, 0);
+  const [,ay] = w2c(0, yMax*0.92);
+  ctx.fillStyle='#888'; ctx.font='12px sans-serif';
+  ctx.textAlign='center'; ctx.fillText('x', ax, w2c(0,0)[1]+14);
+  ctx.textAlign='left';   ctx.fillText('y', w2c(0,0)[0]+6, ay);
+}
+
+// ── Info box ─────────────────────────────────────────────────────────────────
+function updateInfo(x, y) {
+  const [fx,fy] = vdpRHS(x, y);
+  const t = points[0].state ? points[0].state.time : 0;
+  let txt = '';
+  txt += `x  = ${x.toFixed(4)}\n`;
+  txt += `y  = ${y.toFixed(4)}\n`;
+  txt += `ẋ  = ${fx.toFixed(4)}\n`;
+  txt += `ẏ  = ${fy.toFixed(4)}\n`;
+  if (points[0].state) txt += '─────────────────────\n'+`t  = ${t.toFixed(3)} s`;
+  document.getElementById('info-box').textContent = txt;
+}
+
+// ── Time plots ────────────────────────────────────────────────────────────────
+function drawTimePlot(cvId, view, pad, color, getVal, history) {
+  const cv = document.getElementById(cvId);
+  const c  = cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+
+  if (!view.active) {
+    const tMax = history.length>1 ? history[history.length-1].t : 0;
+    const tWin = Math.max(tMax, 10);
+    let vMin = history.length ? getVal(history[0]) : -1;
+    let vMax = history.length ? getVal(history[0]) :  1;
+    for (const p of history) { const v=getVal(p); if(v<vMin)vMin=v; if(v>vMax)vMax=v; }
+    const span = Math.max(vMax-vMin, 0.5);
+    view.setRange(Math.max(0,tMax-tWin), Math.max(0,tMax-tWin)+tWin, vMin-span*.15, vMax+span*.15);
+  }
+
+  const toX=v=>view.toX(v,pad,W);
+  const toY=v=>view.toY(v,pad,H);
+
+  c.clearRect(0,0,W,H);
+
+  const xTicks=niceTicks(view.xMin,view.xMax,5);
+  const yTicks=niceTicks(view.yMin,view.yMax,4);
+
+  for (const t of xTicks) {
+    const x=toX(t); if(x<pad.l||x>W-pad.r) continue;
+    c.beginPath(); c.moveTo(x,pad.t); c.lineTo(x,H-pad.b);
+    c.strokeStyle='rgba(255,255,255,0.07)'; c.lineWidth=1; c.stroke();
+    c.fillStyle='#888'; c.font='9px sans-serif'; c.textAlign='center';
+    c.fillText(t.toFixed(t<10?1:0), x, H-4);
+  }
+  c.textAlign='left';
+  for (const v of yTicks) {
+    const y=toY(v); if(y<pad.t||y>H-pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l,y); c.lineTo(W-pad.r,y);
+    c.strokeStyle=Math.abs(v)<1e-9?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.06)';
+    c.lineWidth=1; c.stroke();
+    c.fillStyle='#888'; c.font='9px sans-serif'; c.textAlign='right';
+    c.fillText(Math.abs(v)<1e-9?'0':v.toFixed(Math.abs(v)<10?2:1), pad.l-2, y+3);
+  }
+  c.textAlign='left';
+
+  c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1;
+  c.beginPath(); c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
+
+  if (history.length < 2) return;
+
+  c.strokeStyle=color; c.lineWidth=1.5; c.beginPath();
+  let started=false;
+  for (const p of history) {
+    if (p.t<view.xMin-0.01||p.t>view.xMax+0.01) { started=false; continue; }
+    const px=toX(p.t), py=toY(getVal(p));
+    if (!started) { c.moveTo(px,py); started=true; } else c.lineTo(px,py);
+  }
+  c.stroke();
+
+  const last=history[history.length-1];
+  const lx=toX(last.t), ly=toY(getVal(last));
+  if(lx>=pad.l&&lx<=W-pad.r&&ly>=pad.t&&ly<=H-pad.b) {
+    c.beginPath(); c.arc(lx,ly,4,0,2*Math.PI); c.fillStyle='#ffdd57'; c.fill();
+  }
+
+  if (view.active) {
+    c.fillStyle='rgba(233,69,96,0.6)'; c.font='bold 9px sans-serif';
+    c.fillText('🔒 zoom', W-pad.r-42, pad.t+10);
+  }
+}
+
+function drawXTime() { drawTimePlot('xtime-canvas', xtimeView, XTIME_PAD, PT_COLORS[0], p=>p.x, points[0].history); }
+function drawYTime() { drawTimePlot('ytime-canvas', ytimeView, YTIME_PAD, PT_COLORS[0], p=>p.y, points[0].history); }
+
+// ── Simulation ────────────────────────────────────────────────────────────────
+function startSim() {
+  if (simRunning) return;
+  for (const pt of points) {
+    pt.state   = {x: pt.x, y: pt.y, time: 0};
+    pt.history = [{t:0, x:pt.x, y:pt.y}];
+  }
+  simRunning = true;
+  let lastTime = performance.now();
+  function step(now) {
+    if (!simRunning) return;
+    const realDt=Math.min((now-lastTime)/1000,.05); lastTime=now;
+    const substeps=20, dt=realDt/substeps;
+    for (const pt of points) {
+      for (let i=0;i<substeps;i++) {
+        const [nx,ny]=rk4Step(pt.state.x,pt.state.y,dt);
+        pt.state.x=nx; pt.state.y=ny; pt.state.time+=dt;
+      }
+      pt.history.push({t:pt.state.time, x:pt.state.x, y:pt.state.y});
+      if (pt.history.length>8000) pt.history.shift();
+    }
+    setTimeSlider(points[0].state.time, getTMax());
+    draw(points[0].state.x, points[0].state.y);
+    if (points[0].state.time < getTMax()) animId=requestAnimationFrame(step);
+    else stopSim();
+  }
+  animId=requestAnimationFrame(step);
+}
+function stopSim() { simRunning=false; if(animId) cancelAnimationFrame(animId); }
+function resetSim() {
+  stopSim();
+  for (const pt of points) { pt.state=null; pt.history=[]; }
+  xtimeView.reset(); ytimeView.reset();
+  draw();
+}
+
+document.getElementById('btn-simulate').addEventListener('click',()=>{stopSim();startSim();});
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+// ── Main canvas pan + zoom + point drag ──────────────────────────────────────
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY>0 ? 1/1.13 : 1.13;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(canvas.width/rect.width);
+  const my=(e.clientY-rect.top)*(canvas.height/rect.height);
+  const sz=canvas.width;
+  mainView.offX=(mx-sz*.5)*(1-factor)+mainView.offX*factor;
+  mainView.offY=(my-sz*.5)*(1-factor)+mainView.offY*factor;
+  mainView.zoom*=factor;
+  if(!simRunning) draw();
+},{passive:false});
+{
+  let mainDrag=false, dragPt=-1, mlx=0, mly=0;
+
+  function nearestPoint(px, py) {
+    let best=-1, bestD=14;
+    for (let k=0;k<points.length;k++) {
+      const [ppx,ppy]=w2c(points[k].x,points[k].y);
+      const d=Math.sqrt((px-ppx)**2+(py-ppy)**2);
+      if(d<bestD){bestD=d;best=k;}
+    }
+    return best;
+  }
+
+  canvas.addEventListener('mousedown', e => {
+    const rect=canvas.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(canvas.width/rect.width);
+    const py=(e.clientY-rect.top)*(canvas.height/rect.height);
+    if (!simRunning) {
+      dragPt = nearestPoint(px, py);
+    }
+    if (dragPt < 0) { mainDrag=true; mlx=e.clientX; mly=e.clientY; }
+  });
+
+  window.addEventListener('mousemove', e => {
+    const rect=canvas.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(canvas.width/rect.width);
+    const py=(e.clientY-rect.top)*(canvas.height/rect.height);
+    if (dragPt >= 0) {
+      const [wx,wy]=c2w(px,py);
+      points[dragPt].x=wx; points[dragPt].y=wy;
+      if(!simRunning) draw();
+    } else if (mainDrag) {
+      mainView.offX+=(e.clientX-mlx)*(canvas.width/rect.width);
+      mainView.offY+=(e.clientY-mly)*(canvas.height/rect.height);
+      mlx=e.clientX; mly=e.clientY;
+      if(!simRunning) draw();
+    }
+  });
+
+  window.addEventListener('mouseup', ()=>{ mainDrag=false; dragPt=-1; });
+  canvas.addEventListener('dblclick', ()=>{ mainView.offX=0;mainView.offY=0;mainView.zoom=1;if(!simRunning)draw(); });
+  canvas.addEventListener('click', e => {
+    const r = canvas.getBoundingClientRect();
+    const px = (e.clientX-r.left)*(canvas.width/r.width);
+    const py = (e.clientY-r.top)*(canvas.height/r.height);
+    if (hitBtn(_eqBtnLeft, px, py) && eqIndex > 0) {
+      eqIndex--; if(!simRunning) draw();
+    } else if (hitBtn(_eqBtnRight, px, py) && eqIndex < EQ_KEYS.length-1) {
+      eqIndex++; if(!simRunning) draw();
+    }
+  });
+}
+
+// ── Panel collapse ────────────────────────────────────────────────────────────
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn=document.getElementById(btnId), panel=document.getElementById(panelId);
+  let collapsed=false;
+  btn.addEventListener('mousedown',e=>e.stopPropagation());
+  btn.addEventListener('click',e=>{
+    e.stopPropagation(); collapsed=!collapsed;
+    panel.classList.toggle('collapsed',collapsed);
+    btn.textContent=collapsed?closeArrow:openArrow;
+    setTimeout(()=>{resize();if(!simRunning)draw();},270);
+  });
+}
+
+// ── Resizers ──────────────────────────────────────────────────────────────────
+function setupResizer(resizerId,panelId,side){
+  const panel=document.getElementById(panelId),rz=document.getElementById(resizerId);
+  let startX,startW;
+  rz.addEventListener('mousedown',e=>{e.preventDefault();startX=e.clientX;startW=panel.offsetWidth;rz.classList.add('dragging');document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);});
+  function onMove(e){const delta=side==='left'?(e.clientX-startX):(startX-e.clientX);const w=Math.max(parseInt(getComputedStyle(panel).minWidth)||180,Math.min(startW+delta,window.innerWidth*.45));panel.style.width=w+'px';resize();if(!simRunning)draw();}
+  function onUp(){rz.classList.remove('dragging');document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+}
+setupResizer('left-resizer','left-panel','left');
+setupResizer('right-resizer','right-panel','right');
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function initApp() {
+  await preloadMath();
+  MathJax.typeset();
+  setupPanZoom('xtime-canvas', xtimeView, XTIME_PAD, ()=>{ if(!simRunning) draw(); else drawXTime(); });
+  setupPanZoom('ytime-canvas', ytimeView, YTIME_PAD, ()=>{ if(!simRunning) draw(); else drawYTime(); });
+  setupCollapse('left-collapse',  'left-panel',  '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId=hdr.id.replace('hdr-','body-');
+      const body=document.getElementById(bodyId);
+      const toggle=hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      toggle.textContent=body.classList.contains('collapsed')?'▶':'▼';
+    });
+  });
+  resize(); readParams(); draw();
+}
+</script>
+</body>
+</html>
