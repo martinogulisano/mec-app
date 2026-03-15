@@ -1,61 +1,181 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulatori Interattivi</title>
+  <title>Interactive Simulators — Dynamical Systems</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
-      max-width: 700px;
-      margin: 60px auto;
-      padding: 0 24px;
-      background: #f5f7fa;
-      color: #222;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      padding: 56px 24px 80px;
     }
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 8px;
+
+    header {
+      max-width: 860px;
+      margin: 0 auto 48px;
     }
-    p.subtitle {
-      color: #555;
-      margin-bottom: 32px;
+
+    header h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: #e6edf3;
+      letter-spacing: -0.5px;
     }
-    ul {
-      list-style: none;
-      padding: 0;
+
+    header p {
+      margin-top: 10px;
+      color: #8b949e;
+      font-size: 0.97rem;
+      line-height: 1.6;
     }
-    li {
-      margin-bottom: 12px;
+
+    .grid {
+      max-width: 860px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 20px;
     }
-    li a {
-      display: block;
-      background: #fff;
-      border: 1px solid #dde1e7;
-      border-radius: 8px;
-      padding: 14px 20px;
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 24px 24px 20px;
       text-decoration: none;
-      color: #1a56db;
+      color: inherit;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+    }
+
+    .card:hover {
+      border-color: #58a6ff;
+      box-shadow: 0 0 0 1px #58a6ff33, 0 4px 20px #0008;
+      background: #1c2230;
+    }
+
+    .card svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+      opacity: 0.85;
+    }
+
+    .card-body h2 {
       font-size: 1rem;
-      transition: box-shadow 0.15s, border-color 0.15s;
+      font-weight: 600;
+      color: #58a6ff;
+      margin-bottom: 6px;
     }
-    li a:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-      border-color: #1a56db;
+
+    .card-body p {
+      font-size: 0.875rem;
+      color: #8b949e;
+      line-height: 1.55;
     }
+
+    footer {
+      max-width: 860px;
+      margin: 56px auto 0;
+      font-size: 0.8rem;
+      color: #484f58;
+      border-top: 1px solid #21262d;
+      padding-top: 20px;
+    }
+
+    footer a { color: #58a6ff; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
 
-  <h1>Simulatori Interattivi</h1>
-  <p class="subtitle">Seleziona un simulatore per aprirlo direttamente nel browser.</p>
+<header>
+  <h1>Interactive Simulators — Dynamical Systems</h1>
+  <p>Browser-based simulations for nonlinear dynamics and applied mechanics.<br>
+     Click any card to open the simulator directly — no installation required.</p>
+</header>
 
-  <ul>
-    <li><a href="pendolo_semplice.html">Pendolo Semplice — Simulatore Interattivo</a></li>
-    <li><a href="pendolo_smorzato.html">Pendolo Smorzato — Simulatore Interattivo</a></li>
-    <li><a href="van_der_pol_oscillator.html">Van der Pol Oscillator — Simulatore Interattivo</a></li>
-    <li><a href="time_reversed_van_der_pol_oscillator.html">Time-Reversed Van der Pol Oscillator — Simulatore Interattivo</a></li>
-  </ul>
+<div class="grid">
+
+  <!-- Pendolo Semplice -->
+  <a class="card" href="pendolo_semplice.html">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="26" cy="6" r="3" fill="#58a6ff" opacity="0.5"/>
+      <line x1="26" y1="6" x2="36" y2="38" stroke="#58a6ff" stroke-width="1.5"/>
+      <circle cx="36" cy="38" r="7" stroke="#58a6ff" stroke-width="1.8" fill="none"/>
+      <!-- linearized ghost -->
+      <line x1="26" y1="6" x2="26" y2="38" stroke="#8b949e" stroke-width="1" stroke-dasharray="3 3"/>
+      <circle cx="26" cy="38" r="7" stroke="#8b949e" stroke-width="1" fill="none" opacity="0.4"/>
+    </svg>
+    <div class="card-body">
+      <h2>Simple Pendulum</h2>
+      <p>Pendulum animation comparing nonlinear and linearized dynamics. Time evolution, potential energy curve, and phase portrait.</p>
+    </div>
+  </a>
+
+  <!-- Pendolo Smorzato -->
+  <a class="card" href="pendolo_smorzato.html">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="26" cy="6" r="3" fill="#58a6ff" opacity="0.5"/>
+      <!-- pendulum rod -->
+      <line x1="26" y1="6" x2="36" y2="38" stroke="#58a6ff" stroke-width="1.5"/>
+      <!-- bob -->
+      <circle cx="36" cy="38" r="7" stroke="#58a6ff" stroke-width="1.8" fill="none"/>
+      <!-- decaying arcs around the bob -->
+      <path d="M 29,30 A 10,10 0 0 0 29,46" stroke="#f78166" stroke-width="1.4" fill="none" opacity="0.8"/>
+      <path d="M 27,28 A 13,13 0 0 0 27,48" stroke="#f78166" stroke-width="1.2" fill="none" opacity="0.45"/>
+      <path d="M 25,26 A 16,16 0 0 0 25,50" stroke="#f78166" stroke-width="1.0" fill="none" opacity="0.2"/>
+    </svg>
+    <div class="card-body">
+      <h2>Damped Pendulum</h2>
+      <p>Pendulum animation with adjustable damping. Explore how energy dissipation reshapes the transient response and phase portrait.</p>
+    </div>
+  </a>
+
+  <!-- Van der Pol -->
+  <a class="card" href="van_der_pol_oscillator.html">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- limit cycle -->
+      <ellipse cx="26" cy="26" rx="19" ry="12" stroke="#3fb950" stroke-width="1.8" fill="none"/>
+      <!-- inward spiral from outside -->
+      <path d="M46,26 C46,12 36,5 26,7 C14,9 6,17 6,26 C6,35 14,44 26,44" stroke="#8b949e" stroke-width="1.1" fill="none" stroke-dasharray="3 2" opacity="0.6"/>
+      <!-- arrow on cycle (top, going right) -->
+      <polygon points="26,14 31,14 28,11" fill="#3fb950"/>
+    </svg>
+    <div class="card-body">
+      <h2>Van der Pol Oscillator</h2>
+      <p>Simple nonlinear oscillator showing a stable limit cycle.</p>
+    </div>
+  </a>
+
+  <!-- Time-Reversed Van der Pol -->
+  <a class="card" href="time_reversed_van_der_pol_oscillator.html">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- unstable limit cycle (dashed) -->
+      <ellipse cx="26" cy="26" rx="19" ry="12" stroke="#f78166" stroke-width="1.8" fill="none" stroke-dasharray="4 2.5"/>
+      <!-- outward spiral from inside -->
+      <path d="M26,26 C28,24 32,22 34,20 C38,16 42,14 46,16" stroke="#8b949e" stroke-width="1.1" fill="none" stroke-dasharray="3 2" opacity="0.6"/>
+      <!-- arrow on cycle (top, going right) -->
+      <polygon points="26,14 31,14 28,11" fill="#f78166"/>
+    </svg>
+    <div class="card-body">
+      <h2>Time-Reversed Van der Pol Oscillator</h2>
+      <p>Simple nonlinear oscillator showing an unstable limit cycle.</p>
+    </div>
+  </a>
+
+</div>
+
+<footer>
+  Created by Marco Gabiccini and <a href="https://github.com/martinogulisano">Martino Gulisano</a> — with a little help from Claude. &nbsp;·&nbsp;
+  <a href="https://github.com/martinogulisano/mec-app">Source on GitHub</a>
+</footer>
 
 </body>
 </html>
