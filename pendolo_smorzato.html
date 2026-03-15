@@ -35,6 +35,33 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:
 .panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
 .panel::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.35); }
 .panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+
+/* ── Help modal ── */
+#help-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1000;
+}
+#help-overlay.hidden { display:none; }
+#help-box {
+  background:#161b22; border:1px solid #30363d; border-radius:12px;
+  padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9;
+  font-size:.88em; line-height:1.6; position:relative;
+}
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close {
+  display:block; margin:16px auto 0;
+  background:#e94560; color:white; border:none;
+  padding:7px 28px; border-radius:6px; cursor:pointer;
+  font-size:.88em; font-weight:600;
+}
+#help-close:hover { background:#c73e54; }
 .panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
 .panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
 .resizer {
@@ -91,11 +118,27 @@ mjx-container { display:inline !important; }</style>
 </head>
 <body>
 
+<!-- Help modal -->
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — adjust system parameters (mass, length, gravity, damping) and set initial conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot</li>
+      <li><strong>Double-click</strong> a plot to reset the view</li>
+      <li><strong>Scroll the right panel</strong> to explore all widgets</li>
+    </ul>
+    <div class="note">⚠ Designed for laptop/desktop — not tested on touch devices.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
 <div id="left-panel" class="panel">
   <h1>Pendolo Smorzato</h1>
   <h2>Simulatore dinamico</h2>
   <div style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
-    Prof. Marco Gabiccini<br>Meccanica Applicata alle Macchine<br>
+    Prof. Marco Gabiccini & Martino Gulisano<br>Meccanica Applicata alle Macchine<br>
     <span style="font-size:.9em;color:#666;">Tutti i diritti riservati</span>
   </div>
 
@@ -144,11 +187,11 @@ mjx-container { display:inline !important; }</style>
     <div class="section-title">Simulazione</div>
     <div class="param-row" style="margin-bottom:4px;">
       <label>$T_{\max}$ (s):</label>
-      <input type="number" id="tmax-input" class="compact" value="20" min="1" max="600" step="1">
+      <input type="number" id="tmax-input" class="compact" value="100" min="1" max="600" step="1">
       <span class="val"></span>
     </div>
     <div class="btn-row" style="margin-bottom:2px;">
-      <button id="btn-simulate">▶ Simula</button>
+      <button id="btn-simulate">▶ Play</button>
       <button id="btn-stop" class="secondary">■ Stop</button>
       <button id="btn-reset" class="secondary">Reset</button>
     </div>
@@ -1306,6 +1349,11 @@ async function initApp() {
   });
 
   resize(); readParams(); draw();
+
+  // Help modal
+  const overlay = document.getElementById('help-overlay');
+  document.getElementById('help-close').addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
 }
 </script>
 </body>

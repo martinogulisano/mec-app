@@ -79,15 +79,58 @@ canvas#canvas:active { cursor:grabbing; }
 #info-box { background:rgba(0,0,0,.3); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; }
 .plot-hint { font-size:.65em; color:rgba(255,255,255,.25); text-align:right; margin-top:2px; }
 mjx-container { display:inline !important; }
+
+/* ── Help modal ── */
+#help-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1000;
+}
+#help-overlay.hidden { display:none; }
+#help-box {
+  background:#161b22; border:1px solid #30363d; border-radius:12px;
+  padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9;
+  font-size:.88em; line-height:1.6; position:relative;
+}
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close {
+  display:block; margin:16px auto 0;
+  background:#e94560; color:white; border:none;
+  padding:7px 28px; border-radius:6px; cursor:pointer;
+  font-size:.88em; font-weight:600;
+}
+#help-close:hover { background:#c73e54; }
 </style>
 </head>
 <body>
+
+<!-- Help modal -->
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Slider</strong> — adjust the parameter $\mu$ </li>
+      <li><strong>Drag the point</strong> on the phase portrait to set the initial condition</li>
+      <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot</li>
+      <li><strong>Double-click</strong> a plot to reset the view</li>
+    </ul>
+    <div class="note">⚠ Designed for laptop/desktop — not tested on touch devices.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
 
 <div id="left-panel" class="panel">
   <h1>Van der Pol Oscillator</h1>
   <h2>Simulatore dinamico</h2>
   <div style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
-    Prof. Marco Gabiccini<br>Meccanica Applicata alle Macchine<br>
+    Prof. Marco Gabiccini & Martino Gulisano<br>Meccanica Applicata alle Macchine<br>
     <span style="font-size:.9em;color:#666;">Tutti i diritti riservati</span>
   </div>
 
@@ -116,7 +159,7 @@ mjx-container { display:inline !important; }
       <span class="val"></span>
     </div>
     <div class="btn-row" style="margin-bottom:2px;">
-      <button id="btn-simulate">▶ Simula</button>
+      <button id="btn-simulate">▶ Play</button>
       <button id="btn-stop" class="secondary">■ Stop</button>
       <button id="btn-reset" class="secondary">Reset</button>
     </div>
@@ -558,15 +601,18 @@ function drawPhaseAxes() {
 
 // ── Info box ─────────────────────────────────────────────────────────────────
 function updateInfo(x, y) {
-  const [fx,fy] = vdpRHS(x, y);
   const t = points[0].state ? points[0].state.time : 0;
-  let txt = '';
-  txt += `x  = ${x.toFixed(4)}\n`;
-  txt += `y  = ${y.toFixed(4)}\n`;
-  txt += `ẋ  = ${fx.toFixed(4)}\n`;
-  txt += `ẏ  = ${fy.toFixed(4)}\n`;
-  if (points[0].state) txt += '─────────────────────\n'+`t  = ${t.toFixed(3)} s`;
-  document.getElementById('info-box').textContent = txt;
+  const box = document.getElementById('info-box');
+  let html = '';
+  for (let k = 0; k < points.length; k++) {
+    const pt = points[k];
+    const cx = pt.state ? pt.state.x : pt.x;
+    const cy = pt.state ? pt.state.y : pt.y;
+    html += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PT_COLORS[k]};margin-right:5px;vertical-align:middle;"></span>`
+          + `x = ${cx.toFixed(3)},  y = ${cy.toFixed(3)}<br>`;
+  }
+  if (points[0].state) html += `<span style="color:#666;">─────────────────────</span><br>t = ${t.toFixed(3)} s`;
+  box.innerHTML = html;
 }
 
 // ── Time plots ────────────────────────────────────────────────────────────────
@@ -628,7 +674,7 @@ function drawTimePlot(cvId, view, pad, color, getVal, history) {
   const last=history[history.length-1];
   const lx=toX(last.t), ly=toY(getVal(last));
   if(lx>=pad.l&&lx<=W-pad.r&&ly>=pad.t&&ly<=H-pad.b) {
-    c.beginPath(); c.arc(lx,ly,4,0,2*Math.PI); c.fillStyle='#ffdd57'; c.fill();
+    c.beginPath(); c.arc(lx,ly,4,0,2*Math.PI); c.fillStyle=color; c.fill();
   }
 
   if (view.active) {
@@ -787,6 +833,11 @@ async function initApp() {
     });
   });
   resize(); readParams(); draw();
+
+  // Help modal
+  const overlay = document.getElementById('help-overlay');
+  document.getElementById('help-close').addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
 }
 </script>
 </body>
