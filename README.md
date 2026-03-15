@@ -34,7 +34,7 @@ Just open any `.html` file in a browser, or visit the link above.
 > They have not been tested on tablets or smartphones — layout and interaction may not work as expected on touch devices.
 
 Each simulator includes:
-- **Sliders** to adjust system parameters in real time (e.g. mass, spring stiffness, damping)
+- **Sliders** to adjust system parameters (e.g. mass, spring stiffness, damping)
 - **Play / Stop / Reset** buttons to control the simulation
 - **Drag and zoom** available on every plot and visualization widget (double-click to reset the view)
 
