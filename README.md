@@ -15,6 +15,7 @@ You can run them directly online at:
 | [Damped Pendulum](pendolo_smorzato.html) | Same as above with adjustable damping — explore how energy dissipation shapes the transient response and phase portrait |
 | [Van der Pol Oscillator](van_der_pol_oscillator.html) | Phase portrait with dynamic vector field; stable limit cycle |
 | [Time-Reversed Van der Pol Oscillator](time_reversed_van_der_pol_oscillator.html) | Phase portrait with dynamic vector field; unstable limit cycle |
+| [Double slider crank chain](glifo_a_croce.html) | (Glifo a croce) Two masses on perpendicular guides linked by a rod, with spring and damper; dynamics in θ, energy and phase portraits |
 
 ---
 
