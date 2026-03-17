@@ -43,6 +43,12 @@ body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:
   z-index:1000;
 }
 #help-overlay.hidden { display:none; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1000;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54; }
 #help-box {
   background:#161b22; border:1px solid #30363d; border-radius:12px;
   padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9;
@@ -136,6 +142,20 @@ mjx-container { display:inline !important; }
   </div>
 </div>
 
+<!-- Equations modal (LaTeX); starts closed (class="hidden") -->
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px 32px;max-width:720px;width:92%;color:#c9d1d9;font-size:.9em;position:relative;">
+    <h3 style="color:#e6edf3;margin-bottom:14px;">Equations</h3>
+    <div id="eq-content" style="line-height:1.8;">
+      \[ J_{\mathrm{app}}(\theta)\, \ddot{\theta} + \frac{1}{2}\,\frac{\partial J_{\mathrm{app}}(\theta)}{\partial\theta}\,\dot{\theta}^2 + c L^2 \cos^2(\alpha+\theta)\,\dot{\theta} + k L \sin(\alpha+\theta)\bigl(a - L \cos(\alpha+\theta)\bigr) = 0 \]
+      <div style="height:0.9em;"></div>
+      \[ L = \sqrt{a^2+b^2}, \qquad \tan\alpha = \frac{b}{a}, \qquad \]
+      \[ J_{\mathrm{app}}(\theta) = \bigl( m_A \sin^2(\alpha+\theta) + m_B \cos^2(\alpha+\theta) \bigr) L^2 \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;color:white;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
+  </div>
+</div>
+
 <div id="left-panel" class="panel">
   <h1>Glifo a Croce</h1>
   <h2>Simulatore dinamico</h2>
@@ -196,6 +216,9 @@ mjx-container { display:inline !important; }
     <div class="section-title">Visualizzazione</div>
     <div class="checkbox-row"><input type="checkbox" id="show-linear">
       <label for="show-linear">Linearizzato</label></div>
+    <div style="margin-top:6px;">
+      <button id="btn-show-equations" class="secondary" style="width:100%;">Show equations</button>
+    </div>
   </div>
 
   <div class="section">
@@ -346,21 +369,10 @@ async function preloadMath() {
     ['th_sm',   '\\theta',                '#888',                 13],
     ['mA_lbl',  'm_A',                    '#e94560',              13],
     ['mB_lbl',  'm_B',                    '#4a90d9',              13],
-    ['eq0', 'J_{\\!\\rm eff}\\,\\ddot{\\theta}+\\tfrac{1}{2}J_{\\!\\rm eff}\'\\dot{\\theta}^2+cL^2\\cos^2\\!\\theta\\,\\dot{\\theta}+kL\\sin\\theta\\,(a-L\\cos\\theta)=0',
-             'rgba(255,255,255,0.9)', 28],
-    ['eq1', 'J_{\\!\\rm eff}=(m_A\\sin^2\\!\\theta+m_B\\cos^2\\!\\theta)L^2,\\quad J_{\\!\\rm eff}\'=(m_A-m_B)L^2\\sin 2\\theta',
-             'rgba(255,255,255,0.9)', 26],
-    ['eq2', '(a-x)=L\\cos\\theta,\\quad (y+b)=L\\sin\\theta,\\quad L=\\sqrt{a^2+b^2},\\quad \\theta_0=\\operatorname{atan2}(b,a)',
-             'rgba(255,255,255,0.9)', 24],
-    ['eq3', '\\text{Lin: }J_0\\,\\ddot{\\varphi}+cL^2\\cos^2\\!\\theta_0\\,\\dot{\\varphi}+kL^2\\sin^2\\!\\theta_0\\,\\varphi=0,\\quad \\varphi=\\theta-\\theta_0',
-             'rgba(255,255,255,0.9)', 26],
   ];
   for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
 }
 
-// ── Equation navigator ────────────────────────────────────────────────────────
-let eqIndex = 0;
-const EQ_KEYS = ['eq0', 'eq1', 'eq2', 'eq3'];
 function mimg(c2d, key, x, y, anchor='left') {
   const img = MI[key]; if (!img) return;
   const w = img.naturalWidth;
@@ -927,7 +939,6 @@ function draw(th_ov, dth_ov) {
   }
 
   updateInfo(th, dth);
-  drawEquation();
   drawXTime(th);
   drawEnergyPlotX(th, dth);
   drawPhaseSpaceX(th, dth);
@@ -935,52 +946,6 @@ function draw(th_ov, dth_ov) {
   drawEnergyPlot(th, dth);
   drawPhaseSpace(th, dth);
 }
-
-// ── Equation overlay ──────────────────────────────────────────────────────────
-let _eqBtnLeft = null, _eqBtnRight = null;
-function drawEquation() {
-  const img = MI[EQ_KEYS[eqIndex]];
-  if (!img) return;
-  const W = canvas.width;
-  const iw = img.naturalWidth, ih = img.naturalHeight;
-  const cx = W / 2;
-  const y0 = 14;
-  const padX = 14, padY = 6;
-  const bx = cx - iw/2 - padX, by = y0 - padY;
-  const bw = iw + padX*2, bh = ih + padY*2;
-  ctx.fillStyle='rgba(0,0,0,0.35)';
-  ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,6); ctx.fill();
-  ctx.drawImage(img, Math.round(cx-iw/2), y0);
-  const btnW=22, btnH=bh, gap=8;
-  const lx=bx-gap-btnW, rx=bx+bw+gap, btnY=by;
-  function drawBtn(x, label, enabled) {
-    ctx.fillStyle=enabled?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.04)';
-    ctx.beginPath(); ctx.roundRect(x,btnY,btnW,btnH,4); ctx.fill();
-    ctx.fillStyle=enabled?'rgba(255,255,255,0.75)':'rgba(255,255,255,0.2)';
-    ctx.font='bold 13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(label, x+btnW/2, btnY+btnH/2);
-    ctx.textBaseline='alphabetic';
-  }
-  drawBtn(lx,'◀',eqIndex>0);
-  drawBtn(rx,'▶',eqIndex<EQ_KEYS.length-1);
-  const label=`(${eqIndex+1}/${EQ_KEYS.length})`;
-  ctx.font='bold 10px "Segoe UI",sans-serif';
-  ctx.fillStyle='rgba(255,255,255,0.35)';
-  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  ctx.fillText(label, cx, by+bh+13);
-  _eqBtnLeft  = {x:lx, y:btnY, w:btnW, h:btnH};
-  _eqBtnRight = {x:rx, y:btnY, w:btnW, h:btnH};
-}
-function hitBtn(rect, px, py) {
-  return rect && px>=rect.x && px<=rect.x+rect.w && py>=rect.y && py<=rect.y+rect.h;
-}
-canvas.addEventListener('click', e => {
-  const rect=canvas.getBoundingClientRect();
-  const px=(e.clientX-rect.left)*(canvas.width/rect.width);
-  const py=(e.clientY-rect.top)*(canvas.height/rect.height);
-  if (hitBtn(_eqBtnLeft,px,py) && eqIndex>0)              { eqIndex--; if(!simRunning)draw(); }
-  else if (hitBtn(_eqBtnRight,px,py) && eqIndex<EQ_KEYS.length-1) { eqIndex++; if(!simRunning)draw(); }
-});
 
 // ── Info box ──────────────────────────────────────────────────────────────────
 function updateInfo(th, dth) {
@@ -1591,16 +1556,21 @@ async function initApp() {
   resize(); readParams(); draw();
 }
 
-// Attach help-modal close immediately (independent of MathJax load)
+// Attach help-modal and equations-modal (independent of MathJax load)
 ;(function(){
   const overlay=document.getElementById('help-overlay');
   document.getElementById('help-close').addEventListener('click',()=>overlay.classList.add('hidden'));
   overlay.addEventListener('click',e=>{ if(e.target===overlay)overlay.classList.add('hidden'); });
-  // Show the modal now that the page is ready
   overlay.classList.remove('hidden');
 
-  // Bootstrap the app immediately (MathJax calls initApp again once loaded,
-  // but resize/readParams/draw must run right away so the canvas is visible)
+  const eqOverlay = document.getElementById('eq-overlay');
+  document.getElementById('eq-close').addEventListener('click',()=> eqOverlay.classList.add('hidden'));
+  eqOverlay.addEventListener('click',e=>{ if(e.target===eqOverlay)eqOverlay.classList.add('hidden'); });
+  document.getElementById('btn-show-equations').addEventListener('click',()=>{
+    eqOverlay.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]);
+  });
+
   resize(); readParams(); draw();
 })();
 </script>
