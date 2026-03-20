@@ -180,8 +180,8 @@ mjx-container { display:inline !important; }
       <input type="range" id="k-slider" min="0.5" max="100" value="10" step="0.5">
       <span class="val" id="k-val">10.0</span></div>
     <div class="param-row"><label>$c$ (N·s/m):</label>
-      <input type="range" id="c-slider" min="0" max="10" value="0.5" step="0.1">
-      <span class="val" id="c-val">0.5</span></div>
+      <input type="range" id="c-slider" min="0" max="10" value="0" step="0.1">
+      <span class="val" id="c-val">0.0</span></div>
     <div class="param-row"><label>$g$ (m/s²):</label>
       <input type="range" id="g-slider" min="0" max="30" value="9.81" step="0.01">
       <span class="val" id="g-val">9.81</span></div>
@@ -566,6 +566,17 @@ function theta2dx(th, dth) { const {L, th0}=params; return L*Math.sin(th + th0)*
 function x2theta(x) { const {L, a, th0}=params; const c = (a - x) / L; if (c < -1 || c > 1) return NaN; return Math.acos(c) - th0; }
 // Effective mass in x for phase (x,ẋ): E = ½ M_eff(x) ẋ² + ½k x²
 function Meff_x(x) { const th = x2theta(x); if (isNaN(th)) return 0; const {L, th0}=params; const ap = th + th0; const s = Math.sin(ap); if (Math.abs(s) < 1e-10) return 0; return g(th) / (L*L*s*s); }
+// ẍ from (x, ẋ): ẋ = L sin(α+θ)θ̇  ⇒  θ̇ = ẋ/(L sin(α+θ));  ẍ = L cos(α+θ)θ̇² + L sin(α+θ)θ̈
+function accel_x(x_val, dx_val) {
+  const th = x2theta(x_val);
+  if (isNaN(th)) return 0;
+  const {L, th0} = params;
+  const ap = th + th0;
+  const s = Math.sin(ap);
+  if (Math.abs(s) < 1e-10) return 0;
+  const dth = dx_val / (L * s);
+  return L * Math.cos(ap) * dth * dth + L * s * accel(th, dth);
+}
 
 // ── Linearized system ─────────────────────────────────────────────────────────
 // θ = deviation from equilibrium; φ = θ.  J₀ φ̈ + Ceq φ̇ + Keq φ = 0
@@ -829,8 +840,8 @@ function draw(th_ov, dth_ov) {
     }
   }
 
-  // ── Damper ────────────────────────────────────────────────────────────────
-  {
+  // ── Damper (only if c > 0) ─────────────────────────────────────────────────
+  if (params.c > 0) {
     const [Bcx,Bcy]=w2c(Bx, By);
     const [rCx,rCy]=w2c(0, roofY);
     drawDamper(ctx, Bcx, Bcy-hsB, rCx, rCy, '#7ec8e3');
@@ -973,7 +984,10 @@ function updateInfo(th, dth) {
 }
 
 // ── Grid helpers ──────────────────────────────────────────────────────────────
-function drawGrid(c2d, view, pad, W, H, xLabelFn, yLabelFn) {
+function drawGrid(c2d, view, pad, W, H, xLabelFn, yLabelFn, opts) {
+  opts = opts || {};
+  const timeAxis = !!opts.timeAxis;
+  const xLbl = timeAxis ? 'rgba(255,255,255,0.92)' : '#888';
   const xTicks=niceTicks(view.xMin, view.xMax, 5);
   const yTicks=niceTicks(view.yMin, view.yMax, 5);
   c2d.font='9px sans-serif';
@@ -981,7 +995,7 @@ function drawGrid(c2d, view, pad, W, H, xLabelFn, yLabelFn) {
     const x=view.toX(v,pad,W); if(x<pad.l||x>W-pad.r) continue;
     c2d.beginPath(); c2d.moveTo(x,pad.t); c2d.lineTo(x,H-pad.b);
     c2d.strokeStyle='rgba(255,255,255,0.07)'; c2d.lineWidth=1; c2d.stroke();
-    c2d.fillStyle='#888'; c2d.textAlign='center';
+    c2d.fillStyle=xLbl; c2d.textAlign='center';
     c2d.fillText(xLabelFn(v), x, H-4);
   }
   c2d.textAlign='right';
@@ -995,7 +1009,10 @@ function drawGrid(c2d, view, pad, W, H, xLabelFn, yLabelFn) {
   }
   c2d.textAlign='left';
   c2d.strokeStyle='rgba(255,255,255,0.2)'; c2d.lineWidth=1;
-  c2d.beginPath(); c2d.moveTo(pad.l,pad.t); c2d.lineTo(pad.l,H-pad.b); c2d.lineTo(W-pad.r,H-pad.b); c2d.stroke();
+  c2d.beginPath(); c2d.moveTo(pad.l,pad.t); c2d.lineTo(pad.l,H-pad.b); c2d.stroke();
+  c2d.strokeStyle=timeAxis?'rgba(255,255,255,0.95)':'rgba(255,255,255,0.2)';
+  c2d.lineWidth=timeAxis?2:1;
+  c2d.beginPath(); c2d.moveTo(pad.l,H-pad.b); c2d.lineTo(W-pad.r,H-pad.b); c2d.stroke();
 }
 
 // ── x(t) plot — shows x = a - L sinθ vs t ────────────────────────────────────
@@ -1019,7 +1036,7 @@ function drawXTime(th) {
   }
 
   c.clearRect(0,0,W,H);
-  drawGrid(c, timeView, pad, W, H, v=>v.toFixed(v<10?1:0), v=>v.toFixed(2));
+  drawGrid(c, timeView, pad, W, H, v=>v.toFixed(v<10?1:0), v=>v.toFixed(2), { timeAxis: true });
   mimg(c,'xt_lbl', pad.l+4, pad.t+1);
   mimg(c,'t_gray', W-pad.r-9, H-pad.b+14);
 
@@ -1146,8 +1163,10 @@ function drawPhaseSpaceX(th, dth) {
   for (let li=1; li<=nLev; li++) {
     const E_lev = E_min * Math.pow(E_ratio, (li - 1) / (nLev - 1));   // log spacing: first = E_min, last = E_max
     const matchIC = Math.abs(E_lev - E0) < E_lev * 0.15;
-    const col = matchIC ? 'rgba(78,205,196,0.9)' : (li<=nLev*0.5 ? 'rgba(78,205,196,0.28)' : 'rgba(78,205,196,0.45)');
-    const lw = matchIC ? 2 : 1;
+    const tLev = (li - 1) / Math.max(nLev - 1, 1);
+    const aOther = 0.5 + tLev * 0.35;
+    const col = matchIC ? 'rgba(64,230,218,0.98)' : `rgba(78,205,196,${aOther.toFixed(3)})`;
+    const lw = matchIC ? 2.6 : 1.4;
     for (const sign of [1,-1]) {
       c.beginPath(); let started=false;
       for (let i=0;i<=NL;i++) {
@@ -1163,6 +1182,39 @@ function drawPhaseSpaceX(th, dth) {
       }
       c.strokeStyle=col; c.lineWidth=lw; c.stroke();
     }
+
+    if (li % 2 !== 0) continue;
+    const xLo = phaseViewX.xMin, xHi = phaseViewX.xMax;
+    const xW = xHi - xLo;
+    for (const frac of [-0.35, -0.175, 0, 0.175, 0.35]) {
+      const ax = 0.5 * (xLo + xHi) + frac * xW;
+      if (ax < xLo || ax > xHi) continue;
+      const rem = 2 * (E_lev - 0.5 * k * ax * ax);
+      if (rem < 0) continue;
+      const J_at = Meff_x(ax);
+      if (J_at <= 0) continue;
+      for (const sign of [1, -1]) {
+        const dxd = sign * Math.sqrt(rem / J_at);
+        if (Math.abs(dxd) > phaseViewX.yMax * 1.01) continue;
+        const ds = 0.025;
+        const xdd = accel_x(ax, dxd);
+        const ex = phaseViewX.toX(ax + ds * dxd, pad, W) - phaseViewX.toX(ax, pad, W);
+        const ey = phaseViewX.toY(dxd + ds * xdd, pad, H) - phaseViewX.toY(dxd, pad, H);
+        const elen = Math.sqrt(ex * ex + ey * ey) || 1;
+        const pxLen = 18, hl = 10;
+        const ax2 = phaseViewX.toX(ax, pad, W) + ex / elen * pxLen;
+        const ay2 = phaseViewX.toY(dxd, pad, H) + ey / elen * pxLen;
+        const ux = ex / elen, uy = ey / elen;
+        c.beginPath();
+        c.moveTo(ax2, ay2);
+        c.lineTo(ax2 - hl * ux + hl * .4 * uy, ay2 - hl * uy - hl * .4 * ux);
+        c.lineTo(ax2 - hl * ux - hl * .4 * uy, ay2 - hl * uy + hl * .4 * ux);
+        c.closePath();
+        c.fillStyle = matchIC ? 'rgba(12,95,92,0.98)' : 'rgba(18,130,125,0.92)';
+        c.fill();
+        c.strokeStyle = 'rgba(0,0,0,0.42)'; c.lineWidth = 1; c.stroke();
+      }
+    }
   }
   // Equilibrium (0, 0) in (x, ẋ) space
   const ox = phaseViewX.toX(0, pad, W), oy = phaseViewX.toY(0, pad, H);
@@ -1170,11 +1222,12 @@ function drawPhaseSpaceX(th, dth) {
     c.beginPath(); c.arc(ox, oy, 4, 0, 2*Math.PI); c.fillStyle = '#06d6a0'; c.fill();
   }
   if(simHistory.length>1){
-    c.strokeStyle='rgba(255,221,87,0.9)'; c.lineWidth=2; c.beginPath();
+    c.strokeStyle='rgba(255,221,87,1)'; c.lineWidth=2.75; c.shadowColor='rgba(0,0,0,0.45)'; c.shadowBlur=4; c.beginPath();
     c.moveTo(phaseViewX.toX(theta2x(simHistory[0].th),pad,W), phaseViewX.toY(theta2dx(simHistory[0].th,simHistory[0].dth),pad,H));
     for (let i=1;i<simHistory.length;i++)
       c.lineTo(phaseViewX.toX(theta2x(simHistory[i].th),pad,W), phaseViewX.toY(theta2dx(simHistory[i].th,simHistory[i].dth),pad,H));
     c.stroke();
+    c.shadowBlur=0; c.shadowColor='transparent';
   }
   const cpx=phaseViewX.toX(x,pad,W), cpy=phaseViewX.toY(dx,pad,H);
   if(cpx>=pad.l&&cpx<=W-pad.r&&cpy>=pad.t&&cpy<=H-pad.b){
@@ -1200,7 +1253,7 @@ function drawThetaTime(th) {
   }
 
   c.clearRect(0,0,W,H);
-  drawGrid(c, timeViewTh, pad, W, H, v=>v.toFixed(v<10?1:0), v=>(v*180/Math.PI).toFixed(0)+'°');
+  drawGrid(c, timeViewTh, pad, W, H, v=>v.toFixed(v<10?1:0), v=>(v*180/Math.PI).toFixed(0)+'°', { timeAxis: true });
   mimg(c,'th_lbl', pad.l+4, pad.t+1);
   mimg(c,'t_gray', W-pad.r-9, H-pad.b+14);
 
@@ -1343,9 +1396,10 @@ function drawPhaseSpace(th, dth) {
   for (let li=1; li<=nLev; li++) {
     const E_lev = E_min_plot * Math.pow(E_ratioTh, (li - 1) / (nLev - 1));
     const matchIC = Math.abs(E_lev - E0) < E_lev * 0.15;
-    const col = matchIC ? 'rgba(78,205,196,0.9)' :
-                (li <= nLev*0.5 ? 'rgba(78,205,196,0.28)' : 'rgba(78,205,196,0.45)');
-    const lw = matchIC ? 2 : 1;
+    const tLev = (li - 1) / Math.max(nLev - 1, 1);
+    const aOther = 0.5 + tLev * 0.35;
+    const col = matchIC ? 'rgba(64,230,218,0.98)' : `rgba(78,205,196,${aOther.toFixed(3)})`;
+    const lw = matchIC ? 2.6 : 1.4;
 
     for (const sign of [1,-1]) {
       c.beginPath(); let started=false;
@@ -1363,7 +1417,7 @@ function drawPhaseSpace(th, dth) {
       c.strokeStyle=col; c.lineWidth=lw; c.stroke();
     }
 
-    if (li % 3 !== 0) continue;
+    if (li % 2 !== 0) continue;
     for (const at of [-thR*0.7, -thR*0.35, 0, thR*0.35, thR*0.7]) {
       if (at<phaseView.xMin||at>phaseView.xMax) continue;
       const rem = 2*(E_lev-potential(at));
@@ -1377,7 +1431,7 @@ function drawPhaseSpace(th, dth) {
         const ex=phaseView.toX(at+ds*dd,pad,W)-phaseView.toX(at,pad,W);
         const ey=phaseView.toY(dd+ds*accel(at,dd),pad,H)-phaseView.toY(dd,pad,H);
         const elen=Math.sqrt(ex*ex+ey*ey)||1;
-        const pxLen=9, hl=5;
+        const pxLen=18, hl=10;
         const ax2=phaseView.toX(at,pad,W)+ex/elen*pxLen;
         const ay2=phaseView.toY(dd,pad,H)+ey/elen*pxLen;
         const ux=ex/elen, uy=ey/elen;
@@ -1386,7 +1440,9 @@ function drawPhaseSpace(th, dth) {
         c.lineTo(ax2-hl*ux+hl*.4*uy, ay2-hl*uy-hl*.4*ux);
         c.lineTo(ax2-hl*ux-hl*.4*uy, ay2-hl*uy+hl*.4*ux);
         c.closePath();
-        c.fillStyle=matchIC?'rgba(78,205,196,0.9)':'rgba(78,205,196,0.55)'; c.fill();
+        c.fillStyle = matchIC ? 'rgba(12,95,92,0.98)' : 'rgba(18,130,125,0.92)';
+        c.fill();
+        c.strokeStyle = 'rgba(0,0,0,0.42)'; c.lineWidth = 1; c.stroke();
       }
     }
   }
@@ -1411,12 +1467,13 @@ function drawPhaseSpace(th, dth) {
 
   // Trajectory
   if(simHistory.length>1){
-    c.strokeStyle='rgba(255,221,87,0.9)'; c.lineWidth=2; c.beginPath();
+    c.strokeStyle='rgba(255,221,87,1)'; c.lineWidth=2.75; c.shadowColor='rgba(0,0,0,0.45)'; c.shadowBlur=4; c.beginPath();
     c.moveTo(phaseView.toX(simHistory[0].th,pad,W), phaseView.toY(simHistory[0].dth,pad,H));
     for (let i=1;i<simHistory.length;i++) {
       c.lineTo(phaseView.toX(simHistory[i].th,pad,W), phaseView.toY(simHistory[i].dth,pad,H));
     }
     c.stroke();
+    c.shadowBlur=0; c.shadowColor='transparent';
   }
 
   // Current point
