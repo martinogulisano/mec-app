@@ -5,12 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
-  <title>Interactive Simulators — Dynamical Systems</title>
+  <meta name="description" content="Interactive browser simulators for Meccanica Applicata alle Macchine (Applied Mechanics in Machine Design), Mechanical Engineering, Università di Pisa.">
+  <title>Applied Mechanics in Motion — Meccanica Applicata alle Macchine · Università di Pisa</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 16px;
       background: #0d1117;
       color: #c9d1d9;
       min-height: 100vh;
@@ -23,17 +25,46 @@
     }
 
     header h1 {
-      font-size: 1.9rem;
+      font-size: 2rem;
       font-weight: 700;
       color: #e6edf3;
       letter-spacing: -0.5px;
+      line-height: 1.2;
     }
 
-    header p {
-      margin-top: 10px;
+    header .intro-lead {
+      margin-top: 18px;
       color: #8b949e;
-      font-size: 0.97rem;
+      font-size: 0.9375rem;
       line-height: 1.6;
+    }
+
+    header .course-context {
+      margin-top: 18px;
+      padding: 16px 20px 16px 22px;
+      background: #1a2332;
+      border: 1px solid #3d4f66;
+      border-left: 4px solid #58a6ff;
+      border-radius: 8px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(88, 166, 255, 0.08);
+      color: #d8dee4;
+      font-size: 1rem;
+      line-height: 1.55;
+    }
+
+    header .course-context strong {
+      color: #e6edf3;
+      font-weight: 600;
+    }
+
+    header .course-context a {
+      color: #58a6ff;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    header .course-context a:hover {
+      color: #79b8ff;
     }
 
     .grid {
@@ -70,10 +101,11 @@
     }
 
     .card-body h2 {
-      font-size: 1rem;
+      font-size: 1.125rem;
       font-weight: 600;
       color: #58a6ff;
       margin-bottom: 6px;
+      line-height: 1.3;
     }
 
     .card-body p {
@@ -85,22 +117,45 @@
     footer {
       max-width: 860px;
       margin: 56px auto 0;
-      font-size: 0.8rem;
-      color: #484f58;
+      font-size: 0.875rem;
+      color: #8b949e;
       border-top: 1px solid #21262d;
       padding-top: 20px;
     }
 
     footer a { color: #58a6ff; text-decoration: none; }
     footer a:hover { text-decoration: underline; }
+
+    .epigraph {
+      max-width: 860px;
+      margin: 48px auto 0;
+      padding: 0 24px;
+      text-align: center;
+      font-size: 1rem;
+      color: #8b949e;
+      line-height: 1.6;
+    }
+
+    .epigraph cite {
+      font-style: normal;
+      color: #6e7681;
+    }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Interactive Simulators — Dynamical Systems</h1>
-  <p>Browser-based simulations for nonlinear dynamics and applied mechanics.<br>
-     Click any card to open the simulator directly — no installation required.</p>
+  <h1>Applied Mechanics in Motion</h1>
+  <p class="course-context">
+    Interactive simulations for the course
+    <a href="https://docenti.ing.unipi.it/guiggiani-m/maam.html"><strong>Meccanica Applicata alle Macchine</strong></a>
+    (<em>Applied Mechanics in Machine Design</em>), Bachelor&rsquo;s degree in Mechanical Engineering,
+    <strong>Università di Pisa</strong>.
+  </p>
+  <p class="intro-lead">
+    Browser-based simulations for nonlinear dynamics and applied mechanics.
+    Click any card to open the simulator directly — no installation required.
+  </p>
 </header>
 
 <div class="grid">
@@ -187,12 +242,14 @@
       <circle cx="26" cy="14" r="4" fill="#4a90d9" stroke="#7ec8e3" stroke-width="1"/>
     </svg>
     <div class="card-body">
-      <h2>Double slider crank chain (Glifo) </h2>
-      <p>Two masses on perpendicular guides linked by a rod, with spring and damper. Dynamics in θ, potential energy and phase portraits.</p>
+      <h2>Double slider crank chain </h2>
+      <p>Two masses on perpendicular guides linked by a rod, with spring and damper. Dynamics and phase portraits with different parametrizations.</p>
     </div>
   </a>
 
 </div><!-- .grid -->
+
+<p class="epigraph"><em>What I cannot create, I do not understand.</em> <cite>— Richard Feynman</cite></p>
 
 <footer>
   Created by Marco Gabiccini and <a href="https://github.com/martinogulisano">Martino Gulisano</a> — with a little help from Claude. &nbsp;·&nbsp;
