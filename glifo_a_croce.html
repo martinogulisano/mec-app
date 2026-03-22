@@ -205,8 +205,8 @@ mjx-container { display:inline !important; }
   <div class="section">
     <div class="section-title">Condizioni iniziali</div>
     <div class="param-row"><label>$\theta(0)$ (°):</label>
-      <input type="range" id="th0-slider" min="-170" max="170" value="0" step="1">
-      <span class="val" id="th0-val">0°</span></div>
+      <input type="range" id="th0-slider" min="-170" max="170" value="20" step="1">
+      <span class="val" id="th0-val">20°</span></div>
     <div class="param-row"><label>$\dot{\theta}(0)$ (rad/s):</label>
       <input type="range" id="dth0-slider" min="-10" max="10" value="0" step="0.1">
       <span class="val" id="dth0-val">0.0</span></div>
@@ -328,12 +328,9 @@ let params = {}, simState = null, simRunning = false, animId = null, simHistory 
 // Main canvas view (pan + zoom). Default framing: figure more down and left
 const mainView = { offX: -55, offY: 48, zoom: 1 };
 
-// ── θ-formulation physics ─────────────────────────────────────────────────────
-// θ = 0 is equilibrium: A=(a,0), B=(0,b). Rod angle α = θ + θ₀,  θ₀ = atan2(b,a).
-// (a−x) = L cos α, (y+b) = L sin α  →  x = a − L cos α,  y = −b + L sin α
-// ẋ = L α̇ sin α,  ẏ = L α̇ cos α  (with α̇ = θ̇)
-// g(θ) = [m_A sin(alfa+θ)² + m_B cos(alfa+θ)²] L²;  alfa = atan(b/a)
-// g θ̈ + (m_A−m_B) sin(2(alfa+θ))/2 · L² θ̇² + k L sin(alfa+θ)(a−L cos(alfa+θ)) + c L² cos(alfa+θ) θ̇ = 0
+// ── θ-formulation physics (notation) ─────────────────────────────────────────
+// θ = deviation; α = atan2(b,a) = params.th0; full rod angle = α + θ. Eq. A=(a,0), B=(0,b) at θ=0.
+// x = a − L cos(α+θ),  ẋ = L sin(α+θ) θ̇;  J(θ)=g(θ)=L²[m_A sin²(α+θ)+m_B cos²(α+θ)]. Damping in code: c L² cos²(α+θ) θ̇.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Math image cache ────────────────────────────────────────────────────────
@@ -523,7 +520,7 @@ document.getElementById('btn-jupiter').addEventListener('click', ()=>setG(24.79)
 // T = ½ m_A L² sin²(alfa+θ) θ̇² + ½ m_B L² cos²(alfa+θ) θ̇²  = ½ g(θ) θ̇²
 // U = ½ k (a − L cos(alfa+θ))²
 // g(θ) = [m_A sin²(alfa+θ) + m_B cos²(alfa+θ)] L²
-// g(θ)θ̈ + (m_A−m_B) sin(2(alfa+θ))/2 · L² θ̇² + k L sin(alfa+θ)(a−L cos(alfa+θ)) + c L² cos(alfa+θ) θ̇ = 0
+// g(θ)θ̈ + ½ g'(θ)θ̇² + k L sin(alfa+θ)(a−L cos(alfa+θ)) + c L² cos²(alfa+θ) θ̇ = 0
 
 function g(th) {
   const {mA, mB, L, th0} = params;   // th0 = alfa = atan(b/a)
@@ -581,9 +578,10 @@ function accel_x(x_val, dx_val) {
 // ── Linearized system ─────────────────────────────────────────────────────────
 // θ = deviation from equilibrium; φ = θ.  J₀ φ̈ + Ceq φ̇ + Keq φ = 0
 // J₀ = g(0) at θ=0 (i.e. rod angle = alfa),  Keq = k L² sin²(alfa),  Ceq = c L² cos²(alfa)
+// φ(0), φ̇(0) from θ(0) and θ̇(0) sliders (same labels as startSim).
 function thLin(t) {
   const {mA, mB, k, c, L, th0} = params;
-  const th0_rad = parseFloat(document.getElementById('th0-slider').value) * Math.PI/180;  // θ(0)
+  const th0_rad = parseFloat(document.getElementById('th0-slider').value) * Math.PI/180;
   const dth0    = parseFloat(document.getElementById('dth0-slider').value);
   const phi0  = th0_rad;   // φ = θ (deviation), so φ(0) = θ(0)
   const dphi0 = dth0;
@@ -612,7 +610,7 @@ function thLin(t) {
     const A = phi0, B = dphi0 + wn*phi0;
     phi = Math.exp(-wn*t)*(A + B*t);
   }
-  return th0 + phi;
+  return th0 + phi;   // params.th0 = α; result is full rod angle α + φ(t)
 }
 
 // ── RK4 ──────────────────────────────────────────────────────────────────────
@@ -650,10 +648,7 @@ function roundRect(c2d, x, y, w, h, r, fill, stroke, lw=1.5) {
   if (stroke) { c2d.strokeStyle=stroke; c2d.lineWidth=lw; c2d.stroke(); }
 }
 
-// ── Draw spring (coil) ────────────────────────────────────────────────────────
-// x1,y1 = start (mass side), x2,y2 = end (wall side), both in canvas px
-// The spring is drawn horizontally with straight stubs at each end then zigzag.
-// ── Draw spring (solenoid style, smooth arcs, stubs at both ends) ─────────────
+// ── Draw spring (solenoid along segment, stubs + smooth loops) ────────────────
 function drawSpring(c2d, x1, y1, x2, y2, coils, color) {
   const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
   if (len<4) return;
@@ -758,8 +753,7 @@ function draw(th_ov, dth_ov) {
   const dth = dth_ov !== undefined ? dth_ov : dth0_in;
   const {a, b, L, th0} = params;
   const alpha = th + th0;
-  // Grid coordinates: at θ=0 → A=(a,0), B=(0,b). Displacements: x = a − L cos(alfa+θ), y = L sin(alfa+θ) − b.
-  // So grid positions: A = (L cos(alfa+θ), 0), B = (0, L sin(alfa+θ)) (independent: A only from a, B only from b at θ=0).
+  // A on x-rail, B on y-rail: Ax=L cos(α+θ), Ay=0; Bx=0, By=L sin(α+θ). Spring elongation x = a − L cos(α+θ).
   const Ax = L*Math.cos(alpha);
   const Ay = 0;
   const Bx = 0;
@@ -857,7 +851,7 @@ function draw(th_ov, dth_ov) {
   // ── Linearized overlay ────────────────────────────────────────────────────
   if (document.getElementById('show-linear')?.checked) {
     const t_cur = simState ? simState.time : 0;
-    const thL = thLin(t_cur);   // linearized returns rod angle α = θ₀ + φ
+    const thL = thLin(t_cur);   // full rod angle α + φ(t); params.th0 is α (not the IC slider)
     const AxL = L*Math.cos(thL);
     const ByL = L*Math.sin(thL);
 
@@ -975,6 +969,7 @@ function updateInfo(th, dth) {
   txt+=`θ̈  = ${accel(th,dth).toFixed(4)} rad/s²\n`;
   txt+=`x  = ${x.toFixed(4)} m\n`;
   txt+=`y  = ${y.toFixed(4)} m\n`;
+  // th0 from params is geometric α = atan(b/a), not the θ(0) slider value
   txt+=`θ₀ = ${(th0*180/Math.PI).toFixed(2)}°\n`;
   txt+='─────────────────────\n';
   txt+=`T  = ${T.toFixed(4)} J\nU  = ${U.toFixed(4)} J\nE  = ${E.toFixed(4)} J\n`;
@@ -1015,7 +1010,7 @@ function drawGrid(c2d, view, pad, W, H, xLabelFn, yLabelFn, opts) {
   c2d.beginPath(); c2d.moveTo(pad.l,H-pad.b); c2d.lineTo(W-pad.r,H-pad.b); c2d.stroke();
 }
 
-// ── x(t) plot — shows x = a - L sinθ vs t ────────────────────────────────────
+// ── x(t) plot — x = a − L cos(α+θ) vs t (θ deviation, α = atan(b/a)) ─────────
 function drawXTime(th) {
   const cv=document.getElementById('x-time-canvas');
   const c=cv.getContext('2d');
@@ -1032,13 +1027,20 @@ function drawXTime(th) {
       if(px<xMin)xMin=px; if(px>xMax)xMax=px;
     }
     const span=Math.max(xMax-xMin,0.2);
-    timeView.yMin=xMin-span*.2; timeView.yMax=xMax+span*.2;
+    timeView.yMin=Math.min(xMin-span*.2, 0);
+    timeView.yMax=Math.max(xMax+span*.2, 0);
   }
 
   c.clearRect(0,0,W,H);
-  drawGrid(c, timeView, pad, W, H, v=>v.toFixed(v<10?1:0), v=>v.toFixed(2), { timeAxis: true });
+  drawGrid(c, timeView, pad, W, H, v=>v.toFixed(v<10?1:0), v=>v.toFixed(2));
   mimg(c,'xt_lbl', pad.l+4, pad.t+1);
   mimg(c,'t_gray', W-pad.r-9, H-pad.b+14);
+
+  const yX0 = timeView.toY(0, pad, H);
+  if (yX0 >= pad.t && yX0 <= H - pad.b) {
+    c.beginPath(); c.moveTo(pad.l, yX0); c.lineTo(W - pad.r, yX0);
+    c.strokeStyle = 'rgba(255,255,255,0.92)'; c.lineWidth = 2; c.stroke();
+  }
 
   if (simHistory.length<2) {
     const y=timeView.toY(x,pad,H);
@@ -1055,7 +1057,7 @@ function drawXTime(th) {
   }
   c.stroke();
 
-  // Linearized overlay (thLin returns rod angle; theta2x expects deviation θ)
+  // Linearized: φ = thLin(t) − α with α = params.th0; theta2x(φ) uses deviation φ
   if (document.getElementById('show-linear')?.checked) {
     const {th0}=params;
     const N=400;
@@ -1249,13 +1251,28 @@ function drawThetaTime(th) {
     let thMin=th, thMax=th;
     for (const p of simHistory) { if(p.th<thMin)thMin=p.th; if(p.th>thMax)thMax=p.th; }
     const span=Math.max(thMax-thMin,0.2);
-    timeViewTh.yMin=thMin-span*.2; timeViewTh.yMax=thMax+span*.2;
+    timeViewTh.yMin=Math.min(thMin-span*.2, 0);
+    timeViewTh.yMax=Math.max(thMax+span*.2, 0);
   }
 
   c.clearRect(0,0,W,H);
-  drawGrid(c, timeViewTh, pad, W, H, v=>v.toFixed(v<10?1:0), v=>(v*180/Math.PI).toFixed(0)+'°', { timeAxis: true });
+  drawGrid(c, timeViewTh, pad, W, H, v=>v.toFixed(v<10?1:0), v=>(v*180/Math.PI).toFixed(0)+'°');
   mimg(c,'th_lbl', pad.l+4, pad.t+1);
   mimg(c,'t_gray', W-pad.r-9, H-pad.b+14);
+
+  const thRefLevels = [-4*Math.PI, -2*Math.PI, 0, 2*Math.PI, 4*Math.PI];
+  for (const lv of thRefLevels) {
+    const yy = timeViewTh.toY(lv, pad, H);
+    if (yy < pad.t || yy > H - pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l, yy); c.lineTo(W - pad.r, yy);
+    if (Math.abs(lv) < 1e-9) {
+      c.strokeStyle = 'rgba(255,255,255,0.92)'; c.lineWidth = 2; c.setLineDash([]);
+    } else {
+      c.strokeStyle = 'rgba(255,255,255,0.45)'; c.lineWidth = 1.25;
+      c.setLineDash([5, 5]);
+    }
+    c.stroke(); c.setLineDash([]);
+  }
 
   if (simHistory.length<2) {
     const y=timeViewTh.toY(th,pad,H);
