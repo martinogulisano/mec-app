@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibrazioni 2 DOF — Simulatore</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'], ['\\(','\\)']], packages: { '[+]': ['color'] } },
+  loader: { load: ['input/tex', 'output/svg', '[tex]/color'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() { MathJax.startup.defaultReady(); MathJax.startup.promise.then(initApp); }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+:root { --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1),
+              min-width .25s cubic-bezier(.4,0,.2,1),
+              padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:300px; min-width:200px; max-width:45vw; }
+#right-panel { width:440px; min-width:200px; max-width:50vw; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-track { background:transparent; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.35); }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1000;
+}
+#help-overlay.hidden { display:none; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1000;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54; }
+#help-box {
+  background:#161b22; border:1px solid #30363d; border-radius:12px;
+  padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9;
+  font-size:.88em; line-height:1.6; position:relative;
+}
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close {
+  display:block; margin:16px auto 0;
+  background:#e94560; color:white; border:none;
+  padding:7px 28px; border-radius:6px; cursor:pointer;
+  font-size:.88em; font-weight:600;
+}
+#help-close:hover { background:#c73e54; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0;
+  transition:background .15s; position:relative; display:flex;
+  align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:rgba(10,30,60,0.92);
+  border:1px solid #444; border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; display:flex; align-items:center;
+  justify-content:center; z-index:10; padding:0; line-height:1;
+  transition:background .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle {
+  font-size:11px; color:#888; cursor:pointer; user-select:none; padding:0 3px;
+  line-height:1; transition:color .15s;
+}
+.sec-toggle:hover { color:var(--highlight); }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:600px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+.section-title.collapsible:hover .sec-toggle { color:var(--highlight); }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 88px; font-size:.8em; text-align:right; }
+.param-row.param-row-full label { flex:1 1 auto; text-align:left; white-space:nowrap; min-width:0; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 50px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button:hover { background:#c73e54; }
+button.secondary { background:var(--accent); border:1px solid #555; }
+button.secondary:hover { background:#1a3a6a; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:#0d1117; border-radius:8px; cursor:grab; }
+canvas#canvas:active { cursor:grabbing; }
+#info-box { background:rgba(0,0,0,.3); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; }
+.plot-hint { font-size:.65em; color:rgba(255,255,255,.25); text-align:right; margin-top:2px; }
+mjx-container { display:inline !important; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.95em 0 !important; width:100%; text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="help-overlay" class="hidden">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — masses, springs, geometry, gravity (display), initial conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — simulation control</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on plots</li>
+      <li><strong>Double-click</strong> main canvas to reset view</li>
+      <li><strong>Right panel</strong> — time histories and state projections with energy level sets</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop.</div>
+    <button id="help-close" onclick="document.getElementById('help-overlay').classList.add('hidden')">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px 32px;max-width:900px;width:94%;max-height:85vh;overflow-y:auto;color:#c9d1d9;font-size:.88em;position:relative;">
+    <h3 style="color:#e6edf3;margin-bottom:14px;">Equations </h3>
+    <div id="eq-content" style="line-height:1.75;">
+      <p style="color:#8b949e;font-weight:600;margin:0 0 6px 0;font-size:0.95em;">Dynamics (matrix form)</p>
+      <p style="color:#aeb8c3;font-size:0.92em;margin:0 0 10px 0;">With \(\mathbf{q}=\begin{bmatrix} x_1 & x_2 \end{bmatrix}^{\!T}\), \(\mathbf{M}\ddot{\mathbf{q}}+\mathbf{K}\mathbf{q}=\mathbf{0}\):</p>
+      \[
+      \begin{bmatrix} m_1+\dfrac{J_1}{r^2} & 0 \\[6pt] 0 & m_2 \end{bmatrix}
+      \begin{bmatrix} \ddot{x}_1 \\[4pt] \ddot{x}_2 \end{bmatrix}
+      \;+\;
+      \begin{bmatrix} 4k_1+k_2 & -k_2 \\[4pt] -k_2 & k_2 \end{bmatrix}
+      \begin{bmatrix} x_1 \\[4pt] x_2 \end{bmatrix}
+      \;=\;
+      \begin{bmatrix} 0 \\[4pt] 0 \end{bmatrix}
+      \]
+
+      <p style="color:#8b949e;font-weight:600;margin:22px 0 8px 0;font-size:0.95em;">Energy</p>
+      \[ T = \tfrac12\left(m_1+\frac{J_1}{r^2}\right)\dot{x}_1^2 + \tfrac12 m_2\,\dot{x}_2^2 \]
+      \[ U = \tfrac12 k_1 (2x_1)^2 + \tfrac12 k_2 (x_2-x_1)^2 \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;color:white;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>Vibrazioni a 2 DOF</h1>
+  <h2>Simulatore dinamico</h2>
+  <div style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
+    Prof. Marco Gabiccini & Martino Gulisano<br>Meccanica Applicata alle Macchine<br>
+    <span style="font-size:.9em;color:#666;">Tutti i diritti riservati</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Inerzia e geometria</div>
+    <div class="param-row"><label>$m_1$ (kg):</label>
+      <input type="range" id="m1-slider" min="0.2" max="100" value="15" step="0.1">
+      <span class="val" id="m1-val">15.0</span></div>
+    <div class="param-row"><label>$J_1$ (kg·m²):</label>
+      <input type="range" id="J1-slider" min="0.01" max="12" value="2" step="0.01">
+      <span class="val" id="J1-val">2.000</span></div>
+    <div class="param-row"><label>$r$ (m):</label>
+      <input type="range" id="r-slider" min="0.08" max="2.5" value="0.8" step="0.01">
+      <span class="val" id="r-val">0.80</span></div>
+    <div class="param-row"><label>$m_2$ (kg):</label>
+      <input type="range" id="m2-slider" min="0.1" max="80" value="12" step="0.1">
+      <span class="val" id="m2-val">12.0</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Molle e gravità</div>
+    <div class="param-row"><label>$k_1$ (N/m):</label>
+      <input type="range" id="k1-slider" min="2" max="200" value="40" step="1">
+      <span class="val" id="k1-val">40</span></div>
+    <div class="param-row"><label>$k_2$ (N/m):</label>
+      <input type="range" id="k2-slider" min="2" max="200" value="35" step="1">
+      <span class="val" id="k2-val">35</span></div>
+    <div class="param-row"><label>$g$ (m/s²):</label>
+      <input type="range" id="g-slider" min="0" max="30" value="9.81" step="0.01">
+      <span class="val" id="g-val">9.81</span></div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button id="btn-earth"   class="secondary" style="font-size:1.2em;padding:4px 8px" title="Earth — g = 9.81 m/s²">🌍</button>
+      <button id="btn-moon"    class="secondary" style="font-size:1.2em;padding:4px 8px" title="Moon — g = 1.62 m/s²">🌙</button>
+      <button id="btn-jupiter" class="secondary" style="font-size:1.2em;padding:4px 8px" title="Jupiter — g = 24.79 m/s²">⚡</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Condizioni iniziali</div>
+    <div class="param-row"><label>$x_1(0)$ (m):</label>
+      <input type="range" id="x10-slider" min="-0.5" max="0.5" value="0.12" step="0.005">
+      <span class="val" id="x10-val">0.120</span></div>
+    <div class="param-row"><label>$\dot{x}_1(0)$ (m/s):</label>
+      <input type="range" id="dx10-slider" min="-2" max="2" value="0" step="0.02">
+      <span class="val" id="dx10-val">0.00</span></div>
+    <div class="param-row"><label>$x_2(0)$ (m):</label>
+      <input type="range" id="x20-slider" min="-0.5" max="0.5" value="0" step="0.005">
+      <span class="val" id="x20-val">0.000</span></div>
+    <div class="param-row"><label>$\dot{x}_2(0)$ (m/s):</label>
+      <input type="range" id="dx20-slider" min="-2" max="2" value="0" step="0.02">
+      <span class="val" id="dx20-val">0.00</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Equazioni</div>
+    <div style="margin-top:4px;">
+      <button id="btn-show-equations" class="secondary" style="width:100%;">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulazione</div>
+    <div class="param-row" style="margin-bottom:4px;">
+      <label>$T_{\max}$ (s):</label>
+      <input type="number" id="tmax-input" class="compact" value="40" min="1" max="600" step="1">
+      <span class="val"></span>
+    </div>
+    <div class="btn-row" style="margin-bottom:2px;">
+      <button id="btn-simulate">▶ Play</button>
+      <button id="btn-stop" class="secondary">■ Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="param-row param-row-full" style="margin-top:6px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="chk-show-forces"> Show forces on diagram</label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Stato corrente</div>
+    <div id="info-box">Set initial conditions and run.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-time-x1">
+      <span>Legge oraria $x_1(t)$</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-time-x1">
+      <canvas id="x1-time-canvas" width="340" height="130" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-time-x2">
+      <span>Legge oraria $x_2(t)$</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-time-x2">
+      <canvas id="x2-time-canvas" width="340" height="130" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-phase-x12">
+      <span style="text-align:left;line-height:1.35;flex:1;min-width:0;padding-right:6px;">STATE SPACE: projection onto $(x_1,x_2)$ plane</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-phase-x12">
+      <canvas id="phase-x12-canvas" width="340" height="200" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">Horizontal: $x_1$ · Vertical: $x_2$ · Iso-$U$ · scroll: zoom</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-phase-dx">
+      <span style="text-align:left;line-height:1.35;flex:1;min-width:0;padding-right:6px;">STATE SPACE: projection onto $(\dot{x}_1,\dot{x}_2)$ plane</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-phase-dx">
+      <canvas id="phase-dx-canvas" width="340" height="200" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">Horizontal: $\dot{x}_1$ · Vertical: $\dot{x}_2$ · Iso-$T$ · scroll: zoom</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-phase-x1d">
+      <span style="text-align:left;line-height:1.35;flex:1;min-width:0;padding-right:6px;">STATE SPACE: projection onto $(x_1,\dot{x}_1)$ plane</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-phase-x1d">
+      <canvas id="phase-x1dx-canvas" width="340" height="200" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">Plane projection of the $\mathbb{R}^4$ state — trajectory only (not iso-$E$ or iso-$U$)</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-phase-x2d">
+      <span style="text-align:left;line-height:1.35;flex:1;min-width:0;padding-right:6px;">STATE SPACE: projection onto $(x_2,\dot{x}_2)$ plane</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-phase-x2d">
+      <canvas id="phase-x2dx-canvas" width="340" height="200" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">Plane projection of the $\mathbb{R}^4$ state — trajectory only (not iso-$E$ or iso-$U$)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let params = {}, simState = null, simRunning = false, animId = null, simHistory = [];
+
+const mainView = { offX: 0, offY: 35, zoom: 1 };
+
+const MI = {};
+/** Plain subscripts (x_1, x_2, U, T); dot forms slightly larger so ẋ matches x visually */
+const PHASE_MJ_H_X = 12;
+const PHASE_MJ_H_DX = 17;
+const PHASE_MJ_CLR = 'rgba(220,220,230,0.98)';
+async function makeMathImg(latex, color, heightPx) {
+  const wrapper = MathJax.tex2svg(latex, {display: false});
+  const svg = wrapper.querySelector('svg');
+  const hEx = parseFloat(svg.getAttribute('height')) || 1;
+  const wEx = parseFloat(svg.getAttribute('width'))  || 1;
+  const wPx = Math.ceil(wEx / hEx * heightPx) + 2;
+  svg.setAttribute('height', heightPx); svg.setAttribute('width', wPx);
+  let s = new XMLSerializer().serializeToString(svg);
+  s = s.replace(/currentColor/g, color);
+  const url = URL.createObjectURL(new Blob([s], {type:'image/svg+xml;charset=utf-8'}));
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  URL.revokeObjectURL(url); return img;
+}
+async function preloadMath() {
+  const defs = [
+    ['x1_lbl',  'x_1',                    'rgba(255,200,160,0.95)', 15],
+    ['x2_lbl',  'x_2',                    'rgba(160,210,255,0.95)', 15],
+    ['x1t',     'x_1(t)',                 '#00b4d8', 13],
+    ['x2t',     'x_2(t)',                 '#7ec8e3', 13],
+    ['t_gray',  't',                      '#888',    13],
+    ['m1_lbl',  'm_1,\\,J_1',             'rgba(185,195,215,0.96)', 14],
+    ['m2_lbl',  'm_2',                    '#4a90d9', 13],
+    ['k1_lab',  'k_1',                    'rgba(200,190,170,0.96)', 14],
+    ['k2_lab',  'k_2',                    '#f0c040', 14],
+    ['ph_U',    'U',                      PHASE_MJ_CLR, PHASE_MJ_H_X],
+    ['ph_T',    'T',                      PHASE_MJ_CLR, PHASE_MJ_H_X],
+    ['ph_x1',   'x_1',                    PHASE_MJ_CLR, PHASE_MJ_H_X],
+    ['ph_x2',   'x_2',                    PHASE_MJ_CLR, PHASE_MJ_H_X],
+    ['ph_dx1',  '\\dot{x}_1',            PHASE_MJ_CLR, PHASE_MJ_H_DX],
+    ['ph_dx2',  '\\dot{x}_2',            PHASE_MJ_CLR, PHASE_MJ_H_DX],
+    ['f_N',     '\\mathrm{N}',          '#00e5ff', 15],
+    ['f_Fel1',  'F_{\\mathrm{el1}}',    '#ff2d78', 15],
+    ['f_Fel2',  'F_{\\mathrm{el2}}',    '#ff9100', 15],
+  ];
+  for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
+}
+
+function mimg(c2d, key, x, y, anchor='left') {
+  const img = MI[key]; if (!img) return;
+  const w = img.naturalWidth;
+  if (anchor === 'center') x -= w / 2;
+  else if (anchor === 'right') x -= w;
+  c2d.drawImage(img, Math.round(x), Math.round(y));
+}
+
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0=x0; this._x1=x1; this._y0=y0; this._y1=y1;
+    this.xMin=x0; this.xMax=x1; this.yMin=y0; this.yMax=y1; this.active=false;
+  }
+  toX(v, pad, W) { return pad.l + (v-this.xMin)/(this.xMax-this.xMin)*(W-pad.l-pad.r); }
+  toY(v, pad, H) { return pad.t + (H-pad.t-pad.b)*(1-(v-this.yMin)/(this.yMax-this.yMin)); }
+  px2data(px, py, pad, W, H) {
+    const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+    return [this.xMin+(px-pad.l)/pw*(this.xMax-this.xMin),
+            this.yMin+(1-(py-pad.t)/ph)*(this.yMax-this.yMin)];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active=true;
+    this.xMin=xd+(this.xMin-xd)*factor; this.xMax=xd+(this.xMax-xd)*factor;
+    this.yMin=yd+(this.yMin-yd)*factor; this.yMax=yd+(this.yMax-yd)*factor;
+  }
+  pan(dxd, dyd) {
+    this.active=true;
+    this.xMin-=dxd; this.xMax-=dxd; this.yMin-=dyd; this.yMax-=dyd;
+  }
+  reset() {
+    this.active=false;
+    this.xMin=this._x0; this.xMax=this._x1; this.yMin=this._y0; this.yMax=this._y1;
+  }
+  setRange(x0, x1, y0, y1) {
+    if (!this.active) { this.xMin=x0; this.xMax=x1; this.yMin=y0; this.yMax=y1; }
+  }
+}
+
+const PHASE_PAD  = { l: 76, r: 26, t: 18, b: 50 };
+const TIME_PAD   = {l:44,r:32,t:12,b:26};
+/** Force arrows on main canvas: length in world coords = |F| * FORCE_LEN_PER_N (N), then clamped. */
+const FORCE_LEN_PER_N = 0.005;
+const FORCE_LEN_MIN = 0.28;
+const FORCE_LEN_MAX = 2.4;
+/** Phase projection plots: tick labels (canvas); axis names U,T,x,ẋ via MathJax (ph_* images) */
+const PHASE_PROJ_FONT = '11px system-ui, "Segoe UI", sans-serif';
+const PHASE_PROJ_CLR  = 'rgba(210,210,218,0.95)';
+const PHASE_X_TICK_BELOW = 12;
+const PHASE_X_NAME_TOP_GAP = 14;
+const PHASE_Y_TICK_INSET = 10;
+const PHASE_Y_NAME_CX = 18;
+const phaseView12 = new PanZoomView(-0.4, 0.4, -0.4, 0.4);
+const phaseViewD  = new PanZoomView(-1, 1, -1, 1);
+const phaseViewX1d = new PanZoomView(-0.4, 0.4, -0.4, 0.4);
+const phaseViewX2d = new PanZoomView(-0.4, 0.4, -0.4, 0.4);
+const timeView1   = new PanZoomView(0, 10, -0.2, 0.2);
+const timeView2   = new PanZoomView(0, 10, -0.2, 0.2);
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const W = cv.width, H = cv.height;
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top) * (H / rect.height);
+    const [xd, yd] = view.px2data(mx, my, pad, W, H);
+    const factor = e.deltaY > 0 ? 1.12 : 1 / 1.12;
+    view.zoomAt(factor, xd, yd);
+    redrawFn();
+  }, { passive: false });
+  let drag = false, lx = 0, ly = 0;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const rect = cv.getBoundingClientRect();
+    lx = (e.clientX - rect.left) * (cv.width / rect.width);
+    ly = (e.clientY - rect.top) * (cv.height / rect.height);
+    cv.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const W = cv.width, H = cv.height;
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    view.pan((px - lx) / pw * (view.xMax - view.xMin), -(py - ly) / ph * (view.yMax - view.yMin));
+    lx = px; ly = py;
+    redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag = false; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function niceTicks(lo, hi, target=5) {
+  if (hi <= lo) return [lo];
+  const raw = (hi - lo) / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / pow;
+  let step = 1;
+  if (norm > 2) step = 2;
+  if (norm > 5) step = 5;
+  step *= pow;
+  const t0 = Math.ceil(lo / step) * step;
+  const ticks = [];
+  for (let v = t0; v <= hi + step * 0.01; v += step) ticks.push(v);
+  return ticks.length ? ticks : [lo, hi];
+}
+
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  const sz = Math.min(cont.clientWidth-12, cont.clientHeight-12);
+  canvas.width=sz; canvas.height=sz;
+}
+window.addEventListener('resize', () => { resize(); if (!simRunning) draw(); });
+
+function readParams() {
+  params = {
+    m1: parseFloat(document.getElementById('m1-slider').value),
+    J1: parseFloat(document.getElementById('J1-slider').value),
+    r:  parseFloat(document.getElementById('r-slider').value),
+    m2: parseFloat(document.getElementById('m2-slider').value),
+    k1: parseFloat(document.getElementById('k1-slider').value),
+    k2: parseFloat(document.getElementById('k2-slider').value),
+    g:  parseFloat(document.getElementById('g-slider').value),
+  };
+  params.M1 = params.m1 + params.J1 / (params.r * params.r);
+  params.x1eq = (params.m1 + params.m2) * params.g / (4 * params.k1);
+  params.x2eq = params.x1eq + params.m2 * params.g / params.k2;
+}
+function wireSlider(id, valId, fmt) {
+  const sl=document.getElementById(id), vl=document.getElementById(valId);
+  vl.textContent=fmt(parseFloat(sl.value));
+  const upd=()=>{ vl.textContent=fmt(parseFloat(sl.value)); readParams(); if(!simRunning) draw(); };
+  sl.addEventListener('input', upd);
+}
+wireSlider('m1-slider',  'm1-val',  v=>v.toFixed(1));
+wireSlider('J1-slider',  'J1-val',  v=>v.toFixed(3));
+wireSlider('r-slider',   'r-val',   v=>v.toFixed(2));
+wireSlider('m2-slider',  'm2-val',  v=>v.toFixed(1));
+wireSlider('k1-slider',  'k1-val',  v=>v.toFixed(0));
+wireSlider('k2-slider',  'k2-val',  v=>v.toFixed(0));
+wireSlider('g-slider',   'g-val',   v=>v.toFixed(2));
+wireSlider('x10-slider', 'x10-val', v=>v.toFixed(3));
+wireSlider('dx10-slider','dx10-val',v=>v.toFixed(2));
+wireSlider('x20-slider', 'x20-val', v=>v.toFixed(3));
+wireSlider('dx20-slider','dx20-val',v=>v.toFixed(2));
+
+function setG(val) {
+  document.getElementById('g-slider').value=val;
+  document.getElementById('g-val').textContent=val.toFixed(2);
+  readParams(); if(!simRunning) draw();
+}
+document.getElementById('btn-earth').addEventListener('click',   ()=>setG(9.81));
+document.getElementById('btn-moon').addEventListener('click',    ()=>setG(1.62));
+document.getElementById('btn-jupiter').addEventListener('click', ()=>setG(24.79));
+
+function potentialU(x1, x2) {
+  const { k1, k2 } = params;
+  return 2 * k1 * x1 * x1 + 0.5 * k2 * (x2 - x1) * (x2 - x1);
+}
+function kineticT(dx1, dx2) {
+  const { M1, m2 } = params;
+  return 0.5 * M1 * dx1 * dx1 + 0.5 * m2 * dx2 * dx2;
+}
+function totalE(x1, x2, dx1, dx2) {
+  return kineticT(dx1, dx2) + potentialU(x1, x2);
+}
+
+function accel2dof(x1, x2) {
+  const { M1, m2, k1, k2 } = params;
+  const K11 = 4 * k1 + k2;
+  const x1dd = (-K11 * x1 + k2 * x2) / M1;
+  const x2dd = (k2 * x1 - k2 * x2) / m2;
+  return [x1dd, x2dd];
+}
+
+/**
+ * Equilibrium (static, gravity): x1eq = (m1+m2)g/(4k1), x2eq = x1eq + m2g/k2 (stored on params as x1eq, x2eq).
+ * N = (m1+m2)g/2 + (J1/r^2)*x1dd + 2*k1*x1; Fel1 = k1*(2*x1+2*x1eq); Fel2 = k2*(x2-x1+x2eq-x1eq).
+ * Arrows: N and Fel1 upward from (r,2) and (-r,2); Fel2 on disk at O from (0,-x1) with vertical component -Fel2.
+ */
+function forcesAt(x1, x2) {
+  const [x1dd, x2dd] = accel2dof(x1, x2);
+  const { m1, m2, k1, k2, g, r, J1, x1eq, x2eq } = params;
+  const N = (m1 + m2) * g / 2 + J1 / (r * r) * x1dd + 2 * k1 * x1;
+  const Fel1 = k1 * (2 * x1 + 2 * x1eq);
+  const Fel2 = k2 * (x2 - x1 + x2eq - x1eq);
+  return { N, Fel1, Fel2, x1dd, x2dd };
+}
+
+function drawWorldForceArrow(ctx, wx0, wy0, Fx, Fy, color, labelKey) {
+  const mag = Math.hypot(Fx, Fy);
+  if (mag < 1e-12) return;
+  let L = mag * FORCE_LEN_PER_N;
+  L = Math.min(FORCE_LEN_MAX, Math.max(FORCE_LEN_MIN, L));
+  const ux = Fx / mag, uy = Fy / mag;
+  const wx1 = wx0 + ux * L, wy1 = wy0 + uy * L;
+  const [x0, y0] = w2c(wx0, wy0), [x1, y1] = w2c(wx1, wy1);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  const dx = x1 - x0, dy = y1 - y0;
+  const lenPx = Math.hypot(dx, dy);
+  if (lenPx < 5) return;
+  const hx = dx / lenPx, hy = dy / lenPx;
+  const px = -hy, py = hx;
+  const ah = Math.min(14, lenPx * 0.35);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - ah * hx + 5 * px, y1 - ah * hy + 5 * py);
+  ctx.lineTo(x1 - ah * hx - 5 * px, y1 - ah * hy - 5 * py);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  if (labelKey && MI[labelKey]) {
+    const img = MI[labelKey];
+    const midx = (x0 + x1) * 0.5;
+    const midy = (y0 + y1) * 0.5;
+    const alongPx = 16;
+    const sidePx = 36;
+    const outward = wx0 < -0.12 ? -1 : 1;
+    const lx = midx + hx * alongPx + px * sidePx * outward - img.naturalWidth / 2;
+    const ly = midy + hy * alongPx + py * sidePx * outward - img.naturalHeight / 2;
+    ctx.drawImage(img, Math.round(lx), Math.round(ly));
+  }
+}
+
+function rk4Step(s, dt) {
+  const f = (st) => {
+    const [a1, a2] = accel2dof(st.x1, st.x2);
+    return { x1: st.dx1, dx1: a1, x2: st.dx2, dx2: a2 };
+  };
+  const k1 = f(s);
+  const k2 = f({
+    x1: s.x1 + 0.5*dt*k1.x1, dx1: s.dx1 + 0.5*dt*k1.dx1,
+    x2: s.x2 + 0.5*dt*k1.x2, dx2: s.dx2 + 0.5*dt*k1.dx2,
+  });
+  const k3 = f({
+    x1: s.x1 + 0.5*dt*k2.x1, dx1: s.dx1 + 0.5*dt*k2.dx1,
+    x2: s.x2 + 0.5*dt*k2.x2, dx2: s.dx2 + 0.5*dt*k2.dx2,
+  });
+  const k4 = f({
+    x1: s.x1 + dt*k3.x1, dx1: s.dx1 + dt*k3.dx1,
+    x2: s.x2 + dt*k3.x2, dx2: s.dx2 + dt*k3.dx2,
+  });
+  return {
+    x1:  s.x1  + dt/6*(k1.x1 + 2*k2.x1 + 2*k3.x1 + k4.x1),
+    dx1: s.dx1 + dt/6*(k1.dx1+ 2*k2.dx1+ 2*k3.dx1+ k4.dx1),
+    x2:  s.x2  + dt/6*(k1.x2 + 2*k2.x2 + 2*k3.x2 + k4.x2),
+    dx2: s.dx2 + dt/6*(k1.dx2+ 2*k2.dx2+ 2*k3.dx2+ k4.dx2),
+  };
+}
+
+function getScale() {
+  const span = 6;
+  const size = Math.min(canvas.width, canvas.height);
+  return (size / span) * mainView.zoom;
+}
+function w2c(wx, wy) {
+  const sc = getScale();
+  const cx = canvas.width*0.5  + mainView.offX + wx*sc;
+  const cy = canvas.height*0.5 + mainView.offY - wy*sc;
+  return [cx, cy];
+}
+function cLen(l) { return l * getScale(); }
+
+function roundRect(c2d, x, y, w, h, r, fill, stroke, lw=1.5) {
+  c2d.beginPath();
+  c2d.roundRect(x, y, w, h, r);
+  if (fill)   { c2d.fillStyle=fill;   c2d.fill();   }
+  if (stroke) { c2d.strokeStyle=stroke; c2d.lineWidth=lw; c2d.stroke(); }
+}
+
+function drawSpring(c2d, x1, y1, x2, y2, coils, color, opts) {
+  opts = opts || {};
+  const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
+  if (len<4) return;
+  const ux=dx/len, uy=dy/len;
+  const nx=-uy, ny=ux;
+  const amp   = opts.amp != null ? opts.amp : 7;
+  const stub  = len * (opts.stubFrac != null ? opts.stubFrac : 0.13);
+  const coilLen = len - 2*stub;
+  const N     = coils;
+  const steps = N * 32;
+  c2d.beginPath();
+  c2d.moveTo(x1, y1);
+  c2d.lineTo(x1 + ux*stub, y1 + uy*stub);
+  for (let i=0; i<=steps; i++) {
+    const t    = i / steps;
+    const base = stub + t * coilLen;
+    const off  = amp * Math.sin(t * N * 2*Math.PI);
+    c2d.lineTo(x1 + ux*base + nx*off, y1 + uy*base + ny*off);
+  }
+  c2d.lineTo(x2, y2);
+  c2d.strokeStyle=color; c2d.lineWidth=opts.lineWidth != null ? opts.lineWidth : 2; c2d.stroke();
+}
+
+function drawVersor(c2d, cx, cy, ex, ey, color, labelKey) {
+  const dx=ex-cx, dy=ey-cy, len=Math.sqrt(dx*dx+dy*dy);
+  if (len<2) return;
+  const ux=dx/len, uy=dy/len, hl=11;
+  const barHalf=6;
+  c2d.beginPath();
+  c2d.moveTo(cx - uy*barHalf, cy + ux*barHalf);
+  c2d.lineTo(cx + uy*barHalf, cy - ux*barHalf);
+  c2d.strokeStyle=color; c2d.lineWidth=2; c2d.stroke();
+  c2d.beginPath(); c2d.moveTo(cx,cy); c2d.lineTo(ex,ey);
+  c2d.strokeStyle=color; c2d.lineWidth=2; c2d.stroke();
+  c2d.beginPath();
+  c2d.moveTo(ex,ey);
+  c2d.lineTo(ex-hl*ux+hl*.38*uy, ey-hl*uy-hl*.38*ux);
+  c2d.lineTo(ex-hl*ux-hl*.38*uy, ey-hl*uy+hl*.38*ux);
+  c2d.closePath(); c2d.fillStyle=color; c2d.fill();
+  if (labelKey && MI[labelKey]) {
+    const img = MI[labelKey];
+    const midx = (cx + ex) * 0.5, midy = (cy + ey) * 0.5;
+    const gap = 26;
+    const lx = midx + uy * gap - img.naturalWidth / 2;
+    const ly = midy - ux * gap - img.naturalHeight / 2;
+    c2d.drawImage(img, Math.round(lx), Math.round(ly));
+  }
+}
+
+function draw(x1o, dx1o, x2o, dx2o) {
+  const x10 = parseFloat(document.getElementById('x10-slider').value);
+  const dx10 = parseFloat(document.getElementById('dx10-slider').value);
+  const x20 = parseFloat(document.getElementById('x20-slider').value);
+  const dx20 = parseFloat(document.getElementById('dx20-slider').value);
+  const x1  = x1o  !== undefined ? x1o  : x10;
+  const dx1 = dx1o !== undefined ? dx1o : dx10;
+  const x2  = x2o  !== undefined ? x2o  : x20;
+  const dx2 = dx2o !== undefined ? dx2o : dx20;
+
+  const { r, m2 } = params;
+  const Ox = 0, Oy = -x1;
+  const yFrame = 2;
+  const ropeBottomY = -x1;
+  const leftRopeTopY = 1 - 2 * x1;
+  const blockY = -2 - x1 - x2;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  const baseMass = 0.1;
+  const hs2 = cLen(baseMass * Math.cbrt(m2));
+
+  // Top frame y=2, x in [-3,3] — beam + diagonal hatch (telaio)
+  {
+    const [p1x,p1y]=w2c(-3, yFrame);
+    const [p2x,p2y]=w2c(3, yFrame);
+    ctx.beginPath(); ctx.moveTo(p1x,p1y); ctx.lineTo(p2x,p2y);
+    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2; ctx.stroke();
+    const spanPx = p2x - p1x;
+    for (let xx = p1x; xx <= p2x + 2; xx += 10) {
+      ctx.beginPath(); ctx.moveTo(xx - 8, p1y); ctx.lineTo(xx, p1y - 10);
+      ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  }
+
+  // Rope: (r,2) to (r,-x1)
+  {
+    const [a1x,a1y]=w2c(r, yFrame);
+    const [a2x,a2y]=w2c(r, ropeBottomY);
+    ctx.beginPath(); ctx.moveTo(a1x,a1y); ctx.lineTo(a2x,a2y);
+    ctx.strokeStyle='rgba(200,190,170,0.95)'; ctx.lineWidth=2.5; ctx.stroke();
+  }
+
+  // Lower semicircle of disk: center O, from (r,-x1) to (-r,-x1) through bottom
+  {
+    const [cx,cy]=w2c(Ox, Oy);
+    const Rpix = cLen(r);
+    ctx.beginPath();
+    ctx.arc(cx, cy, Rpix, 0, Math.PI, false);
+    ctx.strokeStyle='rgba(200,190,170,0.95)'; ctx.lineWidth=2.5; ctx.stroke();
+  }
+
+  // Vertical segment (-r,-x1) to (-r, 1-2x1)
+  {
+    const [b1x,b1y]=w2c(-r, ropeBottomY);
+    const [b2x,b2y]=w2c(-r, leftRopeTopY);
+    ctx.beginPath(); ctx.moveTo(b1x,b1y); ctx.lineTo(b2x,b2y);
+    ctx.strokeStyle='rgba(200,190,170,0.95)'; ctx.lineWidth=2.5; ctx.stroke();
+  }
+
+  // Left spring k1: (-r, 1-2x1) to (-r, 2)
+  {
+    const [s1x,s1y]=w2c(-r, leftRopeTopY);
+    const [s2x,s2y]=w2c(-r, yFrame);
+    drawSpring(ctx, s1x, s1y, s2x, s2y, 6, 'rgba(200,190,170,0.95)');
+  }
+
+  // Disk with spokes (rotation θ = x1/r, CCW in math y-up); k2 spring drawn after so it sits in front
+  {
+    const [cx,cy]=w2c(Ox, Oy);
+    const Rpix = cLen(r);
+    const phi = x1 / r;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-phi);
+    ctx.beginPath(); ctx.arc(0, 0, Rpix, 0, 2*Math.PI);
+    const grd = ctx.createRadialGradient(-Rpix*0.2, -Rpix*0.2, 0, 0, 0, Rpix);
+    grd.addColorStop(0, 'rgba(120,130,155,0.95)');
+    grd.addColorStop(1, 'rgba(55,62,82,0.98)');
+    ctx.fillStyle = grd;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+    for (let k = 0; k < 6; k++) {
+      const ang = (k / 6) * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Rpix * 0.92 * Math.cos(ang), Rpix * 0.92 * Math.sin(ang));
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2*Math.PI);
+    ctx.fillStyle = '#ddd'; ctx.fill();
+    mimg(ctx, 'm1_lbl', cx, cy - Rpix - 16, 'center');
+  }
+
+  // Central spring k2: O to block (on top of disk)
+  {
+    const [t1x,t1y]=w2c(0, Oy);
+    const [t2x,t2y]=w2c(0, blockY);
+    drawSpring(ctx, t1x, t1y, t2x, t2y, 6, '#f0c040', { stubFrac: 0.16, amp: 8, lineWidth: 2.5 });
+  }
+
+  // Mass m2 block at (0, blockY)
+  {
+    const [bx,by]=w2c(0, blockY);
+    roundRect(ctx, bx-hs2, by-hs2, 2*hs2, 2*hs2, Math.min(8, hs2*0.35),
+      'rgba(74,144,217,0.9)', '#7ec8e3', 2);
+    mimg(ctx, 'm2_lbl', bx - hs2 - 8, by - 8, 'right');
+  }
+
+  // Versors fixed at equilibrium (x1=0, x2=0): O at (0,0), block at (0,-2)
+  {
+    const Oy0 = 0;
+    const blockY0 = -2;
+    const off = r * 0.32;
+    const vlen1 = 0.32;
+    const [sx1, sy1] = w2c(off, Oy0);
+    const [ex1, ey1] = w2c(off, Oy0 - vlen1);
+    drawVersor(ctx, sx1, sy1, ex1, ey1, 'rgba(255,200,160,0.9)', 'x1_lbl');
+    const off2 = hs2 / getScale() + 0.06;
+    const vlen2 = 0.28;
+    const [bx0, by0] = w2c(0, blockY0);
+    const sc = getScale();
+    const sx2 = bx0 + off2 * sc;
+    const sy2 = by0;
+    const ex2 = sx2;
+    const ey2 = by0 + vlen2 * sc;
+    drawVersor(ctx, sx2, sy2, ex2, ey2, 'rgba(160,210,255,0.9)', 'x2_lbl');
+  }
+
+  // Spring labels (after geometry; offset from coil axes to avoid overlap)
+  {
+    const [s1x, s1y] = w2c(-r, leftRopeTopY);
+    const [, s2y] = w2c(-r, yFrame);
+    const midK1y = (s1y + s2y) / 2;
+    mimg(ctx, 'k1_lab', s1x - 12, midK1y - 7, 'right');
+  }
+  {
+    const [t1x, t1y] = w2c(0, Oy);
+    const [, t2y] = w2c(0, blockY);
+    const midK2y = (t1y + t2y) / 2;
+    mimg(ctx, 'k2_lab', t1x - 20, midK2y - 7, 'right');
+  }
+
+  if (document.getElementById('chk-show-forces').checked) {
+    const { N, Fel1, Fel2 } = forcesAt(x1, x2);
+    const yTop = 2;
+    drawWorldForceArrow(ctx, r, yTop, 0, N, '#00e5ff', 'f_N');
+    drawWorldForceArrow(ctx, -r, yTop, 0, Fel1, '#ff2d78', 'f_Fel1');
+    drawWorldForceArrow(ctx, Ox, Oy, 0, -Fel2, '#ff9100', 'f_Fel2');
+  }
+
+  updateInfo(x1, dx1, x2, dx2);
+  drawX1Time(x1);
+  drawX2Time(x2);
+  drawPhaseX12(x1, x2, dx1, dx2);
+  drawPhaseDx(x1, x2, dx1, dx2);
+  drawPhaseX1d(x1, x2, dx1, dx2);
+  drawPhaseX2d(x1, x2, dx1, dx2);
+}
+
+function updateInfo(x1, dx1, x2, dx2) {
+  const x10 = parseFloat(document.getElementById('x10-slider').value);
+  const dx10 = parseFloat(document.getElementById('dx10-slider').value);
+  const x20 = parseFloat(document.getElementById('x20-slider').value);
+  const dx20 = parseFloat(document.getElementById('dx20-slider').value);
+  const T = kineticT(dx1, dx2);
+  const U = potentialU(x1, x2);
+  const E = T + U;
+  const E0 = totalE(x10, x20, dx10, dx20);
+  const { x1eq, x2eq } = params;
+  const { N, Fel1, Fel2 } = forcesAt(x1, x2);
+  let txt = '';
+  txt += `x₁eq = ${x1eq.toFixed(5)} m\nx₂eq = ${x2eq.toFixed(5)} m\n`;
+  txt += '─────────────────────\n';
+  txt += `x₁  = ${x1.toFixed(4)} m\nẋ₁ = ${dx1.toFixed(4)} m/s\n`;
+  txt += `x₂  = ${x2.toFixed(4)} m\nẋ₂ = ${dx2.toFixed(4)} m/s\n`;
+  txt += '─────────────────────\n';
+  txt += `T = ${T.toFixed(5)} J\nU = ${U.toFixed(5)} J\nE = ${E.toFixed(5)} J\n`;
+  txt += `E₀ = ${E0.toFixed(5)} J\n`;
+  txt += '─────────────────────\n';
+  txt += `N = ${N.toFixed(3)} N\nFel1 = ${Fel1.toFixed(3)} N\nFel2 = ${Fel2.toFixed(3)} N\n`;
+  if (document.getElementById('chk-show-forces').checked) {
+    txt += `─────────────────────\n`;
+    txt += `Force arrows: L ≈ |F|×${FORCE_LEN_PER_N} m (plot), clamp ${FORCE_LEN_MIN}…${FORCE_LEN_MAX} m\n`;
+  }
+  if (simState) txt += '─────────────────────\n' + `t  = ${simState.time.toFixed(3)} s`;
+  document.getElementById('info-box').textContent = txt;
+}
+
+function drawPhaseCornerLabel(c2d, pad, imgKey) {
+  mimg(c2d, imgKey, pad.l + 4, pad.t + 3);
+}
+function clipPhasePlotArea(c2d, pad, W, H) {
+  const pb = H - pad.b;
+  c2d.beginPath();
+  c2d.rect(pad.l, pad.t, W - pad.l - pad.r, pb - pad.t);
+  c2d.clip();
+}
+/** x: name centered below x-tick row; y: name to the left of y-tick column (rotated). */
+function drawPhaseAxisNames(c2d, pad, W, H, keyX, keyY) {
+  const imgX = MI[keyX], imgY = MI[keyY];
+  if (!imgX || !imgY) return;
+  const plotBot = H - pad.b;
+  const plotW = W - pad.l - pad.r;
+  const cx = pad.l + plotW / 2;
+  const xNameTop = plotBot + PHASE_X_TICK_BELOW + PHASE_X_NAME_TOP_GAP;
+  c2d.drawImage(imgX, Math.round(cx - imgX.naturalWidth / 2), Math.round(xNameTop));
+  c2d.save();
+  c2d.translate(PHASE_Y_NAME_CX, (pad.t + plotBot) * 0.5);
+  c2d.rotate(-Math.PI / 2);
+  c2d.drawImage(imgY, -imgY.naturalWidth / 2, -imgY.naturalHeight / 2);
+  c2d.restore();
+}
+
+function drawGrid(c2d, view, pad, W, H, xLabelFn, yLabelFn, opts) {
+  opts = opts || {};
+  const timeAxis = !!opts.timeAxis;
+  const phaseProj = !!opts.phaseProjection;
+  const tickFont = phaseProj ? PHASE_PROJ_FONT : '9px sans-serif';
+  const tickClr = phaseProj ? PHASE_PROJ_CLR : (timeAxis ? 'rgba(255,255,255,0.92)' : '#888');
+  const xTicks=niceTicks(view.xMin, view.xMax, 5);
+  const yTicks=niceTicks(view.yMin, view.yMax, 5);
+  const plotBot = H - pad.b;
+  c2d.font = tickFont;
+  for (const v of xTicks) {
+    const x=view.toX(v,pad,W); if(x<pad.l||x>W-pad.r) continue;
+    c2d.beginPath(); c2d.moveTo(x,pad.t); c2d.lineTo(x,plotBot);
+    c2d.strokeStyle='rgba(255,255,255,0.07)'; c2d.lineWidth=1; c2d.stroke();
+    c2d.fillStyle=tickClr; c2d.textAlign='center';
+    const xTickY = phaseProj ? (plotBot + PHASE_X_TICK_BELOW) : (H - 4);
+    c2d.fillText(xLabelFn(v), x, xTickY);
+  }
+  c2d.textAlign='right';
+  for (const v of yTicks) {
+    const y=view.toY(v,pad,H); if(y<pad.t||y>plotBot) continue;
+    c2d.beginPath(); c2d.moveTo(pad.l,y); c2d.lineTo(W-pad.r,y);
+    c2d.strokeStyle=Math.abs(v)<1e-9?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.07)';
+    c2d.lineWidth=1; c2d.stroke();
+    c2d.fillStyle=tickClr; c2d.textAlign='right';
+    const yTickX = phaseProj ? (pad.l - PHASE_Y_TICK_INSET) : (pad.l - 3);
+    c2d.fillText(yLabelFn(v), yTickX, y+3);
+  }
+  c2d.textAlign='left';
+  c2d.strokeStyle='rgba(255,255,255,0.2)'; c2d.lineWidth=1;
+  c2d.beginPath(); c2d.moveTo(pad.l,pad.t); c2d.lineTo(pad.l,plotBot); c2d.stroke();
+  c2d.strokeStyle=timeAxis?'rgba(255,255,255,0.95)':'rgba(255,255,255,0.2)';
+  c2d.lineWidth=timeAxis?2:1;
+  c2d.beginPath(); c2d.moveTo(pad.l,plotBot); c2d.lineTo(W-pad.r,plotBot); c2d.stroke();
+}
+
+function drawX1Time(x1) {
+  const cv=document.getElementById('x1-time-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=TIME_PAD;
+  if (!timeView1.active) {
+    const tMax=simHistory.length>1?simHistory[simHistory.length-1].t:0;
+    const tWin=Math.max(tMax,4);
+    timeView1.xMin=Math.max(0,tMax-tWin); timeView1.xMax=timeView1.xMin+tWin;
+    let vMin=x1, vMax=x1;
+    for (const p of simHistory) {
+      if(p.x1<vMin)vMin=p.x1; if(p.x1>vMax)vMax=p.x1;
+    }
+    const span=Math.max(vMax-vMin,0.05);
+    timeView1.yMin=vMin-span*0.25;
+    timeView1.yMax=vMax+span*0.25;
+  }
+  c.clearRect(0,0,W,H);
+  drawGrid(c, timeView1, pad, W, H, v=>v.toFixed(v<10?1:0), v=>v.toFixed(3));
+  mimg(c,'x1t', pad.l+4, pad.t+1);
+  mimg(c,'t_gray', W-pad.r-9, H-pad.b+14);
+  const y0 = timeView1.toY(0, pad, H);
+  if (y0 >= pad.t && y0 <= H - pad.b) {
+    c.beginPath(); c.moveTo(pad.l, y0); c.lineTo(W - pad.r, y0);
+    c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1.5; c.stroke();
+  }
+  if (simHistory.length < 2) {
+    const y=timeView1.toY(x1,pad,H);
+    if(y>=pad.t&&y<=H-pad.b){ c.beginPath();c.arc(pad.l+10,y,4,0,2*Math.PI);c.fillStyle='#ffaa55';c.fill(); }
+    return;
+  }
+  c.strokeStyle='#00b4d8'; c.lineWidth=1.5; c.beginPath();
+  let started=false;
+  for (const p of simHistory) {
+    if(p.t<timeView1.xMin-0.01||p.t>timeView1.xMax+0.01){started=false;continue;}
+    const px=timeView1.toX(p.t,pad,W), py=timeView1.toY(p.x1,pad,H);
+    if(!started){c.moveTo(px,py);started=true;} else c.lineTo(px,py);
+  }
+  c.stroke();
+  const last=simHistory[simHistory.length-1];
+  const lx=timeView1.toX(last.t,pad,W), ly=timeView1.toY(last.x1,pad,H);
+  if(lx>=pad.l&&lx<=W-pad.r&&ly>=pad.t&&ly<=H-pad.b){
+    c.beginPath();c.arc(lx,ly,4,0,2*Math.PI);c.fillStyle='#ffdd57';c.fill();
+  }
+  if(timeView1.active){ c.fillStyle='rgba(233,69,96,0.6)'; c.font='bold 9px sans-serif'; c.fillText('🔒 zoom', W-pad.r-42, pad.t+10); }
+}
+
+function drawX2Time(x2) {
+  const cv=document.getElementById('x2-time-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=TIME_PAD;
+  if (!timeView2.active) {
+    const tMax=simHistory.length>1?simHistory[simHistory.length-1].t:0;
+    const tWin=Math.max(tMax,4);
+    timeView2.xMin=Math.max(0,tMax-tWin); timeView2.xMax=timeView2.xMin+tWin;
+    let vMin=x2, vMax=x2;
+    for (const p of simHistory) {
+      if(p.x2<vMin)vMin=p.x2; if(p.x2>vMax)vMax=p.x2;
+    }
+    const span=Math.max(vMax-vMin,0.05);
+    timeView2.yMin=vMin-span*0.25;
+    timeView2.yMax=vMax+span*0.25;
+  }
+  c.clearRect(0,0,W,H);
+  drawGrid(c, timeView2, pad, W, H, v=>v.toFixed(v<10?1:0), v=>v.toFixed(3));
+  mimg(c,'x2t', pad.l+4, pad.t+1);
+  mimg(c,'t_gray', W-pad.r-9, H-pad.b+14);
+  const y0 = timeView2.toY(0, pad, H);
+  if (y0 >= pad.t && y0 <= H - pad.b) {
+    c.beginPath(); c.moveTo(pad.l, y0); c.lineTo(W - pad.r, y0);
+    c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1.5; c.stroke();
+  }
+  if (simHistory.length < 2) {
+    const y=timeView2.toY(x2,pad,H);
+    if(y>=pad.t&&y<=H-pad.b){ c.beginPath();c.arc(pad.l+10,y,4,0,2*Math.PI);c.fillStyle='#7ec8e3';c.fill(); }
+    return;
+  }
+  c.strokeStyle='#7ec8e3'; c.lineWidth=1.5; c.beginPath();
+  let started=false;
+  for (const p of simHistory) {
+    if(p.t<timeView2.xMin-0.01||p.t>timeView2.xMax+0.01){started=false;continue;}
+    const px=timeView2.toX(p.t,pad,W), py=timeView2.toY(p.x2,pad,H);
+    if(!started){c.moveTo(px,py);started=true;} else c.lineTo(px,py);
+  }
+  c.stroke();
+  const last=simHistory[simHistory.length-1];
+  const lx=timeView2.toX(last.t,pad,W), ly=timeView2.toY(last.x2,pad,H);
+  if(lx>=pad.l&&lx<=W-pad.r&&ly>=pad.t&&ly<=H-pad.b){
+    c.beginPath();c.arc(lx,ly,4,0,2*Math.PI);c.fillStyle='#ffdd57';c.fill();
+  }
+  if(timeView2.active){ c.fillStyle='rgba(233,69,96,0.6)'; c.font='bold 9px sans-serif'; c.fillText('🔒 zoom', W-pad.r-42, pad.t+10); }
+}
+
+// U = 1/2 q^T K q with K = [[4k1+k2,-k2],[-k2,k2]]  =>  iso-U are ellipses in (x1,x2)
+function eigStiffness2(k1, k2) {
+  const a = 4 * k1 + k2, b = -k2, d = k2;
+  const tr = a + d;
+  const det = a * d - b * b;
+  const disc = Math.sqrt(Math.max(0, tr * tr - 4 * det));
+  const l1 = (tr + disc) / 2;
+  const l2 = (tr - disc) / 2;
+  let v1x, v1y;
+  if (Math.abs(b) > 1e-14) {
+    v1x = b; v1y = l1 - a;
+  } else {
+    v1x = 1; v1y = 0;
+  }
+  const n = Math.hypot(v1x, v1y);
+  v1x /= n; v1y /= n;
+  return { l1, l2, e1x: v1x, e1y: v1y, e2x: -v1y, e2y: v1x };
+}
+
+function drawPhaseX12(x1, x2, dx1, dx2) {
+  const cv=document.getElementById('phase-x12-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=PHASE_PAD;
+  const x10 = parseFloat(document.getElementById('x10-slider').value);
+  const x20 = parseFloat(document.getElementById('x20-slider').value);
+  const dx10 = parseFloat(document.getElementById('dx10-slider').value);
+  const dx20 = parseFloat(document.getElementById('dx20-slider').value);
+  const E0 = totalE(x10, x20, dx10, dx20);
+  const U0 = potentialU(x10, x20);
+  const UmaxPlot = Math.max(E0, U0 * 1.2, 0.02);
+  let xR = 0.15;
+  for (const p of simHistory) {
+    xR = Math.max(xR, Math.abs(p.x1), Math.abs(p.x2));
+  }
+  xR = Math.max(xR, Math.abs(x1), Math.abs(x2)) * 1.35 + 0.05;
+  phaseView12.setRange(-xR, xR, -xR, xR);
+
+  c.clearRect(0,0,W,H);
+  drawGrid(c, phaseView12, pad, W, H, v=>v.toFixed(2), v=>v.toFixed(2), { phaseProjection: true });
+
+  c.save();
+  clipPhasePlotArea(c, pad, W, H);
+  const { k1, k2 } = params;
+  const { l1, l2, e1x, e1y, e2x, e2y } = eigStiffness2(k1, k2);
+  const nLev = 16;
+  const Umin = UmaxPlot * 1e-4;
+  const ratio = UmaxPlot / Umin;
+  const Ns = 400;
+  for (let li = 1; li <= nLev; li++) {
+    const Ulev = Umin * Math.pow(ratio, (li - 1) / (nLev - 1));
+    const match = Math.abs(Ulev - U0) < Ulev * 0.12 + 1e-8;
+    const tLev = (li - 1) / Math.max(nLev - 1, 1);
+    const a = 0.45 + tLev * 0.35;
+    const col = match ? 'rgba(100,230,200,0.95)' : `rgba(78,205,196,${a.toFixed(3)})`;
+    const lw = match ? 2.4 : 1.2;
+    c.beginPath();
+    for (let i = 0; i <= Ns; i++) {
+      const ang = (i / Ns) * 2 * Math.PI;
+      const s1 = Math.sqrt(2 * Ulev / Math.max(l1, 1e-18)) * Math.cos(ang);
+      const s2 = Math.sqrt(2 * Ulev / Math.max(l2, 1e-18)) * Math.sin(ang);
+      const x1e = s1 * e1x + s2 * e2x;
+      const x2e = s1 * e1y + s2 * e2y;
+      const px = phaseView12.toX(x1e, pad, W), py = phaseView12.toY(x2e, pad, H);
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath();
+    c.strokeStyle = col; c.lineWidth = lw; c.stroke();
+  }
+
+  const ox = phaseView12.toX(0, pad, W), oy = phaseView12.toY(0, pad, H);
+  if (ox >= pad.l && ox <= W - pad.r && oy >= pad.t && oy <= H - pad.b) {
+    c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI);
+    c.fillStyle = '#06d6a0'; c.fill();
+  }
+
+  if (simHistory.length > 1) {
+    c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
+    c.beginPath();
+    c.moveTo(phaseView12.toX(simHistory[0].x1, pad, W), phaseView12.toY(simHistory[0].x2, pad, H));
+    for (let i = 1; i < simHistory.length; i++) {
+      c.lineTo(phaseView12.toX(simHistory[i].x1, pad, W), phaseView12.toY(simHistory[i].x2, pad, H));
+    }
+    c.stroke();
+    c.shadowBlur = 0;
+  }
+
+  const cpx = phaseView12.toX(x1, pad, W), cpy = phaseView12.toY(x2, pad, H);
+  if (cpx >= pad.l && cpx <= W - pad.r && cpy >= pad.t && cpy <= H - pad.b) {
+    c.beginPath(); c.arc(cpx, cpy, 5, 0, 2 * Math.PI);
+    c.fillStyle = '#ffdd57'; c.fill(); c.strokeStyle = '#aa8800'; c.lineWidth = 1.5; c.stroke();
+  }
+  c.restore();
+
+  drawPhaseCornerLabel(c, pad, 'ph_U');
+  drawPhaseAxisNames(c, pad, W, H, 'ph_x1', 'ph_x2');
+  if (phaseView12.active) {
+    c.fillStyle = 'rgba(233,69,96,0.6)'; c.font = 'bold 9px sans-serif';
+    c.fillText('🔒 zoom', W - pad.r - 42, pad.t + 10);
+  }
+}
+
+function drawPhaseDx(x1, x2, dx1, dx2) {
+  const cv = document.getElementById('phase-dx-canvas');
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = PHASE_PAD;
+  const x10 = parseFloat(document.getElementById('x10-slider').value);
+  const x20 = parseFloat(document.getElementById('x20-slider').value);
+  const dx10 = parseFloat(document.getElementById('dx10-slider').value);
+  const dx20 = parseFloat(document.getElementById('dx20-slider').value);
+  const E0 = totalE(x10, x20, dx10, dx20);
+  const T0 = kineticT(dx10, dx20);
+  const TmaxPlot = Math.max(E0, T0 * 1.2, 0.01);
+  let vR = 0.2;
+  for (const p of simHistory) {
+    vR = Math.max(vR, Math.abs(p.dx1), Math.abs(p.dx2));
+  }
+  vR = Math.max(vR, Math.abs(dx1), Math.abs(dx2)) * 1.35 + 0.05;
+  phaseViewD.setRange(-vR, vR, -vR, vR);
+
+  c.clearRect(0, 0, W, H);
+  drawGrid(c, phaseViewD, pad, W, H, v => v.toFixed(2), v => v.toFixed(2), { phaseProjection: true });
+
+  c.save();
+  clipPhasePlotArea(c, pad, W, H);
+  const { M1, m2 } = params;
+  const nLev = 16;
+  const Tmin = TmaxPlot * 1e-4;
+  const ratio = TmaxPlot / Tmin;
+  const Ns = 400;
+  for (let li = 1; li <= nLev; li++) {
+    const Tlev = Tmin * Math.pow(ratio, (li - 1) / (nLev - 1));
+    const match = Math.abs(Tlev - T0) < Tlev * 0.12 + 1e-8;
+    const tLev = (li - 1) / Math.max(nLev - 1, 1);
+    const a = 0.45 + tLev * 0.35;
+    const col = match ? 'rgba(230,200,100,0.95)' : `rgba(200,170,80,${a.toFixed(3)})`;
+    const lw = match ? 2.4 : 1.2;
+    c.beginPath();
+    for (let i = 0; i <= Ns; i++) {
+      const ang = (i / Ns) * 2 * Math.PI;
+      const d1 = Math.sqrt(2 * Tlev / Math.max(M1, 1e-18)) * Math.cos(ang);
+      const d2 = Math.sqrt(2 * Tlev / Math.max(m2, 1e-18)) * Math.sin(ang);
+      const px = phaseViewD.toX(d1, pad, W), py = phaseViewD.toY(d2, pad, H);
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath();
+    c.strokeStyle = col; c.lineWidth = lw; c.stroke();
+  }
+
+  const ox = phaseViewD.toX(0, pad, W), oy = phaseViewD.toY(0, pad, H);
+  if (ox >= pad.l && ox <= W - pad.r && oy >= pad.t && oy <= H - pad.b) {
+    c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI);
+    c.fillStyle = '#06d6a0'; c.fill();
+  }
+
+  if (simHistory.length > 1) {
+    c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
+    c.beginPath();
+    c.moveTo(phaseViewD.toX(simHistory[0].dx1, pad, W), phaseViewD.toY(simHistory[0].dx2, pad, H));
+    for (let i = 1; i < simHistory.length; i++) {
+      c.lineTo(phaseViewD.toX(simHistory[i].dx1, pad, W), phaseViewD.toY(simHistory[i].dx2, pad, H));
+    }
+    c.stroke();
+    c.shadowBlur = 0;
+  }
+
+  const cpx = phaseViewD.toX(dx1, pad, W), cpy = phaseViewD.toY(dx2, pad, H);
+  if (cpx >= pad.l && cpx <= W - pad.r && cpy >= pad.t && cpy <= H - pad.b) {
+    c.beginPath(); c.arc(cpx, cpy, 5, 0, 2 * Math.PI);
+    c.fillStyle = '#ffdd57'; c.fill(); c.strokeStyle = '#aa8800'; c.lineWidth = 1.5; c.stroke();
+  }
+  c.restore();
+
+  drawPhaseCornerLabel(c, pad, 'ph_T');
+  drawPhaseAxisNames(c, pad, W, H, 'ph_dx1', 'ph_dx2');
+  if (phaseViewD.active) {
+    c.fillStyle = 'rgba(233,69,96,0.6)'; c.font = 'bold 9px sans-serif';
+    c.fillText('🔒 zoom', W - pad.r - 42, pad.t + 10);
+  }
+}
+
+/** (x1, dx1) projection only — full state is in R^4; no false invariant level curves */
+function drawPhaseX1d(x1, x2, dx1, dx2) {
+  const cv = document.getElementById('phase-x1dx-canvas');
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = PHASE_PAD;
+  let xR = 0.12, dR = 0.12;
+  for (const p of simHistory) {
+    xR = Math.max(xR, Math.abs(p.x1));
+    dR = Math.max(dR, Math.abs(p.dx1));
+  }
+  xR = Math.max(xR, Math.abs(x1)) * 1.35 + 0.04;
+  dR = Math.max(dR, Math.abs(dx1)) * 1.35 + 0.04;
+  phaseViewX1d.setRange(-xR, xR, -dR, dR);
+
+  c.clearRect(0, 0, W, H);
+  drawGrid(c, phaseViewX1d, pad, W, H, v => v.toFixed(2), v => v.toFixed(2), { phaseProjection: true });
+
+  c.save();
+  clipPhasePlotArea(c, pad, W, H);
+
+  const ox = phaseViewX1d.toX(0, pad, W), oy = phaseViewX1d.toY(0, pad, H);
+  if (ox >= pad.l && ox <= W - pad.r && oy >= pad.t && oy <= H - pad.b) {
+    c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI);
+    c.fillStyle = '#06d6a0'; c.fill();
+  }
+  if (simHistory.length > 1) {
+    c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
+    c.beginPath();
+    c.moveTo(phaseViewX1d.toX(simHistory[0].x1, pad, W), phaseViewX1d.toY(simHistory[0].dx1, pad, H));
+    for (let i = 1; i < simHistory.length; i++) {
+      c.lineTo(phaseViewX1d.toX(simHistory[i].x1, pad, W), phaseViewX1d.toY(simHistory[i].dx1, pad, H));
+    }
+    c.stroke();
+    c.shadowBlur = 0;
+  }
+  const cpx = phaseViewX1d.toX(x1, pad, W), cpy = phaseViewX1d.toY(dx1, pad, H);
+  if (cpx >= pad.l && cpx <= W - pad.r && cpy >= pad.t && cpy <= H - pad.b) {
+    c.beginPath(); c.arc(cpx, cpy, 5, 0, 2 * Math.PI);
+    c.fillStyle = '#ffdd57'; c.fill(); c.strokeStyle = '#aa8800'; c.lineWidth = 1.5; c.stroke();
+  }
+  c.restore();
+
+  drawPhaseAxisNames(c, pad, W, H, 'ph_x1', 'ph_dx1');
+  if (phaseViewX1d.active) {
+    c.fillStyle = 'rgba(233,69,96,0.6)'; c.font = 'bold 9px sans-serif';
+    c.fillText('🔒 zoom', W - pad.r - 42, pad.t + 10);
+  }
+}
+
+/** (x2, dx2) projection only — full state is in R^4; no false invariant level curves */
+function drawPhaseX2d(x1, x2, dx1, dx2) {
+  const cv = document.getElementById('phase-x2dx-canvas');
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = PHASE_PAD;
+  let xR = 0.12, dR = 0.12;
+  for (const p of simHistory) {
+    xR = Math.max(xR, Math.abs(p.x2));
+    dR = Math.max(dR, Math.abs(p.dx2));
+  }
+  xR = Math.max(xR, Math.abs(x2)) * 1.35 + 0.04;
+  dR = Math.max(dR, Math.abs(dx2)) * 1.35 + 0.04;
+  phaseViewX2d.setRange(-xR, xR, -dR, dR);
+
+  c.clearRect(0, 0, W, H);
+  drawGrid(c, phaseViewX2d, pad, W, H, v => v.toFixed(2), v => v.toFixed(2), { phaseProjection: true });
+
+  c.save();
+  clipPhasePlotArea(c, pad, W, H);
+
+  const ox = phaseViewX2d.toX(0, pad, W), oy = phaseViewX2d.toY(0, pad, H);
+  if (ox >= pad.l && ox <= W - pad.r && oy >= pad.t && oy <= H - pad.b) {
+    c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI);
+    c.fillStyle = '#06d6a0'; c.fill();
+  }
+  if (simHistory.length > 1) {
+    c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
+    c.beginPath();
+    c.moveTo(phaseViewX2d.toX(simHistory[0].x2, pad, W), phaseViewX2d.toY(simHistory[0].dx2, pad, H));
+    for (let i = 1; i < simHistory.length; i++) {
+      c.lineTo(phaseViewX2d.toX(simHistory[i].x2, pad, W), phaseViewX2d.toY(simHistory[i].dx2, pad, H));
+    }
+    c.stroke();
+    c.shadowBlur = 0;
+  }
+  const cpx = phaseViewX2d.toX(x2, pad, W), cpy = phaseViewX2d.toY(dx2, pad, H);
+  if (cpx >= pad.l && cpx <= W - pad.r && cpy >= pad.t && cpy <= H - pad.b) {
+    c.beginPath(); c.arc(cpx, cpy, 5, 0, 2 * Math.PI);
+    c.fillStyle = '#ffdd57'; c.fill(); c.strokeStyle = '#aa8800'; c.lineWidth = 1.5; c.stroke();
+  }
+  c.restore();
+
+  drawPhaseAxisNames(c, pad, W, H, 'ph_x2', 'ph_dx2');
+  if (phaseViewX2d.active) {
+    c.fillStyle = 'rgba(233,69,96,0.6)'; c.font = 'bold 9px sans-serif';
+    c.fillText('🔒 zoom', W - pad.r - 42, pad.t + 10);
+  }
+}
+
+function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 40; }
+
+function startSim() {
+  if (simRunning) return;
+  const x10 = parseFloat(document.getElementById('x10-slider').value);
+  const dx10 = parseFloat(document.getElementById('dx10-slider').value);
+  const x20 = parseFloat(document.getElementById('x20-slider').value);
+  const dx20 = parseFloat(document.getElementById('dx20-slider').value);
+  simState = { x1: x10, dx1: dx10, x2: x20, dx2: dx20, time: 0 };
+  simHistory = [{ t: 0, x1: x10, dx1: dx10, x2: x20, dx2: dx20 }];
+  simRunning = true;
+  let lastTime = performance.now();
+  function step(now) {
+    if (!simRunning) return;
+    const tmax = getTMax();
+    if (simState.time >= tmax) { stopSim(); draw(simState.x1, simState.dx1, simState.x2, simState.dx2); return; }
+    const realDt = Math.min((now - lastTime) / 1000, 0.04);
+    lastTime = now;
+    const substeps = 30;
+    const dt = realDt / substeps;
+    for (let i = 0; i < substeps; i++) {
+      simState = Object.assign(simState, rk4Step(simState, dt));
+      simState.time += dt;
+      if (simState.time >= tmax) break;
+    }
+    simHistory.push({ t: simState.time, x1: simState.x1, dx1: simState.dx1, x2: simState.x2, dx2: simState.dx2 });
+    if (simHistory.length > 6000) simHistory.shift();
+    draw(simState.x1, simState.dx1, simState.x2, simState.dx2);
+    animId = requestAnimationFrame(step);
+  }
+  animId = requestAnimationFrame(step);
+}
+function stopSim() { simRunning = false; if (animId) cancelAnimationFrame(animId); }
+function resetSim() { stopSim(); simState = null; simHistory = []; draw(); }
+
+document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1 / 1.13 : 1.13;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  mainView.offX = (mx - canvas.width * 0.5) * (1 - factor) + mainView.offX * factor;
+  mainView.offY = (my - canvas.height * 0.5) * (1 - factor) + mainView.offY * factor;
+  mainView.zoom *= factor;
+  if (!simRunning) draw();
+}, { passive: false });
+{
+  let mainDrag = false, mlx = 0, mly = 0;
+  canvas.addEventListener('mousedown', e => { mainDrag = true; mlx = e.clientX; mly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!mainDrag) return;
+    const rect = canvas.getBoundingClientRect();
+    mainView.offX += (e.clientX - mlx) * (canvas.width / rect.width);
+    mainView.offY += (e.clientY - mly) * (canvas.height / rect.height);
+    mlx = e.clientX; mly = e.clientY;
+    if (!simRunning) draw();
+  });
+  window.addEventListener('mouseup', () => { mainDrag = false; });
+  canvas.addEventListener('dblclick', () => { mainView.offX = 0; mainView.offY = 35; mainView.zoom = 1; if (!simRunning) draw(); });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId);
+  const panel = document.getElementById(panelId);
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); if (!simRunning) draw(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * 0.45));
+    panel.style.width = w + 'px'; resize(); if (!simRunning) draw();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+setupResizer('left-resizer', 'left-panel', 'left');
+setupResizer('right-resizer', 'right-panel', 'right');
+
+async function initApp() {
+  await preloadMath();
+  MathJax.typeset();
+  setupPanZoom('x1-time-canvas', timeView1, TIME_PAD, () => {
+    if (!simRunning) draw(); else drawX1Time(simState.x1);
+  });
+  setupPanZoom('x2-time-canvas', timeView2, TIME_PAD, () => {
+    if (!simRunning) draw(); else drawX2Time(simState.x2);
+  });
+  setupPanZoom('phase-x12-canvas', phaseView12, PHASE_PAD, () => {
+    if (!simRunning) draw(); else drawPhaseX12(simState.x1, simState.x2, simState.dx1, simState.dx2);
+  });
+  setupPanZoom('phase-dx-canvas', phaseViewD, PHASE_PAD, () => {
+    if (!simRunning) draw(); else drawPhaseDx(simState.x1, simState.x2, simState.dx1, simState.dx2);
+  });
+  setupPanZoom('phase-x1dx-canvas', phaseViewX1d, PHASE_PAD, () => {
+    if (!simRunning) draw(); else drawPhaseX1d(simState.x1, simState.x2, simState.dx1, simState.dx2);
+  });
+  setupPanZoom('phase-x2dx-canvas', phaseViewX2d, PHASE_PAD, () => {
+    if (!simRunning) draw(); else drawPhaseX2d(simState.x1, simState.x2, simState.dx1, simState.dx2);
+  });
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  document.getElementById('btn-show-equations').addEventListener('click', () => {
+    const eqOverlay = document.getElementById('eq-overlay');
+    eqOverlay.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]);
+  });
+
+  document.getElementById('chk-show-forces').addEventListener('change', () => {
+    if (simRunning && simState) draw(simState.x1, simState.dx1, simState.x2, simState.dx2);
+    else draw();
+  });
+
+  resize(); readParams(); draw();
+}
+
+(function () {
+  const overlay = document.getElementById('help-overlay');
+  document.getElementById('help-close').addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+  overlay.classList.remove('hidden');
+
+  const eqOverlay = document.getElementById('eq-overlay');
+  document.getElementById('eq-close').addEventListener('click', () => eqOverlay.classList.add('hidden'));
+  eqOverlay.addEventListener('click', e => { if (e.target === eqOverlay) eqOverlay.classList.add('hidden'); });
+
+  resize(); readParams(); draw();
+})();
+</script>
+</body>
+</html>
