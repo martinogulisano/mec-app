@@ -6,8 +6,8 @@
 <title>Glifo a Croce — Simulatore Interattivo</title>
 <script>
 window.MathJax = {
-  tex: { inlineMath: [['$','$']] },
-  loader: { load: ['input/tex', 'output/svg'] },
+  tex: { inlineMath: [['$','$'], ['\\(','\\)']], packages: { '[+]': ['color'] } },
+  loader: { load: ['input/tex', 'output/svg', '[tex]/color'] },
   svg: { fontCache: 'local' },
   startup: {
     ready() { MathJax.startup.defaultReady(); MathJax.startup.promise.then(initApp); }
@@ -121,6 +121,8 @@ canvas#canvas:active { cursor:grabbing; }
 #info-box { background:rgba(0,0,0,.3); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; }
 .plot-hint { font-size:.65em; color:rgba(255,255,255,.25); text-align:right; margin-top:2px; }
 mjx-container { display:inline !important; }
+/* Equations modal: block display math + breathing room (overrides rule above) */
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.95em 0 !important; width:100%; text-align:center; }
 </style>
 </head>
 <body>
@@ -144,13 +146,29 @@ mjx-container { display:inline !important; }
 
 <!-- Equations modal (LaTeX); starts closed (class="hidden") -->
 <div id="eq-overlay" class="hidden">
-  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px 32px;max-width:720px;width:92%;color:#c9d1d9;font-size:.9em;position:relative;">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px 32px;max-width:860px;width:94%;max-height:85vh;overflow-y:auto;color:#c9d1d9;font-size:.88em;position:relative;">
     <h3 style="color:#e6edf3;margin-bottom:14px;">Equations</h3>
-    <div id="eq-content" style="line-height:1.8;">
-      \[ J_{\mathrm{app}}(\theta)\, \ddot{\theta} + \frac{1}{2}\,\frac{\partial J_{\mathrm{app}}(\theta)}{\partial\theta}\,\dot{\theta}^2 + c L^2 \cos^2(\alpha+\theta)\,\dot{\theta} + k L \sin(\alpha+\theta)\bigl(a - L \cos(\alpha+\theta)\bigr) = 0 \]
-      <div style="height:0.9em;"></div>
-      \[ L = \sqrt{a^2+b^2}, \qquad \tan\alpha = \frac{b}{a}, \qquad \]
-      \[ J_{\mathrm{app}}(\theta) = \bigl( m_A \sin^2(\alpha+\theta) + m_B \cos^2(\alpha+\theta) \bigr) L^2 \]
+    <div id="eq-content" style="line-height:1.75;">
+      <p style="color:#8b949e;font-weight:600;margin:0 0 6px 0;font-size:0.95em;">Geometry</p>
+      \[ L = \sqrt{a^2+b^2}, \qquad \tan\alpha = \frac{b}{a} \]
+
+      <p style="color:#8b949e;font-weight:600;margin:22px 0 8px 0;font-size:0.95em;">Dynamics in \(\theta\)</p>
+      \[ J(\theta)\,\ddot{\theta} + \frac{1}{2}\,\frac{\partial J(\theta)}{\partial\theta}\,\dot{\theta}^2 + c\,L^2\cos^2(\alpha+\theta)\,\dot{\theta} + k\,L\sin(\alpha+\theta)\bigl(a - L\cos(\alpha+\theta)\bigr) = 0 \]
+      \[ \text{where}\quad J(\theta) = \bigl( m_A \sin^2(\alpha+\theta) + m_B \cos^2(\alpha+\theta) \bigr)\,L^2 \]
+
+      <p style="color:#8b949e;font-weight:600;margin:22px 0 8px 0;font-size:0.95em;">Linearized dynamics in \(\theta\)</p>
+      \[ (m_A b^2 + m_B a^2)\,\ddot{\theta} + c\,a^2\,\dot{\theta} + k\,b^2\,\theta = 0 \]
+
+      <p style="color:#8b949e;font-weight:600;margin:22px 0 8px 0;font-size:0.95em;">Dynamics in \(x\)</p>
+      \[ m(x)\,\ddot{x} + \frac{1}{2}\,\frac{\partial m(x)}{\partial x}\,\dot{x}^2 + c\,\frac{(a-x)^2}{\textcolor[rgb]{0.494,0.722,0.851}{b^2+2ax-x^2}}\,\dot{x} + k\,x = 0 \]
+      \[ \text{where}\quad m(x) = m_A + m_B\,\frac{(a-x)^2}{\textcolor[rgb]{0.494,0.722,0.851}{b^2+2ax-x^2}} \]
+
+      <p style="color:#8b949e;font-weight:600;margin:22px 0 8px 0;font-size:0.95em;">Linearized dynamics in \(x\)</p>
+      \[ \left(m_A + \frac{a^2}{b^2}m_B\right)\ddot{x} + c\,\frac{a^2}{b^2}\,\dot{x} + k\,x = 0 \]
+
+      <p style="color:#8b949e;font-weight:600;margin:22px 0 8px 0;font-size:0.95em;">Coordinate change</p>
+      \[ \text{nonlinear:}\quad a-x = L\cos(\alpha+\theta) \]
+      \[ \text{linear:}\quad x = b\,\theta \]
     </div>
     <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;color:white;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
   </div>
