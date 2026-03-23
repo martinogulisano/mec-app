@@ -134,7 +134,7 @@ mjx-container { display:inline !important; }
       <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
       <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot</li>
       <li><strong>Double-click</strong> a plot to reset the view</li>
-      <li><strong>Linearized checkbox</strong> — overlay the linearized solution (dashed orange)</li>
+      <li><strong>Linearized (θ) / (x)</strong> — optional overlays (orange / green)</li>
       <li><strong>Scroll the right panel</strong> to explore all widgets</li>
     </ul>
     <div class="note">⚠ Designed for laptop/desktop — not tested on touch devices.</div>
@@ -214,8 +214,10 @@ mjx-container { display:inline !important; }
 
   <div class="section">
     <div class="section-title">Visualizzazione</div>
-    <div class="checkbox-row"><input type="checkbox" id="show-linear">
-      <label for="show-linear">Linearizzato</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="show-linear-theta">
+      <label for="show-linear-theta">Linearized (θ)</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="show-linear-x">
+      <label for="show-linear-x">Linearized (x)</label></div>
     <div style="margin-top:6px;">
       <button id="btn-show-equations" class="secondary" style="width:100%;">Show equations</button>
     </div>
@@ -504,7 +506,10 @@ wireSlider('a-slider',  'a-val',   v=>v.toFixed(2));
 wireSlider('b-slider',  'b-val',   v=>v.toFixed(2));
 wireSlider('th0-slider','th0-val', v=>v.toFixed(0)+'°');
 wireSlider('dth0-slider','dth0-val',v=>v.toFixed(1));
-document.querySelectorAll('.checkbox-row input').forEach(cb=>cb.addEventListener('change',()=>{if(!simRunning)draw();}));
+document.querySelectorAll('.checkbox-row input').forEach(cb=>cb.addEventListener('change',()=>{
+  if (simRunning && simState) draw(simState.th, simState.dth);
+  else draw();
+}));
 
 function setG(val) {
   document.getElementById('g-slider').value=val;
@@ -575,42 +580,52 @@ function accel_x(x_val, dx_val) {
   return L * Math.cos(ap) * dth * dth + L * s * accel(th, dth);
 }
 
-// ── Linearized system ─────────────────────────────────────────────────────────
-// θ = deviation from equilibrium; φ = θ.  J₀ φ̈ + Ceq φ̇ + Keq φ = 0
-// J₀ = g(0) at θ=0 (i.e. rod angle = alfa),  Keq = k L² sin²(alfa),  Ceq = c L² cos²(alfa)
-// φ(0), φ̇(0) from θ(0) and θ̇(0) sliders (same labels as startSim).
-function thLin(t) {
-  const {mA, mB, k, c, L, th0} = params;
-  const th0_rad = parseFloat(document.getElementById('th0-slider').value) * Math.PI/180;
-  const dth0    = parseFloat(document.getElementById('dth0-slider').value);
-  const phi0  = th0_rad;   // φ = θ (deviation), so φ(0) = θ(0)
-  const dphi0 = dth0;
-
-  const J0   = g(0);       // at equilibrium θ=0
-  const Keq  = k*L*L*Math.sin(th0)*Math.sin(th0);
-  const Ceq  = c*L*L*Math.cos(th0)*Math.cos(th0);
-  const wn   = Math.sqrt(Math.max(Keq,0) / Math.max(J0, 1e-14));
-  const zeta = Ceq / (2*Math.max(J0, 1e-14)*Math.max(wn, 1e-12));
-
-  let phi;
+// ── Linearized: M q̈ + C q̇ + k q = 0 (same ICs from sliders as startSim) ───────
+function solveLin2nd(M, Ccoef, kSpr, q0, dq0, t) {
+  if (M < 1e-14) return q0 + dq0 * t;
+  const wn = Math.sqrt(Math.max(kSpr, 0) / M);
+  const zeta = Ccoef / (2 * M * Math.max(wn, 1e-12));
+  let q;
   if (wn < 1e-10) {
-    phi = phi0 + dphi0*t;
+    q = q0 + dq0 * t;
   } else if (zeta < 1 - 1e-6) {
-    const wd = wn*Math.sqrt(1 - zeta*zeta);
-    const A  = phi0;
-    const B  = (dphi0 + zeta*wn*phi0) / wd;
-    phi = Math.exp(-zeta*wn*t)*(A*Math.cos(wd*t) + B*Math.sin(wd*t));
+    const wd = wn * Math.sqrt(1 - zeta * zeta);
+    const A = q0;
+    const B = (dq0 + zeta * wn * q0) / wd;
+    q = Math.exp(-zeta * wn * t) * (A * Math.cos(wd * t) + B * Math.sin(wd * t));
   } else if (zeta > 1 + 1e-6) {
-    const s1 = -wn*(zeta - Math.sqrt(zeta*zeta - 1));
-    const s2 = -wn*(zeta + Math.sqrt(zeta*zeta - 1));
-    const A  = (dphi0 - s2*phi0)/(s1 - s2);
-    const B  = phi0 - A;
-    phi = A*Math.exp(s1*t) + B*Math.exp(s2*t);
+    const s1 = -wn * (zeta - Math.sqrt(zeta * zeta - 1));
+    const s2 = -wn * (zeta + Math.sqrt(zeta * zeta - 1));
+    const A = (dq0 - s2 * q0) / (s1 - s2);
+    const B = q0 - A;
+    q = A * Math.exp(s1 * t) + B * Math.exp(s2 * t);
   } else {
-    const A = phi0, B = dphi0 + wn*phi0;
-    phi = Math.exp(-wn*t)*(A + B*t);
+    const A = q0, B = dq0 + wn * q0;
+    q = Math.exp(-wn * t) * (A + B * t);
   }
-  return th0 + phi;   // params.th0 = α; result is full rod angle α + φ(t)
+  return q;
+}
+// θ: (m_A b² + m_B a²) θ̈ + c a² θ̇ + k b² θ = 0  →  thLin returns full rod angle α + φ(t)
+function thLin(t) {
+  const {mA, mB, k, c, a, b, th0} = params;
+  const th0_rad = parseFloat(document.getElementById('th0-slider').value) * Math.PI / 180;
+  const dth0 = parseFloat(document.getElementById('dth0-slider').value);
+  const J0 = mA * b * b + mB * a * a;
+  const Keq = k * b * b;
+  const Ceq = c * a * a;
+  const phi = solveLin2nd(J0, Ceq, Keq, th0_rad, dth0, t);
+  return th0 + phi;
+}
+// x: (m_A + a²/b² m_B) ẍ + c a²/b² ẋ + k x = 0
+function xLin(t) {
+  const {mA, mB, k, c, a, b} = params;
+  const th0_rad = parseFloat(document.getElementById('th0-slider').value) * Math.PI / 180;
+  const dth0 = parseFloat(document.getElementById('dth0-slider').value);
+  const x0 = theta2x(th0_rad);
+  const xd0 = theta2dx(th0_rad, dth0);
+  const Mx = mA + (a * a) / (b * b) * mB;
+  const Cx = c * (a * a) / (b * b);
+  return solveLin2nd(Mx, Cx, k, x0, xd0, t);
 }
 
 // ── RK4 ──────────────────────────────────────────────────────────────────────
@@ -848,28 +863,37 @@ function draw(th_ov, dth_ov) {
     drawSpring(ctx, Acx+hsA, Acy, wCx, wCy, 5, '#f0c040');
   }
 
-  // ── Linearized overlay ────────────────────────────────────────────────────
-  if (document.getElementById('show-linear')?.checked) {
-    const t_cur = simState ? simState.time : 0;
-    const thL = thLin(t_cur);   // full rod angle α + φ(t); params.th0 is α (not the IC slider)
-    const AxL = L*Math.cos(thL);
-    const ByL = L*Math.sin(thL);
-
-    const [AcxL,AcyL]=w2c(AxL, 0);
-    const [BcxL,BcyL]=w2c(0, ByL);
-
-    ctx.beginPath(); ctx.moveTo(AcxL,AcyL); ctx.lineTo(BcxL,BcyL);
-    ctx.strokeStyle='rgba(255,165,0,0.30)'; ctx.lineWidth=2;
-    ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]);
-
-    roundRect(ctx, AcxL-hsA, AcyL-hsA, 2*hsA, 2*hsA, 6,
-              'rgba(255,165,0,0.15)', 'rgba(255,165,0,0.40)', 1.5);
-    roundRect(ctx, BcxL-hsB, BcyL-hsB, 2*hsB, 2*hsB, 6,
-              'rgba(255,165,0,0.15)', 'rgba(255,165,0,0.40)', 1.5);
-
-    ctx.font='bold 10px "Segoe UI",sans-serif';
-    ctx.fillStyle='rgba(255,165,0,0.65)';
-    ctx.fillText('lin', AcxL+hsA+3, AcyL-4);
+  // ── Linearized overlays (θ orange, x green) ─────────────────────────────────
+  const t_cur = simState ? simState.time : 0;
+  function drawLinRod(AxL, ByL, stroke, fillStroke, label) {
+    const [AcxL, AcyL] = w2c(AxL, 0);
+    const [BcxL, BcyL] = w2c(0, ByL);
+    ctx.beginPath(); ctx.moveTo(AcxL, AcyL); ctx.lineTo(BcxL, BcyL);
+    ctx.strokeStyle = stroke; ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
+    roundRect(ctx, AcxL - hsA, AcyL - hsA, 2 * hsA, 2 * hsA, 6, fillStroke[0], fillStroke[1], 1.5);
+    roundRect(ctx, BcxL - hsB, BcyL - hsB, 2 * hsB, 2 * hsB, 6, fillStroke[0], fillStroke[1], 1.5);
+    ctx.font = 'bold 10px "Segoe UI",sans-serif';
+    ctx.fillStyle = fillStroke[2];
+    ctx.fillText(label, AcxL + hsA + 3, AcyL - 4);
+  }
+  if (document.getElementById('show-linear-x')?.checked) {
+    const xL = xLin(t_cur);
+    const thDev = x2theta(xL);
+    if (!isNaN(thDev)) {
+      const ap = thDev + params.th0;
+      drawLinRod(L * Math.cos(ap), L * Math.sin(ap),
+        'rgba(46,200,90,0.38)',
+        ['rgba(46,200,90,0.12)', 'rgba(46,200,90,0.35)', 'rgba(46,200,90,0.75)'],
+        'lin x');
+    }
+  }
+  if (document.getElementById('show-linear-theta')?.checked) {
+    const thL = thLin(t_cur);
+    drawLinRod(L * Math.cos(thL), L * Math.sin(thL),
+      'rgba(255,165,0,0.35)',
+      ['rgba(255,165,0,0.15)', 'rgba(255,165,0,0.40)', 'rgba(255,165,0,0.65)'],
+      'lin θ');
   }
 
   // ── Mass mA ───────────────────────────────────────────────────────────────
@@ -1057,20 +1081,17 @@ function drawXTime(th) {
   }
   c.stroke();
 
-  // Linearized: φ = thLin(t) − α with α = params.th0; theta2x(φ) uses deviation φ
-  if (document.getElementById('show-linear')?.checked) {
-    const {th0}=params;
+  if (document.getElementById('show-linear-x')?.checked) {
     const N=400;
     c.beginPath(); let linStarted=false;
     for (let i=0;i<=N;i++) {
       const t=timeView.xMin+i*(timeView.xMax-timeView.xMin)/N;
       if(t<0){linStarted=false;continue;}
-      const phiLin=thLin(t)-th0;  // deviation φ
-      const xL=theta2x(phiLin);
+      const xL=xLin(t);
       const px=timeView.toX(t,pad,W), py=timeView.toY(xL,pad,H);
       if(!linStarted){c.moveTo(px,py);linStarted=true;} else c.lineTo(px,py);
     }
-    c.strokeStyle='rgba(255,165,0,0.75)'; c.lineWidth=1.5;
+    c.strokeStyle='rgba(46,200,90,0.9)'; c.lineWidth=1.5;
     c.setLineDash([5,4]); c.stroke(); c.setLineDash([]);
   }
 
@@ -1289,18 +1310,18 @@ function drawThetaTime(th) {
   }
   c.stroke();
 
-  if (document.getElementById('show-linear')?.checked) {
+  if (document.getElementById('show-linear-theta')?.checked) {
     const {th0}=params;
     const N=400;
     c.beginPath(); let linStarted=false;
     for (let i=0;i<=N;i++) {
       const t=timeViewTh.xMin+i*(timeViewTh.xMax-timeViewTh.xMin)/N;
       if(t<0){linStarted=false;continue;}
-      const phiLin=thLin(t)-th0;  // θ(t) plot shows deviation, not rod angle
+      const phiLin=thLin(t)-th0;
       const px=timeViewTh.toX(t,pad,W), py=timeViewTh.toY(phiLin,pad,H);
       if(!linStarted){c.moveTo(px,py);linStarted=true;} else c.lineTo(px,py);
     }
-    c.strokeStyle='rgba(255,165,0,0.75)'; c.lineWidth=1.5;
+    c.strokeStyle='rgba(255,165,0,0.9)'; c.lineWidth=1.5;
     c.setLineDash([5,4]); c.stroke(); c.setLineDash([]);
   }
 
