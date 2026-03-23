@@ -223,8 +223,8 @@ mjx-container { display:inline !important; }
   <div class="section">
     <div class="section-title">Condizioni iniziali</div>
     <div class="param-row"><label>$\theta(0)$ (°):</label>
-      <input type="range" id="th0-slider" min="-170" max="170" value="20" step="1">
-      <span class="val" id="th0-val">20°</span></div>
+      <input type="range" id="th0-slider" min="-170" max="170" value="0" step="1">
+      <span class="val" id="th0-val">0°</span></div>
     <div class="param-row"><label>$\dot{\theta}(0)$ (rad/s):</label>
       <input type="range" id="dth0-slider" min="-10" max="10" value="0" step="0.1">
       <span class="val" id="dth0-val">0.0</span></div>
@@ -386,6 +386,10 @@ async function preloadMath() {
     ['th_sm',   '\\theta',                '#888',                 13],
     ['mA_lbl',  'm_A',                    '#e94560',              13],
     ['mB_lbl',  'm_B',                    '#4a90d9',              13],
+    ['L_lbl',   'L',                      'rgba(230,230,240,0.95)', 15],
+    ['al_lbl',  '\\alpha',                'rgba(255,188,110,0.95)', 16],
+    ['a_lbl',   'a',                      'rgba(198,200,218,0.95)', 14],
+    ['b_lbl',   'b',                      'rgba(198,200,218,0.95)', 19],
   ];
   for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
 }
@@ -673,6 +677,36 @@ function w2c(wx, wy) {
 }
 function cLen(l) { return l * getScale(); }
 
+// Linear dimension (double arrow) in world coords; offset from rails for a / b quotes
+function drawDoubleArrowWorld(c2d, wx1, wy1, wx2, wy2, color, headPx = 8) {
+  const [x1, y1] = w2c(wx1, wy1);
+  const [x2, y2] = w2c(wx2, wy2);
+  const dx = x2 - x1, dy = y2 - y1;
+  const L = Math.hypot(dx, dy);
+  if (L < 3) return;
+  const ux = dx / L, uy = dy / L;
+  const px = -uy, py = ux;
+  c2d.strokeStyle = color;
+  c2d.lineWidth = 1.35;
+  c2d.beginPath();
+  c2d.moveTo(x1, y1);
+  c2d.lineTo(x2, y2);
+  c2d.stroke();
+  const h = headPx;
+  for (let t = 0; t < 2; t++) {
+    const ex = t ? x2 : x1, ey = t ? y2 : y1;
+    const dir = t ? -1 : 1;
+    const bx = ex + ux * dir * h, by = ey + uy * dir * h;
+    c2d.beginPath();
+    c2d.moveTo(ex, ey);
+    c2d.lineTo(bx + px * h * 0.42, by + py * h * 0.42);
+    c2d.lineTo(bx - px * h * 0.42, by - py * h * 0.42);
+    c2d.closePath();
+    c2d.fillStyle = color;
+    c2d.fill();
+  }
+}
+
 // ── Rounded rectangle ─────────────────────────────────────────────────────────
 function roundRect(c2d, x, y, w, h, r, fill, stroke, lw=1.5) {
   c2d.beginPath();
@@ -949,25 +983,112 @@ function draw(th_ov, dth_ov) {
     }
   }
 
-  // ── Angle θ arc (only when stopped and reset): center = rod midpoint, 30° clockwise, arrow on arc ─
-  if (!simRunning && simHistory.length === 0) {
-    const midX = (Ax + Bx) / 2, midY = (Ay + By) / 2;   // rod midpoint
-    const [cx, cy] = w2c(midX, midY);
-    const arcRad = 0.2;   // world units
+  // ── Geometry labels: a,b always; L when not simulating; α and θ only at θ=0 and not simulating ─
+  {
+    const dimCol = 'rgba(198,200,218,0.82)';
+    const aEq = params.a, bEq = params.b;
+    const vOffPx = Math.max(hsA, hsB) + cLen(0.15);
+    const vOffWorld = vOffPx / getScale();
+    const gapPastVersor = 0.07;
+    const yDimA = -(vOffWorld + gapPastVersor + 0.08);
+    const xDimB = -(vOffWorld + gapPastVersor);
+
+    if (aEq > 0.03) {
+      drawDoubleArrowWorld(ctx, 0, yDimA, aEq, yDimA, dimCol);
+      const [mx, my] = w2c(aEq * 0.5, yDimA - 0.08);
+      const im = MI['a_lbl'];
+      if (im) mimg(ctx, 'a_lbl', mx, my - im.naturalHeight / 2, 'center');
+    }
+    if (bEq > 0.03) {
+      drawDoubleArrowWorld(ctx, xDimB, 0, xDimB, bEq, dimCol);
+      const [mx, my] = w2c(xDimB - 0.06, bEq * 0.5);
+      const im = MI['b_lbl'];
+      if (im) mimg(ctx, 'b_lbl', mx - im.naturalWidth / 2, my - im.naturalHeight / 2);
+    }
+  }
+
+  if (!simRunning) {
+    const mxL = (Ax + Bx) * 0.5, myL = (Ay + By) * 0.5;
+    const rdx = Bx - Ax, rdy = By - Ay;
+    const rl = Math.hypot(rdx, rdy) || 1;
+    const nx = -rdy / rl, ny = rdx / rl;
+    const [lxL, lyL] = w2c(mxL + nx * 0.15, myL + ny * 0.15);
+    const lImg = MI['L_lbl'];
+    if (lImg) mimg(ctx, 'L_lbl', lxL - lImg.naturalWidth / 2, lyL - lImg.naturalHeight / 2);
+  }
+
+  if (!simRunning && Math.abs(th) < 1e-5) {
+    const alCol = 'rgba(255,188,110,0.88)';
+    const arcR = L / 3;
+    // α = ∠BAO at A: arc on the exterior side of the triangle (other wedge between A→B and A→O)
+    {
+      const [pAx, pAy] = w2c(Ax, Ay);
+      const [pOx, pOy] = w2c(0, 0);
+      const [pBx, pBy] = w2c(Bx, By);
+      const angAB = Math.atan2(pBy - pAy, pBx - pAx);
+      const angAO = Math.atan2(pOy - pAy, pOx - pAx);
+      let minor = angAO - angAB;
+      while (minor > Math.PI) minor -= 2 * Math.PI;
+      while (minor <= -Math.PI) minor += 2 * Math.PI;
+      const useCcw = !(minor > 0);
+      const rA = cLen(arcR);
+      ctx.beginPath();
+      ctx.arc(pAx, pAy, rA, angAB, angAO, useCcw);
+      ctx.strokeStyle = alCol;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const labelWx = params.a - (L / 2.5) * Math.cos(alpha / 2);
+      const labelWy = (L / 2.5) * Math.sin(alpha / 2);
+      const [mcx, mcy] = w2c(labelWx, labelWy);
+      const aim = MI['al_lbl'];
+      if (aim) mimg(ctx, 'al_lbl', mcx - aim.naturalWidth / 2, mcy - aim.naturalHeight / 2);
+
+      // Clockwise-sense arrow: tip and tail on circle, explicit world coords (θ=0, α = rod inclination)
+      const epsArr = 0.22;
+      const pa = params.a;
+      const tipWx = pa - (L / 3) * Math.cos(alpha);
+      const tipWy = (L / 3) * Math.sin(alpha);
+      const tailWx = pa - (L / 3) * Math.cos(alpha - epsArr);
+      const tailWy = (L / 3) * Math.sin(alpha - epsArr);
+      const [tx, ty] = w2c(tipWx, tipWy);
+      const [hx, hy] = w2c(tailWx, tailWy);
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(tx, ty);
+      ctx.strokeStyle = alCol;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      const arrAng = Math.atan2(ty - hy, tx - hx);
+      const ah = 13;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - ah * Math.cos(arrAng) + ah * 0.38 * Math.cos(arrAng + Math.PI / 2),
+                 ty - ah * Math.sin(arrAng) + ah * 0.38 * Math.sin(arrAng + Math.PI / 2));
+      ctx.lineTo(tx - ah * Math.cos(arrAng) - ah * 0.38 * Math.cos(arrAng + Math.PI / 2),
+                 ty - ah * Math.sin(arrAng) - ah * 0.38 * Math.sin(arrAng + Math.PI / 2));
+      ctx.closePath();
+      ctx.fillStyle = alCol;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    const [cx, cy] = w2c(Ax, Ay);
+    const arcRad = arcR;
     const r = cLen(arcRad);
     const deg70 = 70 * Math.PI/180;
-    const rodAngle = Math.atan2(By - Ay, Bx - Ax);   // rod direction (world, y up)
-    // Arc from rod going 70° clockwise: world rodAngle → rodAngle-70° → canvas -rodAngle to -rodAngle+70°
+    const rodAngle = Math.atan2(By - Ay, Bx - Ax);
     ctx.beginPath();
     ctx.arc(cx, cy, r, -rodAngle, -rodAngle + deg70);
     ctx.strokeStyle = 'rgba(78,205,196,0.85)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    // Arrowhead at arc end (70° point): tip on arc, tangent = clockwise direction
     const endAngleCanvas = -rodAngle + deg70;
     const tipX = cx + r * Math.cos(endAngleCanvas);
     const tipY = cy + r * Math.sin(endAngleCanvas);
-    const tangentAngle = endAngleCanvas + Math.PI/2;   // tangent in canvas (clockwise = +90° from radius)
+    const tangentAngle = endAngleCanvas + Math.PI/2;
     const ah = 10;
     ctx.beginPath();
     ctx.moveTo(tipX, tipY);
@@ -980,7 +1101,7 @@ function draw(th_ov, dth_ov) {
     ctx.fill();
     const labelDist = arcRad + 0.08;
     const bisect = rodAngle - deg70/2;
-    const [lx, ly] = w2c(midX + labelDist*Math.cos(bisect), midY + labelDist*Math.sin(bisect));
+    const [lx, ly] = w2c(Ax + labelDist*Math.cos(bisect), Ay + labelDist*Math.sin(bisect));
     const timg = MI['th_lbl'];
     if (timg) mimg(ctx, 'th_lbl', lx, ly - timg.naturalHeight/2, 'center');
   }
