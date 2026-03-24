@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Linked rods & springs — 3 DOF simulator</title>
+<title>3-DOF linearized system</title>
 <script>
 window.MathJax = {
   tex: { inlineMath: [['$','$'], ['\\(','\\)']], packages: { '[+]': ['color'] } },
@@ -181,8 +181,8 @@ mjx-container { display:inline !important; }
 </div>
 
 <div id="left-panel" class="panel">
-  <h1>Linked rods &amp; springs</h1>
-  <h2>3-DOF linearized simulator</h2>
+  <h1>Sistema linearizzato a 3 DOF</h1>
+  <h2>Simulatore dinamico</h2>
   <div style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
     Prof. Marco Gabiccini & Martino Gulisano<br>Meccanica Applicata alle Macchine<br>
     <span style="font-size:.9em;color:#666;">All rights reserved</span>
@@ -345,7 +345,7 @@ mjx-container { display:inline !important; }
 
 const AX = 0.1, AY = 0;
 const BX = 0.2;
-const DISK_R = 0.03;
+const DISK_R = 0.05;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -766,7 +766,7 @@ function draw(alphaO, dalphaO, betaO, dbetaO, gammaO, dgammaO) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const ROD1 = 'rgba(46, 200, 90, 0.58)';
-  const DISK3_FILL = 'rgba(46, 200, 90, 0.45)';
+  const DISK3_FILL = 'rgb(46, 200, 90)';
   const DISK3_STROKE = 'rgba(120, 245, 165, 0.98)';
   const ROD2 = 'rgba(74, 144, 217, 0.55)';
   const DISK4_FILL = 'rgba(255, 165, 0, 0.42)';
