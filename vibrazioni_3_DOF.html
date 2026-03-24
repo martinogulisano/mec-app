@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linked rods & springs — 3 DOF simulator</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'], ['\\(','\\)']], packages: { '[+]': ['color'] } },
+  loader: { load: ['input/tex', 'output/svg', '[tex]/color'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() { MathJax.startup.defaultReady(); MathJax.startup.promise.then(initApp); }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+:root { --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1),
+              min-width .25s cubic-bezier(.4,0,.2,1),
+              padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:320px; min-width:220px; max-width:48vw; }
+#right-panel { width:440px; min-width:200px; max-width:50vw; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-track { background:transparent; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.35); }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1000;
+}
+#help-overlay.hidden { display:none; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1000;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54; }
+#help-box {
+  background:#161b22; border:1px solid #30363d; border-radius:12px;
+  padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9;
+  font-size:.88em; line-height:1.6; position:relative;
+}
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close {
+  display:block; margin:16px auto 0;
+  background:#e94560; color:white; border:none;
+  padding:7px 28px; border-radius:6px; cursor:pointer;
+  font-size:.88em; font-weight:600;
+}
+#help-close:hover { background:#c73e54; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0;
+  transition:background .15s; position:relative; display:flex;
+  align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:rgba(10,30,60,0.92);
+  border:1px solid #444; border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; display:flex; align-items:center;
+  justify-content:center; z-index:10; padding:0; line-height:1;
+  transition:background .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle {
+  font-size:11px; color:#888; cursor:pointer; user-select:none; padding:0 3px;
+  line-height:1; transition:color .15s;
+}
+.sec-toggle:hover { color:var(--highlight); }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:600px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+.section-title.collapsible:hover .sec-toggle { color:var(--highlight); }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 78px; font-size:.74em; text-align:right; }
+.param-row.param-row-full label { flex:1 1 auto; text-align:left; white-space:nowrap; min-width:0; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 86px; font-size:.68em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+.inertia-cols { display:flex; gap:7px; align-items:flex-start; }
+.inertia-col { flex:1; min-width:0; }
+.inertia-col .param-row label { flex:0 0 32px; font-size:.70em; }
+.inertia-col .param-row input[type="number"].compact { min-width:0; max-width:100%; }
+.param-row .unit-suffix { flex:0 0 auto; font-size:.68em; color:#8b949e; padding-left:2px; white-space:nowrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button:hover { background:#c73e54; }
+button.secondary { background:var(--accent); border:1px solid #555; }
+button.secondary:hover { background:#1a3a6a; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:#0d1117; border-radius:8px; cursor:grab; }
+canvas#canvas:active { cursor:grabbing; }
+#info-box { background:rgba(0,0,0,.3); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; }
+.plot-hint { font-size:.65em; color:rgba(255,255,255,.25); text-align:right; margin-top:2px; }
+mjx-container { display:inline !important; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.95em 0 !important; width:100%; text-align:center; overflow-x:auto; }
+</style>
+</head>
+<body>
+
+<div id="help-overlay" class="hidden">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — geometry, parameters, ICs (see textbook for symbols)</li>
+      <li><strong>Play / Stop / Reset</strong> — simulation control</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on time plots</li>
+      <li><strong>Double-click</strong> main canvas to reset view</li>
+      <li><strong>Right panel</strong> — time histories $\alpha(t)$, $\beta(t)$, $\gamma(t)$ (angles in rad)</li>
+    </ul>
+    <div class="note">
+      <span style="display:block;margin-bottom:8px;">⚠ Designed for laptop/desktop — not tested on touch devices.</span>
+    </div>
+    <button id="help-close" onclick="document.getElementById('help-overlay').classList.add('hidden')">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px 32px;max-width:1100px;width:96%;max-height:85vh;overflow-y:auto;overflow-x:auto;color:#c9d1d9;font-size:.88em;position:relative;">
+    <h3 style="color:#e6edf3;margin-bottom:14px;">Equations</h3>
+    <div id="eq-content" style="line-height:1.75;">
+      <p style="color:#8b949e;font-weight:600;margin:0 0 6px 0;font-size:0.95em;">Dynamics (matrix form, fully expanded)</p>
+      <p style="color:#aeb8c3;font-size:0.92em;margin:0 0 10px 0;">\(\mathbf{q}=\begin{bmatrix} \alpha & \beta & \gamma \end{bmatrix}^{\!T}\) (rad); \(a,b\) (m); \(g\) (m/s²); \(k_1,k_2\) (N/m); masses (kg); inertias (kg·m²).</p>
+      \[
+      \begin{bmatrix}
+      J_1+m_1\,a^2+J_3+m_3\,(a+b)^2 & 0 & 0 \\[8pt]
+      0 & J_2+m_2\,b^2+m_4\,(a+b)^2 & 0 \\[8pt]
+      0 & 0 & J_4
+      \end{bmatrix}
+      \begin{bmatrix} \ddot{\alpha} \\[4pt] \ddot{\beta} \\[4pt] \ddot{\gamma} \end{bmatrix}
+      \;+\;
+      \begin{bmatrix}
+      (k_1+k_2)\,a^2-m_1\,g\,a-m_3\,g\,(a+b) & -k_2\,a\,b & 0 \\[8pt]
+      -k_2\,a\,b & k_2\,b^2+m_2\,g\,b+m_4\,g\,(a+b) & 0 \\[8pt]
+      0 & 0 & 0
+      \end{bmatrix}
+      \begin{bmatrix} \alpha \\[4pt] \beta \\[4pt] \gamma \end{bmatrix}
+      \;=\;
+      \begin{bmatrix} 0 \\[4pt] 0 \\[4pt] 0 \end{bmatrix}
+      \]
+
+      <p style="color:#8b949e;font-weight:600;margin:22px 0 8px 0;font-size:0.95em;">Scalar rows (same model)</p>
+      \[
+      \begin{aligned}
+      \bigl(J_1+m_1 a^2+J_3+m_3(a+b)^2\bigr)\ddot{\alpha} &= -k_1 a^2\alpha -k_2(\alpha a-\beta b)a + m_1 g a\,\alpha + m_3 g(a+b)\alpha,\\
+      \bigl(J_2+m_2 b^2+m_4(a+b)^2\bigr)\ddot{\beta}  &= -k_2(\beta b-\alpha a)b - m_2 g b\,\beta - m_4 g(a+b)\beta,\\
+      J_4\,\ddot{\gamma} &= 0.
+      \end{aligned}
+      \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;color:white;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>Linked rods &amp; springs</h1>
+  <h2>3-DOF linearized simulator</h2>
+  <div style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
+    Prof. Marco Gabiccini & Martino Gulisano<br>Meccanica Applicata alle Macchine<br>
+    <span style="font-size:.9em;color:#666;">All rights reserved</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Geometry</div>
+    <div class="param-row"><label>$a$:</label>
+      <input type="range" id="a-slider" min="0.14" max="0.24" value="0.2" step="0.005">
+      <span class="val" id="a-val">0.200 m</span></div>
+    <div class="param-row"><label>$b$:</label>
+      <input type="range" id="b-slider" min="0.14" max="0.24" value="0.2" step="0.005">
+      <span class="val" id="b-val">0.200 m</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Inertia</div>
+    <div class="inertia-cols">
+      <div class="inertia-col">
+        <div class="param-row"><label>$m_1$:</label>
+          <input type="number" id="m1-input" class="compact" value="2" min="0.01" step="any" title="kg">
+          <span class="unit-suffix">kg</span></div>
+        <div class="param-row"><label>$m_2$:</label>
+          <input type="number" id="m2-input" class="compact" value="3.5" min="0.01" step="any" title="kg">
+          <span class="unit-suffix">kg</span></div>
+        <div class="param-row"><label>$m_3$:</label>
+          <input type="number" id="m3-input" class="compact" value="0.4" min="0.01" step="any" title="kg">
+          <span class="unit-suffix">kg</span></div>
+        <div class="param-row"><label>$m_4$:</label>
+          <input type="number" id="m4-input" class="compact" value="0.95" min="0.01" step="any" title="kg">
+          <span class="unit-suffix">kg</span></div>
+      </div>
+      <div class="inertia-col">
+        <div class="param-row"><label>$J_1$:</label>
+          <input type="number" id="J1-input" class="compact" value="0.04" min="0" step="any" title="kg·m²">
+          <span class="unit-suffix">kg·m²</span></div>
+        <div class="param-row"><label>$J_2$:</label>
+          <input type="number" id="J2-input" class="compact" value="0.085" min="0" step="any" title="kg·m²">
+          <span class="unit-suffix">kg·m²</span></div>
+        <div class="param-row"><label>$J_3$:</label>
+          <input type="number" id="J3-input" class="compact" value="0.004" min="0" step="any" title="kg·m²">
+          <span class="unit-suffix">kg·m²</span></div>
+        <div class="param-row"><label>$J_4$:</label>
+          <input type="number" id="J4-input" class="compact" value="0.016" min="0" step="any" title="kg·m²">
+          <span class="unit-suffix">kg·m²</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Springs / $g$</div>
+    <div class="param-row"><label>$k_1$:</label>
+      <input type="range" id="k1-slider" min="25" max="140" value="80" step="1">
+      <span class="val" id="k1-val">80 N/m</span></div>
+    <div class="param-row"><label>$k_2$:</label>
+      <input type="range" id="k2-slider" min="25" max="140" value="80" step="1">
+      <span class="val" id="k2-val">80 N/m</span></div>
+    <div class="param-row"><label>$g$:</label>
+      <input type="range" id="g-slider" min="0" max="26" value="9.81" step="0.01">
+      <span class="val" id="g-val">9.81 m/s²</span></div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button id="btn-earth"   class="secondary" style="font-size:1.2em;padding:4px 8px" title="Earth — g = 9.81 m/s²">🌍</button>
+      <button id="btn-moon"    class="secondary" style="font-size:1.2em;padding:4px 8px" title="Moon — g = 1.62 m/s²">🌙</button>
+      <button id="btn-jupiter" class="secondary" style="font-size:1.2em;padding:4px 8px" title="Jupiter — g = 24.79 m/s²">⚡</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Initial state</div>
+    <div class="param-row"><label>$\alpha_0$:</label>
+      <input type="range" id="a0-slider" min="-5" max="5" value="2" step="0.1">
+      <span class="val" id="a0-val">2.0 °</span></div>
+    <div class="param-row"><label>$\dot{\alpha}_0$:</label>
+      <input type="range" id="da0-slider" min="-0.35" max="0.35" value="0" step="0.01">
+      <span class="val" id="da0-val">0.00 rad/s</span></div>
+    <div class="param-row"><label>$\beta_0$:</label>
+      <input type="range" id="b0-slider" min="-5" max="5" value="0" step="0.1">
+      <span class="val" id="b0-val">0.0 °</span></div>
+    <div class="param-row"><label>$\dot{\beta}_0$:</label>
+      <input type="range" id="db0-slider" min="-0.35" max="0.35" value="0" step="0.01">
+      <span class="val" id="db0-val">0.00 rad/s</span></div>
+    <div class="param-row"><label>$\gamma_0$:</label>
+      <input type="range" id="g0-slider" min="-180" max="180" value="30" step="1">
+      <span class="val" id="g0-val">30 °</span></div>
+    <div class="param-row"><label>$\dot{\gamma}_0$:</label>
+      <input type="range" id="dg0-slider" min="-2" max="2" value="0.5" step="0.02">
+      <span class="val" id="dg0-val">0.50 rad/s</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Equations</div>
+    <div style="margin-top:4px;">
+      <button id="btn-show-equations" class="secondary" style="width:100%;">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="param-row" style="margin-bottom:4px;">
+      <label>$T_{\max}$:</label>
+      <input type="number" id="tmax-input" class="compact" value="40" min="1" max="600" step="1">
+      <span class="val"></span>
+    </div>
+    <div class="btn-row" style="margin-bottom:2px;">
+      <button id="btn-simulate">▶ Play</button>
+      <button id="btn-stop" class="secondary">■ Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">State</div>
+    <div id="info-box">Set initial conditions and run.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-time-alpha">
+      <span>$\alpha(t)$</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-time-alpha">
+      <canvas id="alpha-time-canvas" width="340" height="130" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset · rad</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-time-beta">
+      <span>$\beta(t)$</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-time-beta">
+      <canvas id="beta-time-canvas" width="340" height="130" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset · rad</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-time-gamma">
+      <span>$\gamma(t)$</span>
+      <span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-time-gamma">
+      <canvas id="gamma-time-canvas" width="340" height="130" style="width:100%;border-radius:6px;background:rgba(0,0,0,.3);display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset · rad</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const AX = 0.1, AY = 0;
+const BX = 0.2;
+const DISK_R = 0.03;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let params = {}, simState = null, simRunning = false, animId = null, simHistory = [];
+
+const mainView = { offX: 0, offY: 0, zoom: 1 };
+/** World point mapped to canvas center (meters); frame + linkage sit mostly in x>0, y∈[0,a+b]. */
+const VIEW_ANCHOR_X = 0.12;
+const VIEW_ANCHOR_Y = 0.21;
+
+const MI = {};
+const TIME_PAD = { l: 44, r: 32, t: 12, b: 26 };
+
+async function makeMathImg(latex, color, heightPx) {
+  const wrapper = MathJax.tex2svg(latex, { display: false });
+  const svg = wrapper.querySelector('svg');
+  const hEx = parseFloat(svg.getAttribute('height')) || 1;
+  const wEx = parseFloat(svg.getAttribute('width')) || 1;
+  const wPx = Math.ceil(wEx / hEx * heightPx) + 2;
+  svg.setAttribute('height', heightPx);
+  svg.setAttribute('width', wPx);
+  let s = new XMLSerializer().serializeToString(svg);
+  s = s.replace(/currentColor/g, color);
+  const url = URL.createObjectURL(new Blob([s], { type: 'image/svg+xml;charset=utf-8' }));
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  URL.revokeObjectURL(url);
+  return img;
+}
+
+async function preloadMath() {
+  const defs = [
+    ['alphat', '\\alpha(t)', '#00b4d8', 13],
+    ['betat', '\\beta(t)', '#7ec8e3', 13],
+    ['gammat', '\\gamma(t)', '#ffb04a', 13],
+    ['t_gray', 't', '#888', 13],
+    ['k1_lab', 'k_1', 'rgba(200,190,170,0.96)', 14],
+    ['k2_lab', 'k_2', '#f0c040', 14],
+    ['alpha_arc', '\\alpha', 'rgba(100,220,140,0.98)', 15],
+    ['beta_arc', '\\beta', 'rgba(120,200,240,0.98)', 15],
+    ['gamma_arc', '\\gamma', 'rgba(255,185,95,0.98)', 15],
+  ];
+  for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
+}
+
+function mimg(c2d, key, x, y, anchor = 'left') {
+  const img = MI[key];
+  if (!img) return;
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (anchor === 'center') { x -= w / 2; y -= h / 2; }
+  else if (anchor === 'right') x -= w;
+  c2d.drawImage(img, Math.round(x), Math.round(y));
+}
+
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0 = x0; this._x1 = x1; this._y0 = y0; this._y1 = y1;
+    this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; this.active = false;
+  }
+  toX(v, pad, W) { return pad.l + (v - this.xMin) / (this.xMax - this.xMin) * (W - pad.l - pad.r); }
+  toY(v, pad, H) { return pad.t + (H - pad.t - pad.b) * (1 - (v - this.yMin) / (this.yMax - this.yMin)); }
+  px2data(px, py, pad, W, H) {
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    return [
+      this.xMin + (px - pad.l) / pw * (this.xMax - this.xMin),
+      this.yMin + (1 - (py - pad.t) / ph) * (this.yMax - this.yMin)
+    ];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active = true;
+    this.xMin = xd + (this.xMin - xd) * factor; this.xMax = xd + (this.xMax - xd) * factor;
+    this.yMin = yd + (this.yMin - yd) * factor; this.yMax = yd + (this.yMax - yd) * factor;
+  }
+  pan(dxd, dyd) {
+    this.active = true;
+    this.xMin -= dxd; this.xMax -= dxd; this.yMin -= dyd; this.yMax -= dyd;
+  }
+  reset() {
+    this.active = false;
+    this.xMin = this._x0; this.xMax = this._x1; this.yMin = this._y0; this.yMax = this._y1;
+  }
+  setRange(x0, x1, y0, y1) {
+    if (!this.active) { this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; }
+  }
+}
+
+const timeViewA = new PanZoomView(0, 10, -0.15, 0.15);
+const timeViewB = new PanZoomView(0, 10, -0.15, 0.15);
+const timeViewG = new PanZoomView(0, 10, -3.5, 3.5);
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const W = cv.width, H = cv.height;
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top) * (H / rect.height);
+    const [xd, yd] = view.px2data(mx, my, pad, W, H);
+    const factor = e.deltaY > 0 ? 1.12 : 1 / 1.12;
+    view.zoomAt(factor, xd, yd);
+    redrawFn();
+  }, { passive: false });
+  let drag = false, lx = 0, ly = 0;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const rect = cv.getBoundingClientRect();
+    lx = (e.clientX - rect.left) * (cv.width / rect.width);
+    ly = (e.clientY - rect.top) * (cv.height / rect.height);
+    cv.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const W = cv.width, H = cv.height;
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    view.pan((px - lx) / pw * (view.xMax - view.xMin), -(py - ly) / ph * (view.yMax - view.yMin));
+    lx = px; ly = py;
+    redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag = false; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function niceTicks(lo, hi, target = 5) {
+  if (hi <= lo) return [lo];
+  const raw = (hi - lo) / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / pow;
+  let step = 1;
+  if (norm > 2) step = 2;
+  if (norm > 5) step = 5;
+  step *= pow;
+  const t0 = Math.ceil(lo / step) * step;
+  const ticks = [];
+  for (let v = t0; v <= hi + step * 0.01; v += step) ticks.push(v);
+  return ticks.length ? ticks : [lo, hi];
+}
+
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  let sz = Math.min(cont.clientWidth - 12, cont.clientHeight - 12);
+  if (!isFinite(sz) || sz < 100) sz = 320;
+  canvas.width = sz;
+  canvas.height = sz;
+}
+window.addEventListener('resize', () => { resize(); if (!simRunning) draw(); });
+
+function deg2rad(d) { return d * Math.PI / 180; }
+
+function readParams() {
+  const a = parseFloat(document.getElementById('a-slider').value);
+  const b = parseFloat(document.getElementById('b-slider').value);
+  const L = a + b;
+  const m1 = parseFloat(document.getElementById('m1-input').value);
+  const J1 = parseFloat(document.getElementById('J1-input').value);
+  const m2 = parseFloat(document.getElementById('m2-input').value);
+  const J2 = parseFloat(document.getElementById('J2-input').value);
+  const m3 = parseFloat(document.getElementById('m3-input').value);
+  const J3 = parseFloat(document.getElementById('J3-input').value);
+  const m4 = parseFloat(document.getElementById('m4-input').value);
+  const J4 = parseFloat(document.getElementById('J4-input').value);
+  const k1 = parseFloat(document.getElementById('k1-slider').value);
+  const k2 = parseFloat(document.getElementById('k2-slider').value);
+  const g = parseFloat(document.getElementById('g-slider').value);
+  const Ma = J1 + m1 * a * a + J3 + m3 * L * L;
+  const Mb = J2 + m2 * b * b + m4 * L * L;
+  const K11 = k1 * a * a + k2 * a * a - m1 * g * a - m3 * g * L;
+  const K12 = -k2 * a * b;
+  const K22 = k2 * b * b + m2 * g * b + m4 * g * L;
+  params = { a, b, L, m1, J1, m2, J2, m3, J3, m4, J4, k1, k2, g, Ma, Mb, K11, K12, K21: K12, K22 };
+}
+
+function wireSlider(id, valId, fmt) {
+  const sl = document.getElementById(id), vl = document.getElementById(valId);
+  vl.textContent = fmt(parseFloat(sl.value));
+  const upd = () => { vl.textContent = fmt(parseFloat(sl.value)); readParams(); if (!simRunning) draw(); };
+  sl.addEventListener('input', upd);
+}
+
+wireSlider('a-slider', 'a-val', v => v.toFixed(3) + ' m');
+wireSlider('b-slider', 'b-val', v => v.toFixed(3) + ' m');
+['m1-input', 'm2-input', 'm3-input', 'm4-input', 'J1-input', 'J2-input', 'J3-input', 'J4-input'].forEach(id => {
+  const el = document.getElementById(id);
+  const upd = () => { readParams(); if (!simRunning) draw(); };
+  el.addEventListener('input', upd);
+  el.addEventListener('change', upd);
+});
+wireSlider('k1-slider', 'k1-val', v => v.toFixed(0) + ' N/m');
+wireSlider('k2-slider', 'k2-val', v => v.toFixed(0) + ' N/m');
+wireSlider('g-slider', 'g-val', v => v.toFixed(2) + ' m/s²');
+wireSlider('a0-slider', 'a0-val', v => v.toFixed(1) + ' °');
+wireSlider('da0-slider', 'da0-val', v => v.toFixed(2) + ' rad/s');
+wireSlider('b0-slider', 'b0-val', v => v.toFixed(1) + ' °');
+wireSlider('db0-slider', 'db0-val', v => v.toFixed(2) + ' rad/s');
+wireSlider('g0-slider', 'g0-val', v => v.toFixed(0) + ' °');
+wireSlider('dg0-slider', 'dg0-val', v => v.toFixed(2) + ' rad/s');
+
+function setG(val) {
+  document.getElementById('g-slider').value = val;
+  document.getElementById('g-val').textContent = val.toFixed(2) + ' m/s²';
+  readParams(); if (!simRunning) draw();
+}
+document.getElementById('btn-earth').addEventListener('click', () => setG(9.81));
+document.getElementById('btn-moon').addEventListener('click', () => setG(1.62));
+document.getElementById('btn-jupiter').addEventListener('click', () => setG(24.79));
+
+function potentialU(al, be) {
+  const { K11, K12, K22 } = params;
+  return 0.5 * (K11 * al * al + 2 * K12 * al * be + K22 * be * be);
+}
+
+function kineticT(dal, dbe, dg) {
+  const { Ma, Mb, J4 } = params;
+  return 0.5 * Ma * dal * dal + 0.5 * Mb * dbe * dbe + 0.5 * J4 * dg * dg;
+}
+
+function accel(al, be) {
+  const { Ma, Mb, m1, m2, m3, m4, k1, k2, g, a, b, L } = params;
+  const numa = -k1 * al * a * a - k2 * (al * a - be * b) * a + m1 * g * al * a + m3 * g * al * L;
+  const numb = -k2 * (be * b - al * a) * b - m2 * g * be * b - m4 * g * be * L;
+  return [numa / Ma, numb / Mb];
+}
+
+function rk4Step(s, dt) {
+  const f = (st) => {
+    const [aa, ab] = accel(st.alpha, st.beta);
+    return {
+      alpha: st.dalpha,
+      dalpha: aa,
+      beta: st.dbeta,
+      dbeta: ab,
+      gamma: st.dgamma,
+      dgamma: 0
+    };
+  };
+  const k1 = f(s);
+  const k2 = f({
+    alpha: s.alpha + 0.5 * dt * k1.alpha,
+    dalpha: s.dalpha + 0.5 * dt * k1.dalpha,
+    beta: s.beta + 0.5 * dt * k1.beta,
+    dbeta: s.dbeta + 0.5 * dt * k1.dbeta,
+    gamma: s.gamma + 0.5 * dt * k1.gamma,
+    dgamma: s.dgamma + 0.5 * dt * k1.dgamma
+  });
+  const k3 = f({
+    alpha: s.alpha + 0.5 * dt * k2.alpha,
+    dalpha: s.dalpha + 0.5 * dt * k2.dalpha,
+    beta: s.beta + 0.5 * dt * k2.beta,
+    dbeta: s.dbeta + 0.5 * dt * k2.dbeta,
+    gamma: s.gamma + 0.5 * dt * k2.gamma,
+    dgamma: s.dgamma + 0.5 * dt * k2.dgamma
+  });
+  const k4 = f({
+    alpha: s.alpha + dt * k3.alpha,
+    dalpha: s.dalpha + dt * k3.dalpha,
+    beta: s.beta + dt * k3.beta,
+    dbeta: s.dbeta + dt * k3.dbeta,
+    gamma: s.gamma + dt * k3.gamma,
+    dgamma: s.dgamma + dt * k3.dgamma
+  });
+  return {
+    alpha: s.alpha + dt / 6 * (k1.alpha + 2 * k2.alpha + 2 * k3.alpha + k4.alpha),
+    dalpha: s.dalpha + dt / 6 * (k1.dalpha + 2 * k2.dalpha + 2 * k3.dalpha + k4.dalpha),
+    beta: s.beta + dt / 6 * (k1.beta + 2 * k2.beta + 2 * k3.beta + k4.beta),
+    dbeta: s.dbeta + dt / 6 * (k1.dbeta + 2 * k2.dbeta + 2 * k3.dbeta + k4.dbeta),
+    gamma: s.gamma + dt / 6 * (k1.gamma + 2 * k2.gamma + 2 * k3.gamma + k4.gamma),
+    dgamma: s.dgamma + dt / 6 * (k1.dgamma + 2 * k2.dgamma + 2 * k3.dgamma + k4.dgamma)
+  };
+}
+
+function getScale() {
+  const L = (params.a != null && params.b != null) ? params.a + params.b : 0.4;
+  const span = Math.max(0.48, 0.22 + L);
+  const size = Math.min(canvas.width, canvas.height);
+  return (size / span) * mainView.zoom;
+}
+
+function w2c(wx, wy) {
+  const sc = getScale();
+  const cx = canvas.width * 0.5 + mainView.offX + (wx - VIEW_ANCHOR_X) * sc;
+  const cy = canvas.height * 0.5 + mainView.offY - (wy - VIEW_ANCHOR_Y) * sc;
+  return [cx, cy];
+}
+
+function cLen(l) { return l * getScale(); }
+
+function drawSpring(c2d, x1, y1, x2, y2, coils, color, opts) {
+  opts = opts || {};
+  const dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 4) return;
+  const ux = dx / len, uy = dy / len;
+  const nx = -uy, ny = ux;
+  const amp = opts.amp != null ? opts.amp : 7;
+  const stub = len * (opts.stubFrac != null ? opts.stubFrac : 0.13);
+  const coilLen = len - 2 * stub;
+  const N = coils;
+  const steps = N * 32;
+  c2d.beginPath();
+  c2d.moveTo(x1, y1);
+  c2d.lineTo(x1 + ux * stub, y1 + uy * stub);
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const base = stub + t * coilLen;
+    const off = amp * Math.sin(t * N * 2 * Math.PI);
+    c2d.lineTo(x1 + ux * base + nx * off, y1 + uy * base + ny * off);
+  }
+  c2d.lineTo(x2, y2);
+  c2d.strokeStyle = color;
+  c2d.lineWidth = opts.lineWidth != null ? opts.lineWidth : 2;
+  c2d.stroke();
+}
+
+function drawThickRod(c2d, wx1, wy1, wx2, wy2, strokeRgba, worldHalfW) {
+  const [x1, y1] = w2c(wx1, wy1);
+  const [x2, y2] = w2c(wx2, wy2);
+  const lw = Math.max(7, cLen(worldHalfW * 2.5));
+  c2d.lineCap = 'round';
+  c2d.lineJoin = 'round';
+  c2d.beginPath();
+  c2d.moveTo(x1, y1);
+  c2d.lineTo(x2, y2);
+  c2d.strokeStyle = strokeRgba;
+  c2d.lineWidth = lw;
+  c2d.stroke();
+}
+
+const ARC20 = (20 * Math.PI) / 180;
+
+/** Math angles: 0 = +x, CCW positive. Samples world circle then draws on canvas + arrow at φ = phi1. */
+function drawWorldArcArrow(c2d, wx0, wy0, r, phi0, phi1, color, lineW) {
+  const n = 32;
+  let ex = 0, ey = 0, px0 = 0, py0 = 0;
+  c2d.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const ph = phi0 + t * (phi1 - phi0);
+    const wx = wx0 + r * Math.cos(ph);
+    const wy = wy0 + r * Math.sin(ph);
+    const [px, py] = w2c(wx, wy);
+    if (i === 0) c2d.moveTo(px, py);
+    else c2d.lineTo(px, py);
+    if (i === n - 1) { px0 = px; py0 = py; }
+    if (i === n) { ex = px; ey = py; }
+  }
+  c2d.strokeStyle = color;
+  c2d.lineWidth = lineW;
+  c2d.lineCap = 'round';
+  c2d.stroke();
+  const tlen = Math.hypot(ex - px0, ey - py0) || 1;
+  const ux = (ex - px0) / tlen, uy = (ey - py0) / tlen;
+  const tipLen = 9;
+  const halfW = 4;
+  const nx = -uy, ny = ux;
+  const bx = ex - tipLen * ux, by = ey - tipLen * uy;
+  c2d.beginPath();
+  c2d.moveTo(ex, ey);
+  c2d.lineTo(bx + halfW * nx, by + halfW * ny);
+  c2d.lineTo(bx - halfW * nx, by - halfW * ny);
+  c2d.closePath();
+  c2d.fillStyle = color;
+  c2d.fill();
+}
+
+function hingeCircle(c2d, wx, wy, worldR, fill, stroke) {
+  const [cx, cy] = w2c(wx, wy);
+  const rp = Math.max(4, cLen(worldR));
+  c2d.beginPath();
+  c2d.arc(cx, cy, rp, 0, 2 * Math.PI);
+  c2d.fillStyle = fill;
+  c2d.fill();
+  if (stroke) {
+    c2d.strokeStyle = stroke;
+    c2d.lineWidth = 1.5;
+    c2d.stroke();
+  }
+}
+
+function getInitialFromSliders() {
+  return {
+    alpha: deg2rad(parseFloat(document.getElementById('a0-slider').value)),
+    dalpha: parseFloat(document.getElementById('da0-slider').value),
+    beta: deg2rad(parseFloat(document.getElementById('b0-slider').value)),
+    dbeta: parseFloat(document.getElementById('db0-slider').value),
+    gamma: deg2rad(parseFloat(document.getElementById('g0-slider').value)),
+    dgamma: parseFloat(document.getElementById('dg0-slider').value)
+  };
+}
+
+function draw(alphaO, dalphaO, betaO, dbetaO, gammaO, dgammaO) {
+  readParams();
+  const ic = getInitialFromSliders();
+  const alpha = alphaO !== undefined ? alphaO : ic.alpha;
+  const dalpha = dalphaO !== undefined ? dalphaO : ic.dalpha;
+  const beta = betaO !== undefined ? betaO : ic.beta;
+  const dbeta = dbetaO !== undefined ? dbetaO : ic.dbeta;
+  const gamma = gammaO !== undefined ? gammaO : ic.gamma;
+  const dgamma = dgammaO !== undefined ? dgammaO : ic.dgamma;
+
+  const { a, b, L } = params;
+  const ya = a;
+  const BY = a + b;
+  const Ap_x = AX + L * (-Math.sin(alpha));
+  const Ap_y = AY + L * Math.cos(alpha);
+  const Bp_x = BX + L * (-Math.sin(beta));
+  const Bp_y = BY + L * (-Math.cos(beta));
+
+  const P0x = 0, P0y = ya;
+  const P1x = 0.1 - alpha * a, P1y = ya;
+  const P2x = 0.2 - beta * b, P2y = ya;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const ROD1 = 'rgba(46, 200, 90, 0.58)';
+  const DISK3_FILL = 'rgba(46, 200, 90, 0.45)';
+  const DISK3_STROKE = 'rgba(120, 245, 165, 0.98)';
+  const ROD2 = 'rgba(74, 144, 217, 0.55)';
+  const DISK4_FILL = 'rgba(255, 165, 0, 0.42)';
+  const DISK4_STROKE = 'rgba(255, 210, 140, 0.98)';
+  const WALL = 'rgba(255,255,255,0.52)';
+  const FRAME_DEPTH = 0.036;
+
+  // Frame (telaio): strip x in [-FRAME_DEPTH, 0], hatch only left of vertical wall (glifo-style wall)
+  {
+    const yTop = a + b;
+    const [fx0, fy0] = w2c(-FRAME_DEPTH, 0);
+    const [fx1, fy1] = w2c(-FRAME_DEPTH, yTop);
+    const [wx0, wy0] = w2c(0, 0);
+    const [wx1, wy1] = w2c(0, yTop);
+    ctx.beginPath();
+    ctx.moveTo(fx0, fy0);
+    ctx.lineTo(fx1, fy1);
+    ctx.lineTo(wx1, wy1);
+    ctx.lineTo(wx0, wy0);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(22, 27, 34, 0.78)';
+    ctx.fill();
+    for (let y0 = -FRAME_DEPTH * 2; y0 <= yTop + FRAME_DEPTH * 2; y0 += 0.048) {
+      const [sx1, sy1] = w2c(-FRAME_DEPTH, y0);
+      const [sx2, sy2] = w2c(0, y0 + FRAME_DEPTH);
+      ctx.beginPath();
+      ctx.moveTo(sx1, sy1);
+      ctx.lineTo(sx2, sy2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(fx0, fy0);
+    ctx.lineTo(fx1, fy1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(wx0, wy0);
+    ctx.lineTo(wx1, wy1);
+    ctx.strokeStyle = WALL;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Springs at y=a
+  {
+    const [s0x, s0y] = w2c(P0x, P0y);
+    const [s1x, s1y] = w2c(P1x, P1y);
+    const [s2x, s2y] = w2c(P2x, P2y);
+    drawSpring(ctx, s0x, s0y, s1x, s1y, 7, 'rgba(215,200,175,0.90)', { stubFrac: 0.12, amp: 6 });
+    drawSpring(ctx, s1x, s1y, s2x, s2y, 7, 'rgba(245,200,70,0.92)', { stubFrac: 0.12, amp: 6, lineWidth: 2.2 });
+    const midY = (s0y + s1y) / 2;
+    const above = 36;
+    mimg(ctx, 'k1_lab', (s0x + s1x) / 2, midY - above, 'center');
+    mimg(ctx, 'k2_lab', (s1x + s2x) / 2, midY - above, 'center');
+  }
+
+  drawThickRod(ctx, AX, AY, Ap_x, Ap_y, ROD1, 0.0065);
+  hingeCircle(ctx, AX, AY, 0.008, 'rgba(210, 214, 228, 0.55)', 'rgba(255, 255, 255, 0.92)');
+
+  {
+    const [cx, cy] = w2c(Ap_x, Ap_y);
+    const Rp = cLen(DISK_R);
+    ctx.beginPath();
+    ctx.arc(cx, cy, Rp, 0, 2 * Math.PI);
+    ctx.fillStyle = DISK3_FILL;
+    ctx.fill();
+    ctx.strokeStyle = DISK3_STROKE;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  {
+    const [cx, cy] = w2c(Bp_x, Bp_y);
+    const Rp = cLen(DISK_R);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-gamma);
+    ctx.beginPath();
+    ctx.arc(0, 0, Rp, 0, 2 * Math.PI);
+    ctx.fillStyle = DISK4_FILL;
+    ctx.fill();
+    ctx.strokeStyle = DISK4_STROKE;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    for (let k = 0; k < 6; k++) {
+      const ang = (k / 6) * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Rp * 0.88 * Math.cos(ang), Rp * 0.88 * Math.sin(ang));
+      ctx.strokeStyle = 'rgba(255, 185, 60, 0.62)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  drawThickRod(ctx, BX, BY, Bp_x, Bp_y, ROD2, 0.0065);
+
+  hingeCircle(ctx, BX, BY, 0.008, 'rgba(210, 214, 228, 0.55)', 'rgba(255, 255, 255, 0.92)');
+
+  {
+    const [px, py] = w2c(Bp_x, Bp_y);
+    const rOuter = Math.max(5, cLen(0.009));
+    const rInner = Math.max(2, cLen(0.004));
+    ctx.beginPath();
+    ctx.arc(px, py, rOuter, 0, 2 * Math.PI);
+    ctx.strokeStyle = 'rgba(140, 215, 245, 0.98)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(px, py, rInner, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(18, 22, 30, 0.88)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  {
+    const rA = a / 2;
+    const phiA0 = Math.PI / 2;
+    const phiA1 = Math.PI / 2 + ARC20;
+    drawWorldArcArrow(ctx, AX, AY, rA, phiA0, phiA1, 'rgba(90, 215, 130, 0.92)', 2);
+    const phiAm = (phiA0 + phiA1) / 2;
+    const lr = rA + 0.024;
+    const [lax, lay] = w2c(AX + lr * Math.cos(phiAm), AY + lr * Math.sin(phiAm));
+    mimg(ctx, 'alpha_arc', lax, lay, 'center');
+
+    const rB = b / 2;
+    const phiB0 = -Math.PI / 2;
+    const phiB1 = -Math.PI / 2 - ARC20;
+    drawWorldArcArrow(ctx, BX, BY, rB, phiB0, phiB1, 'rgba(100, 190, 235, 0.92)', 2);
+    const phiBm = (phiB0 + phiB1) / 2;
+    const lrb = rB + 0.024;
+    const [lbx, lby] = w2c(BX + lrb * Math.cos(phiBm), BY + lrb * Math.sin(phiBm));
+    mimg(ctx, 'beta_arc', lbx, lby, 'center');
+
+    const Rg = Math.max(DISK_R * 1.55, 0.046);
+    const arcG = (42 * Math.PI) / 180;
+    const phiG0 = 0;
+    const phiG1 = arcG;
+    drawWorldArcArrow(ctx, Bp_x, Bp_y, Rg, phiG0, phiG1, 'rgba(255, 200, 130, 0.92)', 2);
+    const phiGm = (phiG0 + phiG1) / 2;
+    const lrg = Rg + 0.02;
+    const [lgx, lgy] = w2c(Bp_x + lrg * Math.cos(phiGm), Bp_y + lrg * Math.sin(phiGm));
+    mimg(ctx, 'gamma_arc', lgx, lgy, 'center');
+  }
+
+  updateInfo(alpha, dalpha, beta, dbeta, gamma, dgamma, ic);
+  drawAlphaTime(alpha);
+  drawBetaTime(beta);
+  drawGammaTime(gamma);
+}
+
+function updateInfo(alpha, dalpha, beta, dbeta, gamma, dgamma, ic) {
+  const T = kineticT(dalpha, dbeta, dgamma);
+  const U = potentialU(alpha, beta);
+  const E = T + U;
+  const E0 = kineticT(ic.dalpha, ic.dbeta, ic.dgamma) + potentialU(ic.alpha, ic.beta);
+  let txt = '';
+  txt += `α = ${alpha.toFixed(5)} rad (${(alpha * 180 / Math.PI).toFixed(2)}°)\n`;
+  txt += `β = ${beta.toFixed(5)} rad (${(beta * 180 / Math.PI).toFixed(2)}°)\n`;
+  txt += `γ = ${gamma.toFixed(5)} rad (${(gamma * 180 / Math.PI).toFixed(2)}°)\n`;
+  txt += '─────────────────────\n';
+  txt += `α̇ = ${dalpha.toFixed(5)} rad/s\nβ̇ = ${dbeta.toFixed(5)} rad/s\nγ̇ = ${dgamma.toFixed(5)} rad/s\n`;
+  txt += '─────────────────────\n';
+  txt += `T = ${T.toFixed(6)} J\nU = ${U.toFixed(6)} J\nE = ${E.toFixed(6)} J\nE₀ = ${E0.toFixed(6)} J\n`;
+  if (simState) txt += '─────────────────────\n' + `t  = ${simState.time.toFixed(3)} s`;
+  document.getElementById('info-box').textContent = txt;
+}
+
+function drawGrid(c2d, view, pad, W, H, xLabelFn, yLabelFn, opts) {
+  opts = opts || {};
+  const timeAxis = !!opts.timeAxis;
+  const tickFont = '9px sans-serif';
+  const tickClr = timeAxis ? 'rgba(255,255,255,0.92)' : '#888';
+  const xTicks = niceTicks(view.xMin, view.xMax, 5);
+  const yTicks = niceTicks(view.yMin, view.yMax, 5);
+  const plotBot = H - pad.b;
+  c2d.font = tickFont;
+  for (const v of xTicks) {
+    const x = view.toX(v, pad, W);
+    if (x < pad.l || x > W - pad.r) continue;
+    c2d.beginPath();
+    c2d.moveTo(x, pad.t);
+    c2d.lineTo(x, plotBot);
+    c2d.strokeStyle = 'rgba(255,255,255,0.07)';
+    c2d.lineWidth = 1;
+    c2d.stroke();
+    c2d.fillStyle = tickClr;
+    c2d.textAlign = 'center';
+    c2d.fillText(xLabelFn(v), x, H - 4);
+  }
+  c2d.textAlign = 'right';
+  for (const v of yTicks) {
+    const y = view.toY(v, pad, H);
+    if (y < pad.t || y > plotBot) continue;
+    c2d.beginPath();
+    c2d.moveTo(pad.l, y);
+    c2d.lineTo(W - pad.r, y);
+    c2d.strokeStyle = Math.abs(v) < 1e-9 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)';
+    c2d.lineWidth = 1;
+    c2d.stroke();
+    c2d.fillStyle = tickClr;
+    c2d.textAlign = 'right';
+    c2d.fillText(yLabelFn(v), pad.l - 3, y + 3);
+  }
+  c2d.textAlign = 'left';
+  c2d.strokeStyle = 'rgba(255,255,255,0.2)';
+  c2d.lineWidth = 1;
+  c2d.beginPath();
+  c2d.moveTo(pad.l, pad.t);
+  c2d.lineTo(pad.l, plotBot);
+  c2d.stroke();
+  c2d.strokeStyle = timeAxis ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.2)';
+  c2d.lineWidth = timeAxis ? 2 : 1;
+  c2d.beginPath();
+  c2d.moveTo(pad.l, plotBot);
+  c2d.lineTo(W - pad.r, plotBot);
+  c2d.stroke();
+}
+
+function drawAlphaTime(alpha) {
+  const cv = document.getElementById('alpha-time-canvas');
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = TIME_PAD;
+  if (!timeViewA.active) {
+    const tMax = simHistory.length > 1 ? simHistory[simHistory.length - 1].t : 0;
+    const tWin = Math.max(tMax, 4);
+    timeViewA.xMin = Math.max(0, tMax - tWin);
+    timeViewA.xMax = timeViewA.xMin + tWin;
+    let vMin = alpha, vMax = alpha;
+    for (const p of simHistory) {
+      if (p.alpha < vMin) vMin = p.alpha;
+      if (p.alpha > vMax) vMax = p.alpha;
+    }
+    const span = Math.max(vMax - vMin, 0.02);
+    timeViewA.yMin = vMin - span * 0.25;
+    timeViewA.yMax = vMax + span * 0.25;
+  }
+  c.clearRect(0, 0, W, H);
+  drawGrid(c, timeViewA, pad, W, H, v => v.toFixed(v < 10 ? 1 : 0), v => v.toFixed(3));
+  mimg(c, 'alphat', pad.l + 4, pad.t + 1);
+  mimg(c, 't_gray', W - pad.r - 9, H - pad.b + 14);
+  const y0 = timeViewA.toY(0, pad, H);
+  if (y0 >= pad.t && y0 <= H - pad.b) {
+    c.beginPath();
+    c.moveTo(pad.l, y0);
+    c.lineTo(W - pad.r, y0);
+    c.strokeStyle = 'rgba(255,255,255,0.85)';
+    c.lineWidth = 1.5;
+    c.stroke();
+  }
+  if (simHistory.length < 2) {
+    const y = timeViewA.toY(alpha, pad, H);
+    if (y >= pad.t && y <= H - pad.b) {
+      c.beginPath();
+      c.arc(pad.l + 10, y, 4, 0, 2 * Math.PI);
+      c.fillStyle = '#ffaa55';
+      c.fill();
+    }
+    return;
+  }
+  c.strokeStyle = '#00b4d8';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  let started = false;
+  for (const p of simHistory) {
+    if (p.t < timeViewA.xMin - 0.01 || p.t > timeViewA.xMax + 0.01) { started = false; continue; }
+    const px = timeViewA.toX(p.t, pad, W), py = timeViewA.toY(p.alpha, pad, H);
+    if (!started) { c.moveTo(px, py); started = true; } else c.lineTo(px, py);
+  }
+  c.stroke();
+  const last = simHistory[simHistory.length - 1];
+  const lx = timeViewA.toX(last.t, pad, W), ly = timeViewA.toY(last.alpha, pad, H);
+  if (lx >= pad.l && lx <= W - pad.r && ly >= pad.t && ly <= H - pad.b) {
+    c.beginPath();
+    c.arc(lx, ly, 4, 0, 2 * Math.PI);
+    c.fillStyle = '#ffdd57';
+    c.fill();
+  }
+  if (timeViewA.active) {
+    c.fillStyle = 'rgba(233,69,96,0.6)';
+    c.font = 'bold 9px sans-serif';
+    c.fillText('🔒 zoom', W - pad.r - 42, pad.t + 10);
+  }
+}
+
+function drawBetaTime(beta) {
+  const cv = document.getElementById('beta-time-canvas');
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = TIME_PAD;
+  if (!timeViewB.active) {
+    const tMax = simHistory.length > 1 ? simHistory[simHistory.length - 1].t : 0;
+    const tWin = Math.max(tMax, 4);
+    timeViewB.xMin = Math.max(0, tMax - tWin);
+    timeViewB.xMax = timeViewB.xMin + tWin;
+    let vMin = beta, vMax = beta;
+    for (const p of simHistory) {
+      if (p.beta < vMin) vMin = p.beta;
+      if (p.beta > vMax) vMax = p.beta;
+    }
+    const span = Math.max(vMax - vMin, 0.02);
+    timeViewB.yMin = vMin - span * 0.25;
+    timeViewB.yMax = vMax + span * 0.25;
+  }
+  c.clearRect(0, 0, W, H);
+  drawGrid(c, timeViewB, pad, W, H, v => v.toFixed(v < 10 ? 1 : 0), v => v.toFixed(3));
+  mimg(c, 'betat', pad.l + 4, pad.t + 1);
+  mimg(c, 't_gray', W - pad.r - 9, H - pad.b + 14);
+  const y0 = timeViewB.toY(0, pad, H);
+  if (y0 >= pad.t && y0 <= H - pad.b) {
+    c.beginPath();
+    c.moveTo(pad.l, y0);
+    c.lineTo(W - pad.r, y0);
+    c.strokeStyle = 'rgba(255,255,255,0.85)';
+    c.lineWidth = 1.5;
+    c.stroke();
+  }
+  if (simHistory.length < 2) {
+    const y = timeViewB.toY(beta, pad, H);
+    if (y >= pad.t && y <= H - pad.b) {
+      c.beginPath();
+      c.arc(pad.l + 10, y, 4, 0, 2 * Math.PI);
+      c.fillStyle = '#7ec8e3';
+      c.fill();
+    }
+    return;
+  }
+  c.strokeStyle = '#7ec8e3';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  let started = false;
+  for (const p of simHistory) {
+    if (p.t < timeViewB.xMin - 0.01 || p.t > timeViewB.xMax + 0.01) { started = false; continue; }
+    const px = timeViewB.toX(p.t, pad, W), py = timeViewB.toY(p.beta, pad, H);
+    if (!started) { c.moveTo(px, py); started = true; } else c.lineTo(px, py);
+  }
+  c.stroke();
+  const last = simHistory[simHistory.length - 1];
+  const lx = timeViewB.toX(last.t, pad, W), ly = timeViewB.toY(last.beta, pad, H);
+  if (lx >= pad.l && lx <= W - pad.r && ly >= pad.t && ly <= H - pad.b) {
+    c.beginPath();
+    c.arc(lx, ly, 4, 0, 2 * Math.PI);
+    c.fillStyle = '#ffdd57';
+    c.fill();
+  }
+  if (timeViewB.active) {
+    c.fillStyle = 'rgba(233,69,96,0.6)';
+    c.font = 'bold 9px sans-serif';
+    c.fillText('🔒 zoom', W - pad.r - 42, pad.t + 10);
+  }
+}
+
+function drawGammaTime(gamma) {
+  const cv = document.getElementById('gamma-time-canvas');
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = TIME_PAD;
+  if (!timeViewG.active) {
+    const tMax = simHistory.length > 1 ? simHistory[simHistory.length - 1].t : 0;
+    const tWin = Math.max(tMax, 4);
+    timeViewG.xMin = Math.max(0, tMax - tWin);
+    timeViewG.xMax = timeViewG.xMin + tWin;
+    let vMin = gamma, vMax = gamma;
+    for (const p of simHistory) {
+      if (p.gamma < vMin) vMin = p.gamma;
+      if (p.gamma > vMax) vMax = p.gamma;
+    }
+    const span = Math.max(vMax - vMin, 0.15);
+    timeViewG.yMin = vMin - span * 0.25;
+    timeViewG.yMax = vMax + span * 0.25;
+  }
+  c.clearRect(0, 0, W, H);
+  drawGrid(c, timeViewG, pad, W, H, v => v.toFixed(v < 10 ? 1 : 0), v => v.toFixed(2));
+  mimg(c, 'gammat', pad.l + 4, pad.t + 1);
+  mimg(c, 't_gray', W - pad.r - 9, H - pad.b + 14);
+  const y0 = timeViewG.toY(0, pad, H);
+  if (y0 >= pad.t && y0 <= H - pad.b) {
+    c.beginPath();
+    c.moveTo(pad.l, y0);
+    c.lineTo(W - pad.r, y0);
+    c.strokeStyle = 'rgba(255,255,255,0.85)';
+    c.lineWidth = 1.5;
+    c.stroke();
+  }
+  if (simHistory.length < 2) {
+    const y = timeViewG.toY(gamma, pad, H);
+    if (y >= pad.t && y <= H - pad.b) {
+      c.beginPath();
+      c.arc(pad.l + 10, y, 4, 0, 2 * Math.PI);
+      c.fillStyle = '#ffb04a';
+      c.fill();
+    }
+    return;
+  }
+  c.strokeStyle = '#ffb04a';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  let started = false;
+  for (const p of simHistory) {
+    if (p.t < timeViewG.xMin - 0.01 || p.t > timeViewG.xMax + 0.01) { started = false; continue; }
+    const px = timeViewG.toX(p.t, pad, W), py = timeViewG.toY(p.gamma, pad, H);
+    if (!started) { c.moveTo(px, py); started = true; } else c.lineTo(px, py);
+  }
+  c.stroke();
+  const last = simHistory[simHistory.length - 1];
+  const lx = timeViewG.toX(last.t, pad, W), ly = timeViewG.toY(last.gamma, pad, H);
+  if (lx >= pad.l && lx <= W - pad.r && ly >= pad.t && ly <= H - pad.b) {
+    c.beginPath();
+    c.arc(lx, ly, 4, 0, 2 * Math.PI);
+    c.fillStyle = '#ffdd57';
+    c.fill();
+  }
+  if (timeViewG.active) {
+    c.fillStyle = 'rgba(233,69,96,0.6)';
+    c.font = 'bold 9px sans-serif';
+    c.fillText('🔒 zoom', W - pad.r - 42, pad.t + 10);
+  }
+}
+
+function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 40; }
+
+function startSim() {
+  if (simRunning) return;
+  const ic = getInitialFromSliders();
+  simState = {
+    alpha: ic.alpha,
+    dalpha: ic.dalpha,
+    beta: ic.beta,
+    dbeta: ic.dbeta,
+    gamma: ic.gamma,
+    dgamma: ic.dgamma,
+    time: 0
+  };
+  simHistory = [{
+    t: 0,
+    alpha: ic.alpha,
+    beta: ic.beta,
+    gamma: ic.gamma
+  }];
+  simRunning = true;
+  let lastTime = performance.now();
+  function step(now) {
+    if (!simRunning) return;
+    const tmax = getTMax();
+    if (simState.time >= tmax) {
+      stopSim();
+      draw(simState.alpha, simState.dalpha, simState.beta, simState.dbeta, simState.gamma, simState.dgamma);
+      return;
+    }
+    const realDt = Math.min((now - lastTime) / 1000, 0.04);
+    lastTime = now;
+    const substeps = 40;
+    const dt = realDt / substeps;
+    for (let i = 0; i < substeps; i++) {
+      simState = Object.assign(simState, rk4Step(simState, dt));
+      simState.time += dt;
+      if (simState.time >= tmax) break;
+    }
+    simHistory.push({
+      t: simState.time,
+      alpha: simState.alpha,
+      beta: simState.beta,
+      gamma: simState.gamma
+    });
+    if (simHistory.length > 6000) simHistory.shift();
+    draw(simState.alpha, simState.dalpha, simState.beta, simState.dbeta, simState.gamma, simState.dgamma);
+    animId = requestAnimationFrame(step);
+  }
+  animId = requestAnimationFrame(step);
+}
+
+function stopSim() { simRunning = false; if (animId) cancelAnimationFrame(animId); }
+function resetSim() { stopSim(); simState = null; simHistory = []; draw(); }
+
+document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1 / 1.13 : 1.13;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  mainView.offX = (mx - canvas.width * 0.5) * (1 - factor) + mainView.offX * factor;
+  mainView.offY = (my - canvas.height * 0.5) * (1 - factor) + mainView.offY * factor;
+  mainView.zoom *= factor;
+  if (!simRunning) draw();
+}, { passive: false });
+
+{
+  let mainDrag = false, mlx = 0, mly = 0;
+  canvas.addEventListener('mousedown', e => { mainDrag = true; mlx = e.clientX; mly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!mainDrag) return;
+    const rect = canvas.getBoundingClientRect();
+    mainView.offX += (e.clientX - mlx) * (canvas.width / rect.width);
+    mainView.offY += (e.clientY - mly) * (canvas.height / rect.height);
+    mlx = e.clientX; mly = e.clientY;
+    if (!simRunning) draw();
+  });
+  window.addEventListener('mouseup', () => { mainDrag = false; });
+  canvas.addEventListener('dblclick', () => { mainView.offX = 0; mainView.offY = 0; mainView.zoom = 1; if (!simRunning) draw(); });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId);
+  const panel = document.getElementById(panelId);
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); if (!simRunning) draw(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * 0.45));
+    panel.style.width = w + 'px'; resize(); if (!simRunning) draw();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+setupResizer('left-resizer', 'left-panel', 'left');
+setupResizer('right-resizer', 'right-panel', 'right');
+
+async function initApp() {
+  try { await preloadMath(); } catch (_) {}
+  try { if (window.MathJax && MathJax.typeset) MathJax.typeset(); } catch (_) {}
+  setupPanZoom('alpha-time-canvas', timeViewA, TIME_PAD, () => {
+    if (!simRunning) draw(); else drawAlphaTime(simState.alpha);
+  });
+  setupPanZoom('beta-time-canvas', timeViewB, TIME_PAD, () => {
+    if (!simRunning) draw(); else drawBetaTime(simState.beta);
+  });
+  setupPanZoom('gamma-time-canvas', timeViewG, TIME_PAD, () => {
+    if (!simRunning) draw(); else drawGammaTime(simState.gamma);
+  });
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  document.getElementById('btn-show-equations').addEventListener('click', () => {
+    const eqOverlay = document.getElementById('eq-overlay');
+    eqOverlay.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]);
+  });
+
+  resize(); readParams(); draw();
+}
+
+(function () {
+  const overlay = document.getElementById('help-overlay');
+  document.getElementById('help-close').addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+  overlay.classList.remove('hidden');
+
+  const eqOverlay = document.getElementById('eq-overlay');
+  document.getElementById('eq-close').addEventListener('click', () => eqOverlay.classList.add('hidden'));
+  eqOverlay.addEventListener('click', e => { if (e.target === eqOverlay) eqOverlay.classList.add('hidden'); });
+
+  resize(); readParams(); draw();
+})();
+</script>
+</body>
+</html>
