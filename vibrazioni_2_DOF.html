@@ -111,6 +111,20 @@ button.secondary { background:var(--accent); border:1px solid #555; }
 button.secondary:hover { background:#1a3a6a; }
 .btn-row { display:flex; gap:5px; flex-wrap:wrap; }
 #canvas-container { flex:1; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+#canvas-hud {
+  position:absolute; left:12px; bottom:12px; z-index:3;
+  display:flex; flex-direction:column; gap:9px;
+  font-size:.76em; color:rgba(220,220,230,0.95);
+  background:rgba(18,22,32,0.88); border-radius:8px; padding:10px 12px;
+  border:1px solid rgba(233,69,96,0.35); box-shadow:0 4px 14px rgba(0,0,0,0.35);
+  pointer-events:auto;
+}
+#canvas-hud label { cursor:pointer; display:flex; align-items:center; gap:8px; user-select:none; line-height:1.2; }
+#canvas-hud label.canvas-hud-forces {
+  font-size:.88em; font-weight:700; color:#fcfdff;
+  letter-spacing:0.02em; text-shadow:0 0 12px rgba(233,69,96,0.45);
+}
+#canvas-hud label.canvas-hud-forces input { width:15px; height:15px; accent-color:#e94560; }
 canvas#canvas { background:#0d1117; border-radius:8px; cursor:grab; }
 canvas#canvas:active { cursor:grabbing; }
 #info-box { background:rgba(0,0,0,.3); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; }
@@ -169,19 +183,25 @@ mjx-container { display:inline !important; }
   </div>
 
   <div class="section">
-    <div class="section-title">Inerzia e geometria</div>
+    <div class="section-title">Mass and geometry</div>
     <div class="param-row"><label>$m_1$ (kg):</label>
-      <input type="range" id="m1-slider" min="0.2" max="100" value="15" step="0.1">
-      <span class="val" id="m1-val">15.0</span></div>
-    <div class="param-row"><label>$J_1$ (kg·m²):</label>
-      <input type="range" id="J1-slider" min="0.01" max="12" value="2" step="0.01">
-      <span class="val" id="J1-val">2.000</span></div>
+      <input type="range" id="m1-slider" min="0.2" max="10" value="5" step="0.1">
+      <span class="val" id="m1-val">5.0</span></div>
     <div class="param-row"><label>$r$ (m):</label>
       <input type="range" id="r-slider" min="0.08" max="2.5" value="0.8" step="0.01">
       <span class="val" id="r-val">0.80</span></div>
     <div class="param-row"><label>$m_2$ (kg):</label>
-      <input type="range" id="m2-slider" min="0.1" max="80" value="12" step="0.1">
-      <span class="val" id="m2-val">12.0</span></div>
+      <input type="range" id="m2-slider" min="0.1" max="10" value="4" step="0.1">
+      <span class="val" id="m2-val">4.0</span></div>
+    <div class="param-row"><label>$L_1$ (m):</label>
+      <input type="range" id="L1-slider" min="0.05" max="0.5" value="0.1" step="0.01">
+      <span class="val" id="L1-val">0.10</span></div>
+    <div class="param-row"><label>$L_2$ (m):</label>
+      <input type="range" id="L2-slider" min="0.05" max="0.5" value="0.1" step="0.01">
+      <span class="val" id="L2-val">0.10</span></div>
+    <div class="param-row"><label>$N_{\mathrm{nastro}}$ (m):</label>
+      <input type="range" id="LN-slider" min="3" max="22" value="6" step="0.1">
+      <span class="val" id="LN-val">6.0</span></div>
   </div>
 
   <div class="section">
@@ -237,9 +257,6 @@ mjx-container { display:inline !important; }
       <button id="btn-stop" class="secondary">■ Stop</button>
       <button id="btn-reset" class="secondary">Reset</button>
     </div>
-    <div class="param-row param-row-full" style="margin-top:6px;">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="chk-show-forces"> Show forces on diagram</label>
-    </div>
   </div>
 
   <div class="section">
@@ -251,7 +268,13 @@ mjx-container { display:inline !important; }
 <div id="left-resizer" class="resizer">
   <button class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
 </div>
-<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="canvas-container">
+  <canvas id="canvas"></canvas>
+  <div id="canvas-hud">
+    <label class="canvas-hud-forces"><input type="checkbox" id="chk-show-forces"> Show forces</label>
+    <label><input type="checkbox" id="chk-show-geom-abcde"> Show points A–F</label>
+  </div>
+</div>
 <div id="right-resizer" class="resizer">
   <button class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
 </div>
@@ -326,7 +349,23 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let params = {}, simState = null, simRunning = false, animId = null, simHistory = [];
 
-const mainView = { offX: 0, offY: 35, zoom: 1 };
+/** Phase plots: only show this many seconds of trajectory (sliding tail). */
+const PHASE_TRAIL_WINDOW_S = 1;
+
+function simHistoryPhaseWindow() {
+  if (simHistory.length === 0) return [];
+  const tEnd = simHistory[simHistory.length - 1].t;
+  const tCut = tEnd - PHASE_TRAIL_WINDOW_S;
+  let i0 = 0;
+  for (; i0 < simHistory.length; i0++) {
+    if (simHistory[i0].t >= tCut) break;
+  }
+  return simHistory.slice(i0);
+}
+
+const mainView = { offX: 0, offY: 0, zoom: 1 };
+/** Base world span for scale; actual pixel scale = (min(canvas)/MAIN_SPAN) * mainView.zoom */
+const MAIN_SPAN = 6;
 
 const MI = {};
 /** Plain subscripts (x_1, x_2, U, T); dot forms slightly larger so ẋ matches x visually */
@@ -354,7 +393,7 @@ async function preloadMath() {
     ['x1t',     'x_1(t)',                 '#00b4d8', 13],
     ['x2t',     'x_2(t)',                 '#7ec8e3', 13],
     ['t_gray',  't',                      '#888',    13],
-    ['m1_lbl',  'm_1,\\,J_1',             'rgba(185,195,215,0.96)', 14],
+    ['m1_lbl',  'm_1',                    'rgba(185,195,215,0.96)', 14],
     ['m2_lbl',  'm_2',                    '#4a90d9', 13],
     ['k1_lab',  'k_1',                    'rgba(200,190,170,0.96)', 14],
     ['k2_lab',  'k_2',                    '#f0c040', 14],
@@ -411,9 +450,9 @@ class PanZoomView {
 
 const PHASE_PAD  = { l: 76, r: 26, t: 18, b: 50 };
 const TIME_PAD   = {l:44,r:32,t:12,b:26};
-/** Force arrows on main canvas: length in world coords = |F| * FORCE_LEN_PER_N (N), then clamped. */
-const FORCE_LEN_PER_N = 0.005;
-const FORCE_LEN_MIN = 0.28;
+/** Force arrows on main canvas: length = |F| * FORCE_LEN_PER_N. Clamp chosen so ~20…120 N spans visible range (N was pegged at MIN with old scale). */
+const FORCE_LEN_PER_N = 0.007;
+const FORCE_LEN_MIN = 0.1;
 const FORCE_LEN_MAX = 2.4;
 /** Phase projection plots: tick labels (canvas); axis names U,T,x,ẋ via MathJax (ph_* images) */
 const PHASE_PROJ_FONT = '11px system-ui, "Segoe UI", sans-serif';
@@ -486,44 +525,159 @@ function resize() {
   const sz = Math.min(cont.clientWidth-12, cont.clientHeight-12);
   canvas.width=sz; canvas.height=sz;
 }
-window.addEventListener('resize', () => { resize(); if (!simRunning) draw(); });
+window.addEventListener('resize', () => {
+  resize();
+  if (!simRunning) {
+    readParams();
+    fitMainViewToFigure();
+    draw();
+  }
+});
 
 function readParams() {
+  const m1 = parseFloat(document.getElementById('m1-slider').value);
+  const r  = parseFloat(document.getElementById('r-slider').value);
+  const J1 = 0.5 * m1 * r * r;
   params = {
-    m1: parseFloat(document.getElementById('m1-slider').value),
-    J1: parseFloat(document.getElementById('J1-slider').value),
-    r:  parseFloat(document.getElementById('r-slider').value),
+    m1,
+    J1,
+    r,
     m2: parseFloat(document.getElementById('m2-slider').value),
     k1: parseFloat(document.getElementById('k1-slider').value),
     k2: parseFloat(document.getElementById('k2-slider').value),
     g:  parseFloat(document.getElementById('g-slider').value),
+    L_N: parseFloat(document.getElementById('LN-slider').value),
+    L1: parseFloat(document.getElementById('L1-slider').value),
+    L2: parseFloat(document.getElementById('L2-slider').value),
   };
   params.M1 = params.m1 + params.J1 / (params.r * params.r);
+  /* Static equilibrium: 0 = -2 k1 x1eq - k2(x1eq-x2eq) - Neq + m1 g, (Neq - 2 k1 x1eq) r = 0, -k2(x2eq-x1eq)+m2 g = 0 */
   params.x1eq = (params.m1 + params.m2) * params.g / (4 * params.k1);
   params.x2eq = params.x1eq + params.m2 * params.g / params.k2;
+  params.Neq = 2 * params.k1 * params.x1eq;
 }
-function wireSlider(id, valId, fmt) {
-  const sl=document.getElementById(id), vl=document.getElementById(valId);
-  vl.textContent=fmt(parseFloat(sl.value));
-  const upd=()=>{ vl.textContent=fmt(parseFloat(sl.value)); readParams(); if(!simRunning) draw(); };
+
+/** Spring length |AB| = L1 + 2(x1eq + x1) (same structure as Fel1 static extension). y up; A at y=0, B below A. */
+function lenMollaAB(x1) {
+  return params.L1 + 2 * (params.x1eq + x1);
+}
+
+function yB_world(x1) {
+  return -lenMollaAB(x1);
+}
+
+/** |BC| = (L_N - pi r - |AB|) / 2; C is below B; O and C share y (left tangent). DE = L_N - pi r - |BC|. */
+function segmentBC_len(x1) {
+  return (params.L_N - Math.PI * params.r - lenMollaAB(x1)) / 2;
+}
+
+function pulleyOy(x1) {
+  return yB_world(x1) - segmentBC_len(x1);
+}
+
+/** Top of m2 (point F): k2 connects O to F; elongation uses physical (x2+x2eq-x1-x1eq). */
+function Fy_world(Oy, x1, x2) {
+  return Oy - params.L2 - (x2 + params.x2eq - x1 - params.x1eq);
+}
+
+/** Current length of spring k2 (segment O–F), same form as geometry: L2 + elongation. */
+function lenSpring2OF(x1, x2) {
+  return params.L2 + (x2 + params.x2eq - x1 - params.x1eq);
+}
+
+function worldBoundsForState(x1, x2) {
+  const { r, m2 } = params;
+  const Oy = pulleyOy(x1);
+  const By = yB_world(x1);
+  const Fy = Fy_world(Oy, x1, x2);
+  const h2w = 0.1 * Math.cbrt(m2);
+  const yBlockBottom = Fy - h2w;
+  const yDiskBottom = Oy - r;
+  const yDiskTop = Oy + r;
+  const xPad = 0.4;
+  const yTopPad = 0.45;
+  const yBotPad = 0.55;
+  return {
+    xMin: -r - xPad,
+    xMax: r + xPad,
+    yMin: Math.min(By, yBlockBottom, yDiskBottom) - yBotPad,
+    yMax: Math.max(0, yDiskTop) + yTopPad,
+  };
+}
+
+/** Union of bounds over corners of $(x_1,x_2)$ slider ranges so the default view fits typical motion. */
+function worldBoundsEnvelope() {
+  const x10 = document.getElementById('x10-slider');
+  const x20 = document.getElementById('x20-slider');
+  const x1s = [parseFloat(x10.min), parseFloat(x10.max)];
+  const x2s = [parseFloat(x20.min), parseFloat(x20.max)];
+  let u = null;
+  for (const x1 of x1s) {
+    for (const x2 of x2s) {
+      const b = worldBoundsForState(x1, x2);
+      if (!u) u = { ...b };
+      else {
+        u.xMin = Math.min(u.xMin, b.xMin);
+        u.xMax = Math.max(u.xMax, b.xMax);
+        u.yMin = Math.min(u.yMin, b.yMin);
+        u.yMax = Math.max(u.yMax, b.yMax);
+      }
+    }
+  }
+  return u;
+}
+
+function fitMainViewToFigure() {
+  if (!canvas.width || !canvas.height) return;
+  const b = worldBoundsEnvelope();
+  const margin = 0.07;
+  const W = canvas.width, H = canvas.height;
+  const usableW = W * (1 - 2 * margin);
+  const usableH = H * (1 - 2 * margin);
+  const worldW = Math.max(b.xMax - b.xMin, 0.35);
+  const worldH = Math.max(b.yMax - b.yMin, 0.35);
+  const sc = Math.min(usableW / worldW, usableH / worldH);
+  const size = Math.min(W, H);
+  mainView.zoom = (sc * MAIN_SPAN) / size;
+  const cxW = (b.xMin + b.xMax) * 0.5;
+  const cyW = (b.yMin + b.yMax) * 0.5;
+  mainView.offX = -cxW * sc;
+  mainView.offY = cyW * sc;
+}
+
+function wireSlider(id, valId, fmt, refitMain = true) {
+  const sl = document.getElementById(id), vl = document.getElementById(valId);
+  vl.textContent = fmt(parseFloat(sl.value));
+  const upd = () => {
+    vl.textContent = fmt(parseFloat(sl.value));
+    readParams();
+    if (!simRunning) {
+      if (refitMain) fitMainViewToFigure();
+      draw();
+    }
+  };
   sl.addEventListener('input', upd);
 }
-wireSlider('m1-slider',  'm1-val',  v=>v.toFixed(1));
-wireSlider('J1-slider',  'J1-val',  v=>v.toFixed(3));
-wireSlider('r-slider',   'r-val',   v=>v.toFixed(2));
-wireSlider('m2-slider',  'm2-val',  v=>v.toFixed(1));
-wireSlider('k1-slider',  'k1-val',  v=>v.toFixed(0));
-wireSlider('k2-slider',  'k2-val',  v=>v.toFixed(0));
-wireSlider('g-slider',   'g-val',   v=>v.toFixed(2));
-wireSlider('x10-slider', 'x10-val', v=>v.toFixed(3));
-wireSlider('dx10-slider','dx10-val',v=>v.toFixed(2));
-wireSlider('x20-slider', 'x20-val', v=>v.toFixed(3));
-wireSlider('dx20-slider','dx20-val',v=>v.toFixed(2));
+wireSlider('m1-slider',  'm1-val',  v => v.toFixed(1));
+wireSlider('r-slider',   'r-val',   v => v.toFixed(2));
+wireSlider('m2-slider',  'm2-val',  v => v.toFixed(1));
+wireSlider('L1-slider',  'L1-val',  v => v.toFixed(2));
+wireSlider('L2-slider',  'L2-val',  v => v.toFixed(2));
+wireSlider('LN-slider',  'LN-val',  v => v.toFixed(1));
+wireSlider('k1-slider',  'k1-val',  v => v.toFixed(0));
+wireSlider('k2-slider',  'k2-val',  v => v.toFixed(0));
+/* g alone: skip auto-fit so disk (r) and m2 glyph scale stay fixed; x1eq,x2eq only shift the mechanism in world space. */
+wireSlider('g-slider',   'g-val',   v => v.toFixed(2), false);
+wireSlider('x10-slider', 'x10-val', v => v.toFixed(3));
+wireSlider('dx10-slider', 'dx10-val', v => v.toFixed(2), false);
+wireSlider('x20-slider', 'x20-val', v => v.toFixed(3));
+wireSlider('dx20-slider', 'dx20-val', v => v.toFixed(2), false);
 
 function setG(val) {
-  document.getElementById('g-slider').value=val;
-  document.getElementById('g-val').textContent=val.toFixed(2);
-  readParams(); if(!simRunning) draw();
+  document.getElementById('g-slider').value = val;
+  document.getElementById('g-val').textContent = val.toFixed(2);
+  readParams();
+  if (!simRunning) draw();
 }
 document.getElementById('btn-earth').addEventListener('click',   ()=>setG(9.81));
 document.getElementById('btn-moon').addEventListener('click',    ()=>setG(1.62));
@@ -550,17 +704,49 @@ function accel2dof(x1, x2) {
 }
 
 /**
- * Equilibrium (static, gravity): x1eq = (m1+m2)g/(4k1), x2eq = x1eq + m2g/k2 (stored on params as x1eq, x2eq).
- * N = (m1+m2)g/2 + (J1/r^2)*x1dd + 2*k1*x1; Fel1 = k1*(2*x1+2*x1eq); Fel2 = k2*(x2-x1+x2eq-x1eq).
- * Arrows: N and Fel1 upward from (r,2) and (-r,2); Fel2 on disk at O from (0,-x1) with vertical component -Fel2.
+ * N = Neq + Nalt with Neq = 2 k1 x1eq; Nalt = J1 x1dd/r^2 + 2 k1 x1 (rolling + dynamic tension).
+ * Fel1 = k1(2 x1 + 2 x1eq); Fel2 = k2(x2 + x2eq - x1 - x1eq).
  */
 function forcesAt(x1, x2) {
   const [x1dd, x2dd] = accel2dof(x1, x2);
-  const { m1, m2, k1, k2, g, r, J1, x1eq, x2eq } = params;
-  const N = (m1 + m2) * g / 2 + J1 / (r * r) * x1dd + 2 * k1 * x1;
+  const { k1, k2, r, J1, x1eq, x2eq, Neq } = params;
+  const Nalt = J1 * x1dd / (r * r) + 2 * k1 * x1;
+  const N = Neq + Nalt;
   const Fel1 = k1 * (2 * x1 + 2 * x1eq);
-  const Fel2 = k2 * (x2 - x1 + x2eq - x1eq);
-  return { N, Fel1, Fel2, x1dd, x2dd };
+  const Fel2 = k2 * (x2 + x2eq - x1 - x1eq);
+  return { N, Neq, Nalt, Fel1, Fel2, x1dd, x2dd };
+}
+
+/** null if OK, otherwise English message to show and stop the run. */
+function getSimulationViolation(x1, x2) {
+  const l1 = lenMollaAB(x1);
+  if (l1 + 1e-12 < params.L1) {
+    return 'Simulation stopped: spring k1 cannot shorten below free length L1 — the left cable would go slack. Need |AB| >= L1 (same as F_el1 = k1(2x1 + 2x1eq) > 0).';
+  }
+  const lim2 = 0.1 * params.L2 + 1e-12;
+  const l2 = lenSpring2OF(x1, x2);
+  if (l2 <= lim2) {
+    return 'Simulation stopped: spring 2 is fully compressed (fully packed coil); length L2 + (x2 + x2eq - x1 - x1eq) is at or below 0.1*L2.';
+  }
+  const BC = segmentBC_len(x1);
+  if (BC <= 0) {
+    return 'Simulation stopped: spring fouled on the pulley (belt segment BC is zero or negative — point B has crossed through tangent point C).';
+  }
+  const { N } = forcesAt(x1, x2);
+  if (N < 0) {
+    return 'Simulation stopped: cable slack — total tension N = N_eq + N_alt is negative.';
+  }
+  return null;
+}
+
+function haltSimulationWithWarning(msg) {
+  stopSim();
+  window.alert(msg);
+  if (simState) {
+    draw(simState.x1, simState.dx1, simState.x2, simState.dx2);
+  } else {
+    draw();
+  }
 }
 
 function drawWorldForceArrow(ctx, wx0, wy0, Fx, Fy, color, labelKey) {
@@ -631,9 +817,8 @@ function rk4Step(s, dt) {
 }
 
 function getScale() {
-  const span = 6;
   const size = Math.min(canvas.width, canvas.height);
-  return (size / span) * mainView.zoom;
+  return (size / MAIN_SPAN) * mainView.zoom;
 }
 function w2c(wx, wy) {
   const sc = getScale();
@@ -674,6 +859,60 @@ function drawSpring(c2d, x1, y1, x2, y2, coils, color, opts) {
   c2d.strokeStyle=color; c2d.lineWidth=opts.lineWidth != null ? opts.lineWidth : 2; c2d.stroke();
 }
 
+/** Debug markers A…F (y-up world coords). */
+function drawGeomPoint(c2d, wx, wy, letter, color) {
+  const [px, py] = w2c(wx, wy);
+  c2d.beginPath();
+  c2d.arc(px, py, 5, 0, 2 * Math.PI);
+  c2d.fillStyle = color;
+  c2d.fill();
+  c2d.strokeStyle = 'rgba(255,255,255,0.85)';
+  c2d.lineWidth = 1.2;
+  c2d.stroke();
+  c2d.fillStyle = '#fff';
+  c2d.font = 'bold 11px sans-serif';
+  c2d.fillText(letter, px + 7, py + 4);
+}
+
+const BELT_BEAD_COUNT = 20;
+const BELT_BEAD_RPX = 2.35;
+
+/** Inextensible belt markers: path E → D → lower arc D→C → C → B (arc length), evenly spaced, y-up world coords. */
+function drawBeltBeads(c2d, Ox, Oy, rw, x1, Ex, Ey, Dx, Dy, Cx, Cy, Bx, By) {
+  const L_DE = Math.abs(Ey - Dy);
+  const L_arc = Math.PI * rw;
+  const L_BC = segmentBC_len(x1);
+  if (L_BC <= 0) return;
+  const total = L_DE + L_arc + L_BC;
+  if (total < 1e-9) return;
+  for (let i = 0; i < BELT_BEAD_COUNT; i++) {
+    const s = (i / (BELT_BEAD_COUNT - 1)) * total;
+    let wx, wy;
+    if (s <= L_DE) {
+      const t = L_DE > 1e-12 ? s / L_DE : 0;
+      wx = Ex;
+      wy = Ey + (Dy - Ey) * t;
+    } else if (s <= L_DE + L_arc) {
+      const u = (s - L_DE) / L_arc;
+      const theta = -u * Math.PI;
+      wx = Ox + rw * Math.cos(theta);
+      wy = Oy + rw * Math.sin(theta);
+    } else {
+      const s_rem = Math.min(s - L_DE - L_arc, L_BC);
+      wx = Cx;
+      wy = Oy + s_rem;
+    }
+    const [px, py] = w2c(wx, wy);
+    c2d.beginPath();
+    c2d.arc(px, py, BELT_BEAD_RPX, 0, 2 * Math.PI);
+    c2d.fillStyle = 'rgba(250,230,200,0.96)';
+    c2d.fill();
+    c2d.strokeStyle = 'rgba(70,60,48,0.8)';
+    c2d.lineWidth = 0.85;
+    c2d.stroke();
+  }
+}
+
 function drawVersor(c2d, cx, cy, ex, ey, color, labelKey) {
   const dx=ex-cx, dy=ey-cy, len=Math.sqrt(dx*dx+dy*dy);
   if (len<2) return;
@@ -711,60 +950,66 @@ function draw(x1o, dx1o, x2o, dx2o) {
   const dx2 = dx2o !== undefined ? dx2o : dx20;
 
   const { r, m2 } = params;
-  const Ox = 0, Oy = -x1;
-  const yFrame = 2;
-  const ropeBottomY = -x1;
-  const leftRopeTopY = 1 - 2 * x1;
-  const blockY = -2 - x1 - x2;
+  const Ox = 0;
+  const Oy = pulleyOy(x1);
+  const yCeil = 0;
+  const Ax = -r, Ay = yCeil;
+  const Bx = -r, By = yB_world(x1);
+  const Cx = -r, Cy = Oy;
+  const Dx = r, Dy = Oy;
+  const Ex = r, Ey = yCeil;
+  const Fy = Fy_world(Oy, x1, x2);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,canvas.width,canvas.height);
 
   const baseMass = 0.1;
-  const hs2 = cLen(baseMass * Math.cbrt(m2));
+  const h2w = baseMass * Math.cbrt(m2);
+  const hs2 = cLen(h2w);
+  const blockTopY = Fy;
+  const blockY = blockTopY - h2w;
 
-  // Top frame y=2, x in [-3,3] — beam + diagonal hatch (telaio)
+  // Top frame y=0, x in [-3,3] — beam + diagonal hatch (telaio); E = (r,0) on ceiling
   {
-    const [p1x,p1y]=w2c(-3, yFrame);
-    const [p2x,p2y]=w2c(3, yFrame);
+    const [p1x,p1y]=w2c(-3, yCeil);
+    const [p2x,p2y]=w2c(3, yCeil);
     ctx.beginPath(); ctx.moveTo(p1x,p1y); ctx.lineTo(p2x,p2y);
     ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2; ctx.stroke();
-    const spanPx = p2x - p1x;
     for (let xx = p1x; xx <= p2x + 2; xx += 10) {
       ctx.beginPath(); ctx.moveTo(xx - 8, p1y); ctx.lineTo(xx, p1y - 10);
       ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5; ctx.stroke();
     }
   }
 
-  // Rope: (r,2) to (r,-x1)
+  // Belt D–E: (r, Oy) to (r, 0)
   {
-    const [a1x,a1y]=w2c(r, yFrame);
-    const [a2x,a2y]=w2c(r, ropeBottomY);
+    const [a1x,a1y]=w2c(Ex, Ey);
+    const [a2x,a2y]=w2c(Dx, Dy);
     ctx.beginPath(); ctx.moveTo(a1x,a1y); ctx.lineTo(a2x,a2y);
     ctx.strokeStyle='rgba(200,190,170,0.95)'; ctx.lineWidth=2.5; ctx.stroke();
   }
 
-  // Lower semicircle of disk: center O, from (r,-x1) to (-r,-x1) through bottom
+  // Lower semicircle: center O, C to D (lower arc, through bottom)
   {
     const [cx,cy]=w2c(Ox, Oy);
     const Rpix = cLen(r);
     ctx.beginPath();
-    ctx.arc(cx, cy, Rpix, 0, Math.PI, false);
+    ctx.arc(cx, cy, Rpix, Math.PI, 0, false);
     ctx.strokeStyle='rgba(200,190,170,0.95)'; ctx.lineWidth=2.5; ctx.stroke();
   }
 
-  // Vertical segment (-r,-x1) to (-r, 1-2x1)
+  // Belt B–C: left vertical segment
   {
-    const [b1x,b1y]=w2c(-r, ropeBottomY);
-    const [b2x,b2y]=w2c(-r, leftRopeTopY);
+    const [b1x,b1y]=w2c(Bx, By);
+    const [b2x,b2y]=w2c(Cx, Cy);
     ctx.beginPath(); ctx.moveTo(b1x,b1y); ctx.lineTo(b2x,b2y);
     ctx.strokeStyle='rgba(200,190,170,0.95)'; ctx.lineWidth=2.5; ctx.stroke();
   }
 
-  // Left spring k1: (-r, 1-2x1) to (-r, 2)
+  // Spring k1: A = (-r,0) to B
   {
-    const [s1x,s1y]=w2c(-r, leftRopeTopY);
-    const [s2x,s2y]=w2c(-r, yFrame);
+    const [s1x,s1y]=w2c(Ax, Ay);
+    const [s2x,s2y]=w2c(Bx, By);
     drawSpring(ctx, s1x, s1y, s2x, s2y, 6, 'rgba(200,190,170,0.95)');
   }
 
@@ -796,14 +1041,17 @@ function draw(x1o, dx1o, x2o, dx2o) {
     mimg(ctx, 'm1_lbl', cx, cy - Rpix - 16, 'center');
   }
 
-  // Central spring k2: O to block (on top of disk)
+  // Belt beads (fixed spacing along rope: E → D → arc → C → B)
+  drawBeltBeads(ctx, Ox, Oy, r, x1, Ex, Ey, Dx, Dy, Cx, Cy, Bx, By);
+
+  // Spring k2: O to F (top face of m2)
   {
-    const [t1x,t1y]=w2c(0, Oy);
-    const [t2x,t2y]=w2c(0, blockY);
+    const [t1x,t1y]=w2c(Ox, Oy);
+    const [t2x,t2y]=w2c(0, blockTopY);
     drawSpring(ctx, t1x, t1y, t2x, t2y, 6, '#f0c040', { stubFrac: 0.16, amp: 8, lineWidth: 2.5 });
   }
 
-  // Mass m2 block at (0, blockY)
+  // Mass m2 block below F
   {
     const [bx,by]=w2c(0, blockY);
     roundRect(ctx, bx-hs2, by-hs2, 2*hs2, 2*hs2, Math.min(8, hs2*0.35),
@@ -811,16 +1059,29 @@ function draw(x1o, dx1o, x2o, dx2o) {
     mimg(ctx, 'm2_lbl', bx - hs2 - 8, by - 8, 'right');
   }
 
-  // Versors fixed at equilibrium (x1=0, x2=0): O at (0,0), block at (0,-2)
+  // Design markers A–F (optional)
   {
-    const Oy0 = 0;
-    const blockY0 = -2;
+    const pc = 'rgba(0,229,255,0.92)';
+    if (document.getElementById('chk-show-geom-abcde').checked) {
+      drawGeomPoint(ctx, Ax, Ay, 'A', pc);
+      drawGeomPoint(ctx, Bx, By, 'B', pc);
+      drawGeomPoint(ctx, Cx, Cy, 'C', pc);
+      drawGeomPoint(ctx, Dx, Dy, 'D', pc);
+      drawGeomPoint(ctx, Ex, Ey, 'E', pc);
+      drawGeomPoint(ctx, 0, Fy, 'F', pc);
+    }
+  }
+
+  // Versors at equilibrium (x1=0, x2=0)
+  {
+    const Oy0 = pulleyOy(0);
+    const blockY0 = Fy_world(Oy0, 0, 0) - h2w;
     const off = r * 0.32;
     const vlen1 = 0.32;
     const [sx1, sy1] = w2c(off, Oy0);
     const [ex1, ey1] = w2c(off, Oy0 - vlen1);
     drawVersor(ctx, sx1, sy1, ex1, ey1, 'rgba(255,200,160,0.9)', 'x1_lbl');
-    const off2 = hs2 / getScale() + 0.06;
+    const off2 = h2w + 0.18;
     const vlen2 = 0.28;
     const [bx0, by0] = w2c(0, blockY0);
     const sc = getScale();
@@ -833,23 +1094,22 @@ function draw(x1o, dx1o, x2o, dx2o) {
 
   // Spring labels (after geometry; offset from coil axes to avoid overlap)
   {
-    const [s1x, s1y] = w2c(-r, leftRopeTopY);
-    const [, s2y] = w2c(-r, yFrame);
+    const [s1x, s1y] = w2c(Ax, Ay);
+    const [, s2y] = w2c(Bx, By);
     const midK1y = (s1y + s2y) / 2;
     mimg(ctx, 'k1_lab', s1x - 12, midK1y - 7, 'right');
   }
   {
-    const [t1x, t1y] = w2c(0, Oy);
-    const [, t2y] = w2c(0, blockY);
+    const [t1x, t1y] = w2c(Ox, Oy);
+    const [, t2y] = w2c(0, blockTopY);
     const midK2y = (t1y + t2y) / 2;
     mimg(ctx, 'k2_lab', t1x - 20, midK2y - 7, 'right');
   }
 
   if (document.getElementById('chk-show-forces').checked) {
     const { N, Fel1, Fel2 } = forcesAt(x1, x2);
-    const yTop = 2;
-    drawWorldForceArrow(ctx, r, yTop, 0, N, '#00e5ff', 'f_N');
-    drawWorldForceArrow(ctx, -r, yTop, 0, Fel1, '#ff2d78', 'f_Fel1');
+    drawWorldForceArrow(ctx, r, yCeil, 0, N, '#00e5ff', 'f_N');
+    drawWorldForceArrow(ctx, -r, yCeil, 0, Fel1, '#ff2d78', 'f_Fel1');
     drawWorldForceArrow(ctx, Ox, Oy, 0, -Fel2, '#ff9100', 'f_Fel2');
   }
 
@@ -872,9 +1132,9 @@ function updateInfo(x1, dx1, x2, dx2) {
   const E = T + U;
   const E0 = totalE(x10, x20, dx10, dx20);
   const { x1eq, x2eq } = params;
-  const { N, Fel1, Fel2 } = forcesAt(x1, x2);
+  const { N, Neq, Nalt, Fel1, Fel2 } = forcesAt(x1, x2);
   let txt = '';
-  txt += `x₁eq = ${x1eq.toFixed(5)} m\nx₂eq = ${x2eq.toFixed(5)} m\n`;
+  txt += `x₁eq = ${x1eq.toFixed(5)} m\nx₂eq = ${x2eq.toFixed(5)} m\nN_eq = ${Neq.toFixed(4)} N\n`;
   txt += '─────────────────────\n';
   txt += `x₁  = ${x1.toFixed(4)} m\nẋ₁ = ${dx1.toFixed(4)} m/s\n`;
   txt += `x₂  = ${x2.toFixed(4)} m\nẋ₂ = ${dx2.toFixed(4)} m/s\n`;
@@ -882,7 +1142,7 @@ function updateInfo(x1, dx1, x2, dx2) {
   txt += `T = ${T.toFixed(5)} J\nU = ${U.toFixed(5)} J\nE = ${E.toFixed(5)} J\n`;
   txt += `E₀ = ${E0.toFixed(5)} J\n`;
   txt += '─────────────────────\n';
-  txt += `N = ${N.toFixed(3)} N\nFel1 = ${Fel1.toFixed(3)} N\nFel2 = ${Fel2.toFixed(3)} N\n`;
+  txt += `N = ${N.toFixed(3)} N  (N_eq+N_alt)\nN_alt = ${Nalt.toFixed(3)} N\nFel1 = ${Fel1.toFixed(3)} N\nFel2 = ${Fel2.toFixed(3)} N\n`;
   if (document.getElementById('chk-show-forces').checked) {
     txt += `─────────────────────\n`;
     txt += `Force arrows: L ≈ |F|×${FORCE_LEN_PER_N} m (plot), clamp ${FORCE_LEN_MIN}…${FORCE_LEN_MAX} m\n`;
@@ -1074,8 +1334,9 @@ function drawPhaseX12(x1, x2, dx1, dx2) {
   const E0 = totalE(x10, x20, dx10, dx20);
   const U0 = potentialU(x10, x20);
   const UmaxPlot = Math.max(E0, U0 * 1.2, 0.02);
+  const histX12 = simHistoryPhaseWindow();
   let xR = 0.15;
-  for (const p of simHistory) {
+  for (const p of histX12) {
     xR = Math.max(xR, Math.abs(p.x1), Math.abs(p.x2));
   }
   xR = Math.max(xR, Math.abs(x1), Math.abs(x2)) * 1.35 + 0.05;
@@ -1119,12 +1380,12 @@ function drawPhaseX12(x1, x2, dx1, dx2) {
     c.fillStyle = '#06d6a0'; c.fill();
   }
 
-  if (simHistory.length > 1) {
+  if (histX12.length > 1) {
     c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
     c.beginPath();
-    c.moveTo(phaseView12.toX(simHistory[0].x1, pad, W), phaseView12.toY(simHistory[0].x2, pad, H));
-    for (let i = 1; i < simHistory.length; i++) {
-      c.lineTo(phaseView12.toX(simHistory[i].x1, pad, W), phaseView12.toY(simHistory[i].x2, pad, H));
+    c.moveTo(phaseView12.toX(histX12[0].x1, pad, W), phaseView12.toY(histX12[0].x2, pad, H));
+    for (let i = 1; i < histX12.length; i++) {
+      c.lineTo(phaseView12.toX(histX12[i].x1, pad, W), phaseView12.toY(histX12[i].x2, pad, H));
     }
     c.stroke();
     c.shadowBlur = 0;
@@ -1156,8 +1417,9 @@ function drawPhaseDx(x1, x2, dx1, dx2) {
   const E0 = totalE(x10, x20, dx10, dx20);
   const T0 = kineticT(dx10, dx20);
   const TmaxPlot = Math.max(E0, T0 * 1.2, 0.01);
+  const histDx = simHistoryPhaseWindow();
   let vR = 0.2;
-  for (const p of simHistory) {
+  for (const p of histDx) {
     vR = Math.max(vR, Math.abs(p.dx1), Math.abs(p.dx2));
   }
   vR = Math.max(vR, Math.abs(dx1), Math.abs(dx2)) * 1.35 + 0.05;
@@ -1198,12 +1460,12 @@ function drawPhaseDx(x1, x2, dx1, dx2) {
     c.fillStyle = '#06d6a0'; c.fill();
   }
 
-  if (simHistory.length > 1) {
+  if (histDx.length > 1) {
     c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
     c.beginPath();
-    c.moveTo(phaseViewD.toX(simHistory[0].dx1, pad, W), phaseViewD.toY(simHistory[0].dx2, pad, H));
-    for (let i = 1; i < simHistory.length; i++) {
-      c.lineTo(phaseViewD.toX(simHistory[i].dx1, pad, W), phaseViewD.toY(simHistory[i].dx2, pad, H));
+    c.moveTo(phaseViewD.toX(histDx[0].dx1, pad, W), phaseViewD.toY(histDx[0].dx2, pad, H));
+    for (let i = 1; i < histDx.length; i++) {
+      c.lineTo(phaseViewD.toX(histDx[i].dx1, pad, W), phaseViewD.toY(histDx[i].dx2, pad, H));
     }
     c.stroke();
     c.shadowBlur = 0;
@@ -1229,8 +1491,9 @@ function drawPhaseX1d(x1, x2, dx1, dx2) {
   const cv = document.getElementById('phase-x1dx-canvas');
   const c = cv.getContext('2d');
   const W = cv.width, H = cv.height, pad = PHASE_PAD;
+  const hist1 = simHistoryPhaseWindow();
   let xR = 0.12, dR = 0.12;
-  for (const p of simHistory) {
+  for (const p of hist1) {
     xR = Math.max(xR, Math.abs(p.x1));
     dR = Math.max(dR, Math.abs(p.dx1));
   }
@@ -1249,12 +1512,12 @@ function drawPhaseX1d(x1, x2, dx1, dx2) {
     c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI);
     c.fillStyle = '#06d6a0'; c.fill();
   }
-  if (simHistory.length > 1) {
+  if (hist1.length > 1) {
     c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
     c.beginPath();
-    c.moveTo(phaseViewX1d.toX(simHistory[0].x1, pad, W), phaseViewX1d.toY(simHistory[0].dx1, pad, H));
-    for (let i = 1; i < simHistory.length; i++) {
-      c.lineTo(phaseViewX1d.toX(simHistory[i].x1, pad, W), phaseViewX1d.toY(simHistory[i].dx1, pad, H));
+    c.moveTo(phaseViewX1d.toX(hist1[0].x1, pad, W), phaseViewX1d.toY(hist1[0].dx1, pad, H));
+    for (let i = 1; i < hist1.length; i++) {
+      c.lineTo(phaseViewX1d.toX(hist1[i].x1, pad, W), phaseViewX1d.toY(hist1[i].dx1, pad, H));
     }
     c.stroke();
     c.shadowBlur = 0;
@@ -1278,8 +1541,9 @@ function drawPhaseX2d(x1, x2, dx1, dx2) {
   const cv = document.getElementById('phase-x2dx-canvas');
   const c = cv.getContext('2d');
   const W = cv.width, H = cv.height, pad = PHASE_PAD;
+  const hist2 = simHistoryPhaseWindow();
   let xR = 0.12, dR = 0.12;
-  for (const p of simHistory) {
+  for (const p of hist2) {
     xR = Math.max(xR, Math.abs(p.x2));
     dR = Math.max(dR, Math.abs(p.dx2));
   }
@@ -1298,12 +1562,12 @@ function drawPhaseX2d(x1, x2, dx1, dx2) {
     c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI);
     c.fillStyle = '#06d6a0'; c.fill();
   }
-  if (simHistory.length > 1) {
+  if (hist2.length > 1) {
     c.strokeStyle = 'rgba(255,221,87,1)'; c.lineWidth = 2.5; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4;
     c.beginPath();
-    c.moveTo(phaseViewX2d.toX(simHistory[0].x2, pad, W), phaseViewX2d.toY(simHistory[0].dx2, pad, H));
-    for (let i = 1; i < simHistory.length; i++) {
-      c.lineTo(phaseViewX2d.toX(simHistory[i].x2, pad, W), phaseViewX2d.toY(simHistory[i].dx2, pad, H));
+    c.moveTo(phaseViewX2d.toX(hist2[0].x2, pad, W), phaseViewX2d.toY(hist2[0].dx2, pad, H));
+    for (let i = 1; i < hist2.length; i++) {
+      c.lineTo(phaseViewX2d.toX(hist2[i].x2, pad, W), phaseViewX2d.toY(hist2[i].dx2, pad, H));
     }
     c.stroke();
     c.shadowBlur = 0;
@@ -1326,10 +1590,16 @@ function getTMax() { return parseFloat(document.getElementById('tmax-input').val
 
 function startSim() {
   if (simRunning) return;
+  readParams();
   const x10 = parseFloat(document.getElementById('x10-slider').value);
   const dx10 = parseFloat(document.getElementById('dx10-slider').value);
   const x20 = parseFloat(document.getElementById('x20-slider').value);
   const dx20 = parseFloat(document.getElementById('dx20-slider').value);
+  const pre = getSimulationViolation(x10, x20);
+  if (pre) {
+    window.alert(pre);
+    return;
+  }
   simState = { x1: x10, dx1: dx10, x2: x20, dx2: dx20, time: 0 };
   simHistory = [{ t: 0, x1: x10, dx1: dx10, x2: x20, dx2: dx20 }];
   simRunning = true;
@@ -1345,6 +1615,11 @@ function startSim() {
     for (let i = 0; i < substeps; i++) {
       simState = Object.assign(simState, rk4Step(simState, dt));
       simState.time += dt;
+      const v = getSimulationViolation(simState.x1, simState.x2);
+      if (v) {
+        haltSimulationWithWarning(v);
+        return;
+      }
       if (simState.time >= tmax) break;
     }
     simHistory.push({ t: simState.time, x1: simState.x1, dx1: simState.dx1, x2: simState.x2, dx2: simState.dx2 });
@@ -1355,7 +1630,14 @@ function startSim() {
   animId = requestAnimationFrame(step);
 }
 function stopSim() { simRunning = false; if (animId) cancelAnimationFrame(animId); }
-function resetSim() { stopSim(); simState = null; simHistory = []; draw(); }
+function resetSim() {
+  stopSim();
+  simState = null;
+  simHistory = [];
+  readParams();
+  fitMainViewToFigure();
+  draw();
+}
 
 document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
 document.getElementById('btn-stop').addEventListener('click', stopSim);
@@ -1384,7 +1666,13 @@ canvas.addEventListener('wheel', e => {
     if (!simRunning) draw();
   });
   window.addEventListener('mouseup', () => { mainDrag = false; });
-  canvas.addEventListener('dblclick', () => { mainView.offX = 0; mainView.offY = 35; mainView.zoom = 1; if (!simRunning) draw(); });
+  canvas.addEventListener('dblclick', () => {
+    if (!simRunning) {
+      readParams();
+      fitMainViewToFigure();
+      draw();
+    }
+  });
 }
 
 function setupCollapse(btnId, panelId, openArrow, closeArrow) {
@@ -1397,7 +1685,14 @@ function setupCollapse(btnId, panelId, openArrow, closeArrow) {
     collapsed = !collapsed;
     panel.classList.toggle('collapsed', collapsed);
     btn.textContent = collapsed ? closeArrow : openArrow;
-    setTimeout(() => { resize(); if (!simRunning) draw(); }, 270);
+    setTimeout(() => {
+      resize();
+      if (!simRunning) {
+        readParams();
+        fitMainViewToFigure();
+        draw();
+      }
+    }, 270);
   });
 }
 
@@ -1412,7 +1707,13 @@ function setupResizer(resizerId, panelId, side) {
   function onMove(e) {
     const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
     const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * 0.45));
-    panel.style.width = w + 'px'; resize(); if (!simRunning) draw();
+    panel.style.width = w + 'px';
+    resize();
+    if (!simRunning) {
+      readParams();
+      fitMainViewToFigure();
+      draw();
+    }
   }
   function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
 }
@@ -1459,12 +1760,10 @@ async function initApp() {
     if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]);
   });
 
-  document.getElementById('chk-show-forces').addEventListener('change', () => {
-    if (simRunning && simState) draw(simState.x1, simState.dx1, simState.x2, simState.dx2);
-    else draw();
-  });
-
-  resize(); readParams(); draw();
+  resize();
+  readParams();
+  fitMainViewToFigure();
+  draw();
 }
 
 (function () {
@@ -1477,7 +1776,17 @@ async function initApp() {
   document.getElementById('eq-close').addEventListener('click', () => eqOverlay.classList.add('hidden'));
   eqOverlay.addEventListener('click', e => { if (e.target === eqOverlay) eqOverlay.classList.add('hidden'); });
 
-  resize(); readParams(); draw();
+  resize();
+  readParams();
+  fitMainViewToFigure();
+  draw();
+
+  function hudRedraw() {
+    if (simRunning && simState) draw(simState.x1, simState.dx1, simState.x2, simState.dx2);
+    else draw();
+  }
+  document.getElementById('chk-show-forces').addEventListener('change', hudRedraw);
+  document.getElementById('chk-show-geom-abcde').addEventListener('change', hudRedraw);
 })();
 </script>
 </body>
