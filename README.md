@@ -11,17 +11,20 @@ You can run them directly online at:
 
 | Simulator | Description |
 |---|---|
-| [Simple Pendulum](pendolo_semplice.html) | Pendulum animation with nonlinear and linearized dynamics; time evolution, potential energy, and phase portrait |
-| [Damped Pendulum](pendolo_smorzato.html) | Same as above with adjustable damping — explore how energy dissipation shapes the transient response and phase portrait |
-| [Van der Pol Oscillator](van_der_pol_oscillator.html) | Phase portrait with dynamic vector field; stable limit cycle |
-| [Time-Reversed Van der Pol Oscillator](time_reversed_van_der_pol_oscillator.html) | Phase portrait with dynamic vector field; unstable limit cycle |
-| [Double slider crank chain](glifo_a_croce.html) | (Glifo a croce) Two masses on perpendicular guides linked by a rod, with spring and damper; dynamics in θ, energy and phase portraits |
+| [Simple Pendulum](pendolo_semplice.html) | Pendulum animation comparing nonlinear and linearized dynamics. Time evolution, potential energy curve, and phase portrait. |
+| [Damped Pendulum](pendolo_smorzato.html) | Pendulum animation with adjustable damping. Explore how energy dissipation reshapes the transient response and phase portrait. |
+| [Van der Pol Oscillator](van_der_pol_oscillator.html) | Simple nonlinear oscillator showing a stable limit cycle. |
+| [Time-Reversed Van der Pol Oscillator](time_reversed_van_der_pol_oscillator.html) | Simple nonlinear oscillator showing an unstable limit cycle. |
+| [Double slider crank chain](glifo_a_croce.html) | Two masses on perpendicular guides linked by a rod, with spring and damper. Dynamics and phase portraits with different parametrizations. |
+| [2-DOF oscillations](vibrazioni_2_DOF.html) | Oscillating system with two degrees of freedom: dynamics and phase-space projections. |
+| [3-DOF oscillations](vibrazioni_3_DOF.html) | Oscillating system with three degrees of freedom: linearized dynamics. |
+| [Mass on Oscillating Platform](massa_con_piattaforma_oscillante.html) | Mass-spring-damper system with platform motion. Dynamic Amplification Factor and Phase for absolute and relative motion. |
 
 ---
 
 ## About
 
-These scripts were originally developed as teaching support material for exercise sessions on applied mechanics and dynamical systems.
+These simulators were created as teaching support for the course [**Meccanica Applicata alle Macchine**](https://docenti.ing.unipi.it/guiggiani-m/maam.html) (*Applied Mechanics in Machine Design*), in the Bachelor's degree program in Mechanical Engineering at **Università di Pisa**.
 
 Feel free to use them for learning or experimenting.
 
