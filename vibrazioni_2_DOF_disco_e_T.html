@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2-DOF: T-beam + disk on belt</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  svg: { fontCache: 'local' },
+  startup: { ready() { MathJax.startup.defaultReady(); } }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.25); --plot-grid:rgba(255,255,255,.22);
+  --plot-grid-minor:rgba(255,255,255,.07); --plot-tick:#888; --plot-label:#bbb;
+  --info-bg:rgba(0,0,0,.3); --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+  --plot-curve-hue0:200; --plot-curve-hue1:280; --plot-curve-sat:65%; --plot-curve-light:58%; --plot-curve-alpha:0.45;
+  --mech-spring:#f0c040; --mech-ground:#3d3d4a; --mech-rail:#6f7588;
+  --col-theta:#4ecdc4; --col-phi:#e94560;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92); --plot-grid:rgba(0,0,0,.2);
+  --plot-grid-minor:rgba(0,0,0,.08); --plot-tick:#444; --plot-label:#333;
+  --info-bg:rgba(0,0,0,.06); --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+  --plot-curve-hue0:128; --plot-curve-hue1:208; --plot-curve-sat:62%; --plot-curve-light:36%; --plot-curve-alpha:0.82;
+  --mech-spring:#a65c00; --mech-ground:#cdd5e3; --mech-rail:#556070;
+  --col-theta:#047869; --col-phi:#a61e34;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; transition:background .25s,color .25s; }
+.theme-switch-row { display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px; font-size:.78em; user-select:none; }
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box h3 { color:#1f2328 !important; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .sec-toggle { color:#6e7781; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+.panel { background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:8px; height:100vh; max-height:100vh; min-height:0; transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1); }
+#left-panel  { width:310px; min-width:200px; max-width:45vw; }
+#right-panel { width:400px; min-width:200px; max-width:50vw; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-track { background:transparent; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.35); }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#eq-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1001; }
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:460px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note { font-size:.82em; color:#8b949e; border-top:1px solid #21262d; padding-top:10px; margin-top:4px; }
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+#help-close:hover { background:#c73e54; }
+.panel h1 { font-size:1.0em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer { width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative; display:flex; align-items:center; justify-content:center; }
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa; cursor:pointer; font-size:10px; display:flex; align-items:center; justify-content:center; z-index:10; padding:0; line-height:1; transition:background .15s, color .15s; }
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title { font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; }
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; padding:0 3px; line-height:1; transition:color .15s; }
+.sec-toggle:hover { color:var(--highlight); }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:720px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+.section-title.collapsible:hover .sec-toggle { color:var(--highlight); }
+input[type="number"].compact { flex:1; background:var(--accent); border:1px solid #555; color:var(--text); border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0; }
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 82px; font-size:.8em; text-align:right; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 50px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+.checkbox-row { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
+.checkbox-row input[type="checkbox"] { accent-color:var(--highlight); width:14px; height:14px; }
+.checkbox-row label { font-size:.8em; cursor:pointer; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button:hover { background:#c73e54; }
+button.secondary { background:var(--accent); border:1px solid #555; }
+button.secondary:hover { background:#1a3a6a; }
+body.theme-day button.secondary { color:#1a1f2e; border-color:#aab; }
+body.theme-day button.secondary:hover { background:#c8cedc; }
+#btn-show-equations { flex:1; min-width:0; background:var(--highlight); color:#fff; border:1px solid rgba(255,255,255,.28); box-shadow:0 1px 6px rgba(233,69,96,.28); font-size:.8em; font-weight:600; padding:6px 12px; }
+#btn-show-equations:hover { background:#c73e54; box-shadow:0 2px 8px rgba(233,69,96,.38); }
+body.theme-day #btn-show-equations { box-shadow:0 1px 6px rgba(199,62,84,.22); }
+body.theme-day #btn-show-equations:hover { box-shadow:0 2px 8px rgba(199,62,84,.32); }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
+canvas#canvas:active { cursor:grabbing; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; line-height:1.45; }
+#info-freq { text-align:center; margin-bottom:8px; }
+#info-freq mjx-container { font-size:0.88em !important; }
+#info-freq mjx-container[display="true"] { display:block !important; margin:0.55em 0 !important; width:100%; }
+#info-freq mjx-container[display="true"]:first-child { margin-top:0 !important; }
+#info-freq mjx-container[display="true"]:last-child { margin-bottom:0.25em !important; }
+#info-dyn { font-family:monospace; font-size:.72em; white-space:pre-line; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+mjx-container { display:inline !important; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.95em 0 !important; width:100%; text-align:center; }
+#eq-content .eq-section-title { font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#8b949e; margin:1.25em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d; }
+#eq-content .eq-section-title:first-child { margin-top:0; }
+</style>
+</head>
+<body class="theme-night">
+
+<!-- Help overlay -->
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — parameters, geometry, spring constants, initial conditions.</li>
+      <li><strong>Play / Stop / Reset</strong> — simulation control.</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on all views.</li>
+      <li><strong>Double-click</strong> to reset any view.</li>
+    </ul>
+    <div class="note">Small oscillations about static equilibrium.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
+<!-- Equations overlay -->
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:740px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.88em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      <div class="eq-section-title">Equations of motion (small oscillations)</div>
+      \[ (J_1 + m_1 a^2 + m_2 b^2)\,\ddot\theta + \bigl[(k_2+k_3)b^2 + 2k_1 c^2\bigr]\,\theta + (k_2-k_3)\,b\,r\,\varphi = 0 \]
+      \[ J_2\,\ddot\varphi + (k_2+k_3)\,r^2\,\varphi + (k_2-k_3)\,b\,r\,\theta = 0 \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;color:white;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<!-- Left panel -->
+<div id="left-panel" class="panel">
+  <h1>2-DOF: T-shape + disk</h1>
+  <h2>Small oscillations simulator</h2>
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-mech">Mechanical parameters <span class="sec-toggle">▼</span></div>
+    <div class="section-body" id="body-mech">
+      <div class="param-row"><label>$m_1$ (kg):</label><input type="range" id="m1-sl" min="0.1" max="5" step="0.1" value="1"><span class="val" id="m1-val"></span></div>
+      <div class="param-row"><label>$J_1$ (kg m²):</label><input type="range" id="J1-sl" min="0.001" max="0.5" step="0.001" value="0.1"><span class="val" id="J1-val"></span></div>
+      <div class="param-row"><label>$m_2$ (kg):</label><input type="range" id="m2-sl" min="0.1" max="5" step="0.1" value="1"><span class="val" id="m2-val"></span></div>
+      <div class="param-row"><label>$J_2$ (kg m²):</label><input type="range" id="J2-sl" min="0.001" max="0.5" step="0.001" value="0.05"><span class="val" id="J2-val"></span></div>
+      <div class="param-row"><label>$r$ (m):</label><input type="range" id="r-sl" min="0.01" max="0.6" step="0.01" value="0.08"><span class="val" id="r-val"></span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-geom">Geometry <span class="sec-toggle">▼</span></div>
+    <div class="section-body" id="body-geom">
+      <div class="param-row"><label>$a$ (m):</label><input type="range" id="a-sl" min="0.05" max="1.0" step="0.01" value="0.1"><span class="val" id="a-val"></span></div>
+      <div class="param-row"><label>$b$ (m):</label><input type="range" id="b-sl" min="0.05" max="0.5" step="0.01" value="0.25"><span class="val" id="b-val"></span></div>
+      <div class="param-row"><label>$c$ (m):</label><input type="range" id="c-sl" min="0.02" max="0.5" step="0.01" value="0.1"><span class="val" id="c-val"></span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-spring">Spring constants <span class="sec-toggle">▼</span></div>
+    <div class="section-body" id="body-spring">
+      <div class="param-row"><label>$k_1$ (N/m):</label><input type="range" id="k1-sl" min="1" max="500" step="1" value="100"><span class="val" id="k1-val"></span></div>
+      <div class="param-row"><label>$k_2$ (N/m):</label><input type="range" id="k2-sl" min="1" max="500" step="1" value="100"><span class="val" id="k2-val"></span></div>
+      <div class="param-row"><label>$k_3$ (N/m):</label><input type="range" id="k3-sl" min="1" max="500" step="1" value="100"><span class="val" id="k3-val"></span></div>
+      <div class="btn-row"><button id="btn-k3-eq" class="secondary" style="font-size:.75em;">Set $k_3 = k_2$</button></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-ic">Initial conditions <span class="sec-toggle">▼</span></div>
+    <div class="section-body" id="body-ic">
+      <div class="param-row"><label>$\theta(0)$ (rad):</label><input type="range" id="th0-sl" min="-0.07" max="0.07" step="0.001" value="0.07"><span class="val" id="th0-val"></span></div>
+      <div class="param-row"><label>$\dot\theta(0)$ (rad/s):</label><input type="range" id="thd0-sl" min="-1" max="1" step="0.01" value="0"><span class="val" id="thd0-val"></span></div>
+      <div class="param-row"><label>$\varphi(0)$ (rad):</label><input type="range" id="ph0-sl" min="-0.07" max="0.07" step="0.001" value="0"><span class="val" id="ph0-val"></span></div>
+      <div class="param-row"><label>$\dot\varphi(0)$ (rad/s):</label><input type="range" id="phd0-sl" min="-1" max="1" step="0.01" value="0"><span class="val" id="phd0-val"></span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="param-row"><label>$T_{\max}$ (s):</label><input type="number" id="tmax-input" class="compact" value="30" min="1" max="600"></div>
+    <div class="btn-row" style="margin-top:4px;"><button id="btn-simulate">&#9654; Play</button><button id="btn-stop" class="secondary">&#9632; Stop</button><button id="btn-reset" class="secondary">Reset</button></div>
+    <div class="btn-row" style="margin-top:4px;"><button type="button" id="btn-show-equations">Show equations</button></div>
+    <div class="checkbox-row" style="margin-top:5px;"><input type="checkbox" id="chk-debug"><label for="chk-debug">Show geometric points</label></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Current state</div>
+    <div id="info-box">
+      <div id="info-dyn">Set values and press Play.</div>
+    </div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer"><button class="collapse-btn" id="left-collapse">&#9664;</button></div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer"><button class="collapse-btn" id="right-collapse">&#9654;</button></div>
+
+<!-- Right panel: time plots -->
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-theta">$\theta(t)$ — T-shape rotation <span class="sec-toggle">&#9660;</span></div>
+    <div class="section-body" id="body-theta">
+      <canvas id="theta-canvas" class="plot-view" width="360" height="200" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-phi">$\varphi(t)$ — disk rotation <span class="sec-toggle">&#9660;</span></div>
+    <div class="section-body" id="body-phi">
+      <canvas id="phi-canvas" class="plot-view" width="360" height="200" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ── Parameters ── */
+const P = {
+  m1:1, J1:0.1, m2:1, J2:0.05, r:0.08,
+  a:0.1, b:0.25, c:0.1,
+  k1:100, k2:100, k3:100,
+  s:0.05, L0:0.12, L2:0.02, L3:0.02, g:9.81
+};
+
+const state = {
+  t:0, th:0, thd:0, ph:0, phd:0,
+  th0:0.07, thd0:0, ph0:0, phd0:0,
+  run:false, hist:[], anim:0,
+  view:{ox:0, oy:0, z:1},
+  beltPhase: 0
+};
+
+/* ── Plot view states ── */
+const thetaView = {x0:0,x1:30,y0:-0.4,y1:0.4,active:false};
+const phiView   = {x0:0,x1:30,y0:-0.4,y1:0.4,active:false};
+
+/* ── DOM helpers ── */
+const canvas   = document.getElementById('canvas');
+const ctx      = canvas.getContext('2d');
+const VIEW_Z_DEFAULT = 1.1;
+const VIEW_OX_FRAC   = 0.18;
+
+function mainViewHome() {
+  // Fit the full geometry into the canvas with padding
+  const {b, r, s, L0} = P;
+  const h = 0.15;
+  const wxL = -(b + r) - 0.06;
+  const wxR =  s/2 + L0 + 0.06;
+  const wyT =  h + 0.07;
+  const wyB = -(h + r + 0.06);
+
+  const worldW = wxR - wxL;
+  const worldH = wyT - wyB;
+
+  const availW = canvas.width  - 24;
+  const availH = canvas.height - 24;
+
+  // k = (minDim/1.8) * z  is the scale factor (world -> pixels)
+  const minDim = Math.min(canvas.width, canvas.height);
+  const kFit   = Math.min(availW / worldW, availH / worldH);
+  const z      = kFit * 1.8 / minDim;
+
+  // Pan so the bounding box centre lands on canvas centre
+  const wxC = (wxL + wxR) / 2;
+  const wyC = (wyB + wyT) / 2;
+  const k   = kFit;
+  const ox  = -wxC * k;
+  const oy  =  wyC * k;
+  return {ox, oy, z};
+}
+
+function plotTheme() {
+  const cs = getComputedStyle(document.body), g = k => cs.getPropertyValue(k).trim();
+  return {
+    plotFill:  g('--plot-fill') || 'rgba(0,0,0,.25)',
+    grid:      g('--plot-grid'), gridMinor: g('--plot-grid-minor'),
+    tick:      g('--plot-tick'), label: g('--plot-label'),
+    canvasBg:  g('--canvas-bg'),
+    spring:    g('--mech-spring'), ground: g('--mech-ground'),
+    colTheta:  g('--col-theta'), colPhi: g('--col-phi'),
+    text:      g('--text')
+  };
+}
+
+/* ── Slider wiring ── */
+const sliders = [
+  ['m1','m1',1,'m1-val',v=>v.toFixed(2)],
+  ['J1','J1',1,'J1-val',v=>v.toFixed(3)],
+  ['m2','m2',1,'m2-val',v=>v.toFixed(2)],
+  ['J2','J2',1,'J2-val',v=>v.toFixed(3)],
+  ['r','r',1,'r-val',v=>v.toFixed(2)],
+  ['a','a',1,'a-val',v=>v.toFixed(2)],
+  ['b','b',1,'b-val',v=>v.toFixed(2)],
+  ['c','c',1,'c-val',v=>v.toFixed(2)],
+  ['k1','k1',1,'k1-val',v=>v.toFixed(0)],
+  ['k2','k2',1,'k2-val',v=>v.toFixed(0)],
+  ['k3','k3',1,'k3-val',v=>v.toFixed(0)],
+  ['th0','th0',1,'th0-val',v=>v.toFixed(3)],
+  ['thd0','thd0',1,'thd0-val',v=>v.toFixed(3)],
+  ['ph0','ph0',1,'ph0-val',v=>v.toFixed(3)],
+  ['phd0','phd0',1,'phd0-val',v=>v.toFixed(3)],
+];
+
+function readSliders() {
+  sliders.forEach(([id, pkey, , valId, fmt]) => {
+    const el = document.getElementById(id+'-sl');
+    if (!el) return;
+    P[pkey] = +el.value;
+    const vel = document.getElementById(valId);
+    if (vel) vel.textContent = fmt(P[pkey]);
+  });
+  state.th0  = P.th0;
+  state.thd0 = P.thd0;
+  state.ph0  = P.ph0;
+  state.phd0 = P.phd0;
+  if (!state.run) { state.th = state.th0; state.thd = state.thd0; state.ph = state.ph0; state.phd = state.phd0; state.view = mainViewHome(); draw(); }
+}
+
+sliders.forEach(([id]) => {
+  const el = document.getElementById(id+'-sl');
+  if (el) el.addEventListener('input', readSliders);
+});
+
+document.getElementById('btn-k3-eq').addEventListener('click', () => {
+  const k2v = document.getElementById('k2-sl').value;
+  document.getElementById('k3-sl').value = k2v;
+  readSliders();
+});
+
+/* ── System matrices and natural frequencies ── */
+function systemMatrices() {
+  const {m1,J1,m2,J2,r,a,b,c,k1,k2,k3} = P;
+  const M11 = J1 + m1*a*a + m2*b*b;
+  const M22 = J2;
+  const K11 = (k2+k3)*b*b + 2*k1*c*c;
+  const K12 = (k2-k3)*b*r;
+  const K22 = (k2+k3)*r*r;
+  return {M11,M22,K11,K12,K22};
+}
+
+
+/* ── EOM RK4 ── */
+function eom(th, thd, ph, phd) {
+  const {M11,M22,K11,K12,K22} = systemMatrices();
+  const thdd = (-K11*th - K12*ph) / M11;
+  const phdd = (-K22*ph - K12*th) / M22;
+  return [thd, thdd, phd, phdd];
+}
+
+function rk4step(th, thd, ph, phd, dt) {
+  const f = (a,b,c,d) => eom(a,b,c,d);
+  const k1 = f(th, thd, ph, phd);
+  const k2 = f(th+.5*dt*k1[0], thd+.5*dt*k1[1], ph+.5*dt*k1[2], phd+.5*dt*k1[3]);
+  const k3 = f(th+.5*dt*k2[0], thd+.5*dt*k2[1], ph+.5*dt*k2[2], phd+.5*dt*k2[3]);
+  const k4 = f(th+dt*k3[0], thd+dt*k3[1], ph+dt*k3[2], phd+dt*k3[3]);
+  return [
+    th  + dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]),
+    thd + dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]),
+    ph  + dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2]),
+    phd + dt/6*(k1[3]+2*k2[3]+2*k3[3]+k4[3])
+  ];
+}
+
+/* ── Canvas world→pixel mapping ── */
+const VIEW_ANCHOR_X = 0.5, VIEW_ANCHOR_Y = 0.5;
+
+function mapW(wx, wy) {
+  const s = Math.min(canvas.width, canvas.height);
+  const k = (s / 1.8) * state.view.z;
+  return [
+    canvas.width  * VIEW_ANCHOR_X + state.view.ox + wx*k,
+    canvas.height * VIEW_ANCHOR_Y + state.view.oy - wy*k
+  ];
+}
+
+function canvasScale() {
+  const s = Math.min(canvas.width, canvas.height);
+  return (s / 1.8) * state.view.z;
+}
+
+function scaledFont(worldSize, weight) {
+  const px = Math.max(11, Math.round(canvasScale() * worldSize));
+  const w = weight ? weight + ' ' : '';
+  return `${w}italic ${px}px "STIX Two Text","Cambria Math","Times New Roman",serif`;
+}
+
+/* ── Drawing utilities ── */
+function drawSpringCanvas(x1,y1,x2,y2,col) {
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy);
+  if (L<4) return;
+  const ux=dx/L, uy=dy/L, nx=-uy, ny=ux;
+  const stub=Math.min(10,0.18*L), mid=Math.max(2,L-2*stub), amp=5;
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x1+ux*stub, y1+uy*stub);
+  for (let i=0;i<=100;i++) {
+    const t=i/100, along=stub+t*mid, off=amp*Math.sin(t*7*2*Math.PI);
+    ctx.lineTo(x1+ux*along+nx*off, y1+uy*along+ny*off);
+  }
+  ctx.lineTo(x2,y2);
+  ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke();
+}
+
+function drawHinge(wx, wy, radiusPx, col) {
+  const [px,py] = mapW(wx, wy);
+  ctx.beginPath();
+  ctx.arc(px,py,radiusPx,0,2*Math.PI);
+  ctx.fillStyle=col; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1; ctx.stroke();
+}
+
+/* ── Static equilibrium elongations ── */
+function eqElongations() {
+  const {m1,m2,g,a,b,k2,k3} = P;
+  const moment = m1*g*a/2 + m2*g*b;
+  const dx2 = moment / (2*b*k2);
+  const dx3 = moment / (2*b*k3);
+  return {dx2, dx3};
+}
+
+/* ── Main draw ── */
+function draw() {
+  const T = plotTheme();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = T.canvasBg;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  const {s, b, a, c, r, k1, k2, k3, L0, L2, L3} = P;
+  const h = 0.15;
+  const th = state.th, ph = state.ph;
+  const cosT = Math.cos(th), sinT = Math.sin(th);
+
+  // Rotation helper
+  const rot = (x,y) => [x*cosT - y*sinT, x*sinT + y*cosT];
+
+  // Key points (local -> rotated)
+  const [Bwx, Bwy] = rot(-b, 0);    // B in world
+  const [G1wx, G1wy] = rot(-a, 0);  // G1 in world
+
+  // Equilibrium elongations for vertical springs
+  const {dx2, dx3} = eqElongations();
+
+  // Fixed anchor points C, D (never rotate)
+  const Cx = -b - r, Cy = h;
+  const Dx = -b + r, Dy = h;
+
+  // Spring attachment on disk (in world coords, from equilibrium)
+  // E = spring bottom point for k2 (left of disk), F for k3 (right of disk)
+  // At equilibrium: E = C - (0, L2+dx2), F = D - (0, L3+dx3)
+  // In motion: E descends by (b*theta + r*phi) from equilibrium
+  //            F descends by (b*theta - r*phi) from equilibrium
+  const deltaE = b*th + r*ph;
+  const deltaF = b*th - r*ph;
+  const Ewy = Cy - L2 - dx2 - deltaE;
+  const Fwy = Dy - L3 - dx3 - deltaF;
+
+  // G = B - (r,0) rotated, H = B + (r,0) rotated  (belt contact pts on disk in world)
+  // G and H also move in x because of disk rotation (phi), but for belt they stay at ±r from B in world x
+  const Gwx = Bwx - r*cosT;  // approximate: contact points roughly at B ± r horizontal
+  const Gwy = Bwy - r*sinT;
+  const Hwx = Bwx + r*cosT;
+  const Hwy = Bwy + r*sinT;
+
+  // Draw wall/frame at top (fixed)
+  drawWall(T);
+
+  // Draw T polygon
+  drawTBody(th, T);
+
+  // Draw disk at B with radii spokes
+  drawDisk(Bwx, Bwy, r, ph, T);
+
+  // Draw springs k1 (lateral, on T flanges)
+  drawK1Springs(th, s, c, T);
+
+  // Draw vertical springs k2, k3 from C,D down to E,F
+  drawVerticalSprings(Cx, Cy, Ewy, Dx, Dy, Fwy, T);
+
+  // Draw belt: E->G, F->H, and lower semicircle G->H around disk
+  drawBelt(Cx, Ewy, Bwx, Bwy, r, Dx, Fwy, T);
+
+  // Draw hinges
+  drawHinge(0, 0, 9, '#e94560');      // A — larger
+  drawHinge(Bwx, Bwy, 5, '#2d6a2d'); // B — dark green
+
+  // Draw labels
+  drawLabels(T, Bwx, Bwy);
+
+  // Debug geometric points
+  if (document.getElementById('chk-debug').checked) {
+    drawDebugPoints(T, Bwx, Bwy, Cx, Cy, Ewy, Dx, Dy, Fwy,
+      Bwx + r*Math.cos(Math.PI + state.th), Bwy + r*Math.sin(Math.PI + state.th),
+      Bwx + r*Math.cos(state.th),           Bwy + r*Math.sin(state.th));
+  }
+
+  // Draw time plots
+  drawTimePlot(document.getElementById('theta-canvas'), 'theta', T);
+  drawTimePlot(document.getElementById('phi-canvas'), 'phi', T);
+
+  // Compute belt length and check constancy
+  const Gwx_now = Bwx + r*Math.cos(Math.PI + th);
+  const Gwy_now = Bwy + r*Math.sin(Math.PI + th);
+  const Hwx_now = Bwx + r*Math.cos(th);
+  const Hwy_now = Bwy + r*Math.sin(th);
+  const L_EG_now = Math.hypot(Gwx_now - Cx, Gwy_now - Ewy);
+  const L_HF_now = Math.hypot(Dx - Hwx_now, Fwy - Hwy_now);
+  const L_belt_now = L_EG_now + Math.PI*r + L_HF_now;
+  // Reference belt length at rest (θ=0, φ=0): G=(−b−r,0), H=(−b+r,0)
+  const L_EG_ref = Math.abs(h - L2 - dx2);   // vertical distance E to G at rest
+  const L_HF_ref = Math.abs(h - L3 - dx3);   // vertical distance H to F at rest
+  const L_belt_ref = L_EG_ref + Math.PI*r + L_HF_ref;
+  const L_belt_err = Math.abs(L_belt_now - L_belt_ref);
+  const beltWarn = L_belt_err > 1e-4 ? `\n⚠ belt Δℓ = ${L_belt_err.toFixed(5)} m` : '';
+
+  // Update info
+  document.getElementById('info-dyn').textContent =
+    `t  = ${state.t.toFixed(3)} s\nθ  = ${state.th.toFixed(5)} rad\nθ̇  = ${state.thd.toFixed(5)} rad/s\nφ  = ${state.ph.toFixed(5)} rad\nφ̇  = ${state.phd.toFixed(5)} rad/s\nL_nastro = ${L_belt_now.toFixed(5)} m${beltWarn}`;
+}
+
+function drawWall(T) {
+  const {b, r} = P;
+  const h = 0.15;
+
+  // Wall beam at top: bottom edge at y = h, hatching above
+  const [w0x, w0y] = mapW(-b - r - 0.05, h);
+  const [w1x, w1y] = mapW(-b + r + 0.05, h);
+  ctx.fillStyle = T.ground;
+  ctx.fillRect(w0x, w0y - 14, w1x - w0x, 14);
+  ctx.strokeStyle = T.text; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(w0x, w0y); ctx.lineTo(w1x, w0y);
+  ctx.stroke();
+  // hatch marks above
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 6; i++) {
+    const xh = w0x + i*(w1x - w0x)/6;
+    ctx.beginPath();
+    ctx.moveTo(xh, w0y); ctx.lineTo(xh - 6, w0y - 12);
+    ctx.strokeStyle = T.ground + 'cc'; ctx.stroke();
+  }
+
+  // anchor dots at C = (-b-r, h) and D = (-b+r, h)
+  const [Cpx, Cpy] = mapW(-b - r, h);
+  const [Dpx, Dpy] = mapW(-b + r, h);
+  ctx.beginPath(); ctx.arc(Cpx, Cpy, 4, 0, 2*Math.PI);
+  ctx.fillStyle = '#aaa'; ctx.fill();
+  ctx.beginPath(); ctx.arc(Dpx, Dpy, 4, 0, 2*Math.PI);
+  ctx.fillStyle = '#aaa'; ctx.fill();
+}
+
+function drawTBody(th, T) {
+  const {s, b, c} = P;
+  const cosT = Math.cos(th), sinT = Math.sin(th);
+
+  const raw = [
+    [-b - s/2,  s/2],
+    [   -s/2,  s/2],
+    [   -s/2,  c + s/2],
+    [    s/2,  c + s/2],
+    [    s/2, -c - s/2],
+    [   -s/2, -c - s/2],
+    [   -s/2, -s/2],
+    [-b - s/2, -s/2]
+  ];
+
+  ctx.beginPath();
+  raw.forEach(([lx,ly], i) => {
+    const wx = lx*cosT - ly*sinT;
+    const wy = lx*sinT + ly*cosT;
+    const [px,py] = mapW(wx,wy);
+    if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  });
+  ctx.closePath();
+
+  const isDay = document.body.classList.contains('theme-day');
+  ctx.fillStyle = isDay ? 'rgba(70,130,200,0.35)' : 'rgba(60,130,210,0.30)';
+  ctx.fill();
+  ctx.strokeStyle = isDay ? '#2a4a78' : '#6b8eb2';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // center of mass G1
+  const [g1x, g1y] = mapW(-P.a*cosT, -P.a*sinT);
+  ctx.beginPath(); ctx.arc(g1x, g1y, 3, 0, 2*Math.PI);
+  ctx.fillStyle = '#ffdd57'; ctx.fill();
+}
+
+function drawDisk(Bwx, Bwy, r, ph, T) {
+  const [bpx, bpy] = mapW(Bwx, Bwy);
+  const [rpx] = mapW(Bwx + r, Bwy);
+  const radiusPx = Math.abs(rpx - bpx);
+
+  // Disk fill — orange-green
+  ctx.beginPath();
+  ctx.arc(bpx, bpy, radiusPx, 0, 2*Math.PI);
+  const isDay = document.body.classList.contains('theme-day');
+  ctx.fillStyle = isDay ? 'rgba(140,190,60,0.30)' : 'rgba(160,210,60,0.25)';
+  ctx.fill();
+  ctx.strokeStyle = isDay ? '#7a9e10' : '#a8cc20';
+  ctx.lineWidth = 2; ctx.stroke();
+
+  // Spokes
+  for (let i=0; i<4; i++) {
+    const angle = ph + i*Math.PI/2 + state.th;
+    const ex = Bwx + r*Math.cos(angle);
+    const ey = Bwy + r*Math.sin(angle);
+    const [px1,py1] = mapW(Bwx, Bwy);
+    const [px2,py2] = mapW(ex, ey);
+    ctx.beginPath();
+    ctx.moveTo(px1,py1); ctx.lineTo(px2,py2);
+    ctx.strokeStyle = isDay ? 'rgba(100,150,20,0.6)' : 'rgba(160,210,60,0.6)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+}
+
+function drawK1Springs(th, s, c, T) {
+  const cosT = Math.cos(th), sinT = Math.sin(th);
+  const {L0} = P;
+
+  // Fixed wall end coordinates (never rotate)
+  const wallX = s/2 + L0;
+  const wallAnchors = [
+    [wallX,  c],   // upper fixed anchor
+    [wallX, -c]    // lower fixed anchor
+  ];
+
+  // Rotating attachment points on T (local coords rotated by theta)
+  const tPts = [
+    [s/2,  c],
+    [s/2, -c]
+  ];
+
+  // Fixed vertical wall on the right — draw FIRST so springs appear on top
+  const [wallPx,  wallPy0] = mapW(wallX, c + 0.07);
+  const [,        wallPy1] = mapW(wallX, -c - 0.07);
+  ctx.fillStyle = T.ground;
+  ctx.fillRect(wallPx, Math.min(wallPy0, wallPy1), 12, Math.abs(wallPy1 - wallPy0));
+  ctx.strokeStyle = T.text; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(wallPx, Math.min(wallPy0, wallPy1));
+  ctx.lineTo(wallPx, Math.max(wallPy0, wallPy1));
+  ctx.stroke();
+  // hatch marks on wall
+  ctx.lineWidth = 1;
+  const nHatch = 6;
+  for (let i = 0; i <= nHatch; i++) {
+    const yh = Math.min(wallPy0, wallPy1) + i * Math.abs(wallPy1 - wallPy0) / nHatch;
+    ctx.beginPath();
+    ctx.moveTo(wallPx, yh); ctx.lineTo(wallPx + 10, yh - 10);
+    ctx.strokeStyle = T.ground + 'cc'; ctx.stroke();
+  }
+
+  tPts.forEach(([lx, ly], i) => {
+    // Attachment point on T: rotated
+    const wx1 = lx*cosT - ly*sinT;
+    const wy1 = lx*sinT + ly*cosT;
+    // Fixed wall end
+    const [wx2, wy2] = wallAnchors[i];
+
+    const [p1x, p1y] = mapW(wx1, wy1);
+    const [p2x, p2y] = mapW(wx2, wy2);
+    drawSpringCanvas(p1x, p1y, p2x, p2y, T.spring);
+
+    // Anchor dot on wall
+    ctx.beginPath(); ctx.arc(p2x, p2y, 3.5, 0, 2*Math.PI);
+    ctx.fillStyle = '#aaa'; ctx.fill();
+  });
+
+  // Label k1
+  const midWx = (s/2 + wallX) / 2;
+  const [lbpx, lbpy] = mapW(midWx, c + 0.01);
+  ctx.font = scaledFont(0.02); ctx.fillStyle = T.spring;
+  ctx.textAlign = 'center'; ctx.fillText('k₁', lbpx, lbpy - 4);
+}
+
+function drawVerticalSprings(Cx, Cy, Ewy, Dx, Dy, Fwy, T) {
+  const [Cpx, Cpy] = mapW(Cx, Cy);
+  const [Epx, Epy] = mapW(Cx, Ewy);
+  const [Dpx, Dpy] = mapW(Dx, Dy);
+  const [Fpx, Fpy] = mapW(Dx, Fwy);
+
+  drawSpringCanvas(Cpx, Cpy, Epx, Epy, T.spring);
+  drawSpringCanvas(Dpx, Dpy, Fpx, Fpy, T.spring);
+
+  // Labels k2, k3
+  ctx.fillStyle = T.label; ctx.font = scaledFont(0.02); ctx.textAlign = 'left';
+  const koff = Math.max(5, Math.round(canvasScale() * 0.015));
+  ctx.fillText('k₂', Cpx + koff, (Cpy+Epy)/2);
+  ctx.fillText('k₃', Dpx + koff, (Dpy+Fpy)/2);
+}
+
+const BELT_BEAD_COUNT = 20;
+const BELT_BEAD_RPX   = 2.5;
+
+/**
+ * Draw belt beads evenly spaced along the inextensible belt path:
+ *   E -> G  (left vertical segment, going downward)
+ *   G -> H  (lower semicircle under disk, counterclockwise in world = left-to-right)
+ *   H -> F  (right vertical segment, going upward)
+ *
+ * beltPhase: cumulative arc-length displacement of the belt (positive = belt moves
+ * forward, i.e. down on left side E->G).
+ */
+function drawBeltBeads(Cx, Ewy, Bwx, Bwy, r, Dx, Fwy) {
+  const Gwx = Bwx + r*Math.cos(Math.PI + state.th);
+  const Gwy = Bwy + r*Math.sin(Math.PI + state.th);
+  const Hwx = Bwx + r*Math.cos(state.th);
+  const Hwy = Bwy + r*Math.sin(state.th);
+
+  const L_EG  = Math.hypot(Gwx - Cx,  Gwy - Ewy);
+  const L_arc = Math.PI * r;
+  const L_HF  = Math.hypot(Dx - Hwx,  Fwy - Hwy);
+  const total = L_EG + L_arc + L_HF;
+  if (total < 1e-9) return;
+
+  // N beads uniformly distributed along the belt from E (s=0) to F (s=total).
+  // Bead 0 always at E, bead N-1 always at F.
+  const N = BELT_BEAD_COUNT;
+
+  // Unit vectors for straight segments
+  const EGux = L_EG > 1e-12 ? (Gwx - Cx)  / L_EG : 0;
+  const EGuy = L_EG > 1e-12 ? (Gwy - Ewy) / L_EG : 0;
+  const HFux = L_HF > 1e-12 ? (Dx  - Hwx) / L_HF : 0;
+  const HFuy = L_HF > 1e-12 ? (Fwy - Hwy) / L_HF : 0;
+
+  for (let i = 0; i < N; i++) {
+    const s = i * total / (N - 1);
+
+    let wx, wy;
+    if (s <= L_EG) {
+      // Segment E -> G
+      wx = Cx  + EGux * s;
+      wy = Ewy + EGuy * s;
+    } else if (s <= L_EG + L_arc) {
+      // Lower semicircle — bead rotates with disk (φ) around B
+      const u = (s - L_EG) / L_arc;                              // 0 → 1
+      const arcAngle = (Math.PI + state.th) + u * Math.PI;
+      wx = Bwx + r * Math.cos(arcAngle);
+      wy = Bwy + r * Math.sin(arcAngle);
+    } else {
+      // Segment H -> F
+      const s_rem = s - L_EG - L_arc;
+      wx = Hwx + HFux * s_rem;
+      wy = Hwy + HFuy * s_rem;
+    }
+
+    const [px, py] = mapW(wx, wy);
+    ctx.beginPath();
+    ctx.arc(px, py, BELT_BEAD_RPX, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(250,230,200,0.96)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(70,60,48,0.8)';
+    ctx.lineWidth = 0.85;
+    ctx.stroke();
+  }
+}
+
+function drawBelt(Cx, Ewy, Bwx, Bwy, r, Dx, Fwy, T) {
+  const isDay = document.body.classList.contains('theme-day');
+  const beltCol = isDay ? '#556070' : '#9ab';
+
+  // E = (Cx, Ewy), F = (Dx, Fwy)
+  const [Epx, Epy] = mapW(Cx, Ewy);
+  const [Fpx, Fpy] = mapW(Dx, Fwy);
+
+  // G = belt contact left = B + r*(cos(π+θ), sin(π+θ)) in world
+  const [Gpx, Gpy] = mapW(Bwx + r*Math.cos(Math.PI + state.th), Bwy + r*Math.sin(Math.PI + state.th));
+  // H = belt contact right = B + r*(cos(θ), sin(θ)) in world
+  const [Hpx, Hpy] = mapW(Bwx + r*Math.cos(state.th), Bwy + r*Math.sin(state.th));
+
+  // E->G segment
+  ctx.beginPath();
+  ctx.moveTo(Epx, Epy); ctx.lineTo(Gpx, Gpy);
+  ctx.strokeStyle = beltCol; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // H->F segment
+  ctx.beginPath();
+  ctx.moveTo(Hpx, Hpy); ctx.lineTo(Fpx, Fpy);
+  ctx.strokeStyle = beltCol; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Lower semicircle G -> H (going under disk = lower arc in world coords)
+  // mapW flips y, so world angle α → screen angle -α.
+  // G screen angle: -(π+θ),  H screen angle: -θ
+  // Lower arc in world: angles increase from π+θ to 2π+θ → screen angles decrease → anticlockwise=true in screen
+  const [bpx, bpy] = mapW(Bwx, Bwy);
+  const [rRef]     = mapW(Bwx + r, Bwy);
+  const rPx = Math.abs(rRef - bpx);
+  ctx.beginPath();
+  ctx.arc(bpx, bpy, rPx, -(Math.PI + state.th), -state.th, true);
+  ctx.strokeStyle = beltCol; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Dots at E, F (anchor points)
+  ctx.beginPath(); ctx.arc(Epx, Epy, 3, 0, 2*Math.PI); ctx.fillStyle = '#aaa'; ctx.fill();
+  ctx.beginPath(); ctx.arc(Fpx, Fpy, 3, 0, 2*Math.PI); ctx.fillStyle = '#aaa'; ctx.fill();
+
+  // Belt beads (rolling without slipping)
+  drawBeltBeads(Cx, Ewy, Bwx, Bwy, r, Dx, Fwy);
+}
+
+function drawLabels(T, Bwx, Bwy) {
+  const [Apx, Apy] = mapW(0, 0);
+  const [Bpx, Bpy] = mapW(Bwx, Bwy);
+  const off = Math.max(10, Math.round(canvasScale() * 0.03));
+
+  ctx.font = scaledFont(0.02, 'bold');
+  ctx.fillStyle = T.text;
+  ctx.textAlign = 'center';
+  ctx.fillText('A', Apx, Apy - off);
+  ctx.fillText('B', Bpx, Bpy - off);
+}
+
+function drawDebugPoints(T, Bwx, Bwy, Cx, Cy, Ewy, Dx, Dy, Fwy, Gwx, Gwy, Hwx, Hwy) {
+  const fnt = `bold ${Math.max(9, Math.round(canvasScale() * 0.018))}px "STIX Two Text","Cambria Math","Times New Roman",serif`;
+  const r = 4;
+  const col = '#ffdd57';
+
+  const pts = [
+    [0,    0,    'A'],
+    [Bwx,  Bwy,  'B'],
+    [-P.a*Math.cos(state.th), -P.a*Math.sin(state.th), 'G₁'],
+    [Cx,   Cy,   'C'],
+    [Dx,   Dy,   'D'],
+    [Cx,   Ewy,  'E'],
+    [Dx,   Fwy,  'F'],
+    [Gwx,  Gwy,  'G'],
+    [Hwx,  Hwy,  'H'],
+  ];
+
+  pts.forEach(([wx, wy, name]) => {
+    const [px, py] = mapW(wx, wy);
+    ctx.beginPath(); ctx.arc(px, py, r, 0, 2*Math.PI);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+
+    ctx.font = fnt;
+    ctx.fillStyle = col;
+    ctx.textAlign = 'left';
+    ctx.fillText(name, px + r + 3, py - r);
+  });
+}
+
+/* ── Time plot drawing ── */
+function ticks(lo, hi, n) {
+  if (hi <= lo) return [];
+  const r = hi - lo, rough = r/n, pw = Math.pow(10, Math.floor(Math.log10(Math.abs(rough)||1)));
+  const step = [1,2,2.5,5,10].find(f => f*pw >= rough - 1e-10)*pw;
+  const start = Math.ceil(lo/step - 1e-9)*step;
+  const out = [];
+  for (let v = start; v <= hi + step*1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+
+function drawTimePlot(cv, key, T) {
+  const view = key === 'theta' ? thetaView : phiView;
+  const col  = key === 'theta' ? T.colTheta : T.colPhi;
+  const label = key === 'theta' ? 'θ (rad)' : 'φ (rad)';  // φ = varphi
+
+  const W = cv.width, H = cv.height;
+  const p = {l:46, r:12, t:18, b:32};
+  const c = cv.getContext('2d');
+
+  if (!view.active) {
+    const WIN = 5;
+    view.x1 = Math.max(WIN, state.t);
+    view.x0 = view.x1 - WIN;
+    // auto-scale y from history
+    let lo = -0.05, hi = 0.05;
+    state.hist.forEach(q => {
+      const v = key === 'theta' ? q.th : q.ph;
+      if (v < lo) lo = v; if (v > hi) hi = v;
+    });
+    const sp = Math.max(hi - lo, 0.02);
+    view.y0 = lo - 0.2*sp; view.y1 = hi + 0.2*sp;
+  }
+
+  c.clearRect(0,0,W,H);
+  c.fillStyle = T.plotFill; c.fillRect(0,0,W,H);
+
+  const Xp = t => p.l + (t - view.x0)/(view.x1 - view.x0 + 1e-9)*(W-p.l-p.r);
+  const Yp = v => p.t + (H-p.t-p.b)*(1 - (v - view.y0)/(view.y1 - view.y0 + 1e-9));
+
+  c.strokeStyle = T.grid; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(p.l, p.t); c.lineTo(p.l, H-p.b); c.lineTo(W-p.r, H-p.b); c.stroke();
+
+  c.font = '11px sans-serif';
+  ticks(view.x0, view.x1, 5).forEach(tv => {
+    const xx = Xp(tv); if (xx < p.l || xx > W-p.r) return;
+    c.beginPath(); c.moveTo(xx, p.t); c.lineTo(xx, H-p.b);
+    c.strokeStyle = T.gridMinor; c.lineWidth = 1; c.stroke();
+    c.fillStyle = T.tick; c.textAlign = 'center';
+    c.fillText(tv.toFixed(tv < 10 ? 1 : 0), xx, H-p.b+13);
+  });
+  ticks(view.y0, view.y1, 4).forEach(vv => {
+    const yy = Yp(vv); if (yy < p.t || yy > H-p.b) return;
+    c.beginPath(); c.moveTo(p.l, yy); c.lineTo(W-p.r, yy);
+    c.strokeStyle = T.gridMinor; c.lineWidth = 1; c.stroke();
+    c.fillStyle = T.tick; c.textAlign = 'right';
+    c.fillText(vv.toFixed(3), p.l-4, yy+4);
+  });
+
+  // axis labels
+  c.font = 'bold 11px sans-serif';
+  c.fillStyle = col; c.textAlign = 'left'; c.fillText(label, p.l+4, p.t+13);
+  c.fillStyle = T.tick; c.textAlign = 'right';
+  c.fillText('t (s)', W-p.r, H-p.b+13);
+
+  if (state.hist.length > 1) {
+    c.beginPath();
+    let started = false;
+    state.hist.forEach(q => {
+      const tv = q.t, vv = key === 'theta' ? q.th : q.ph;
+      if (tv < view.x0 || tv > view.x1) { started = false; return; }
+      const xx = Xp(tv), yy = Yp(vv);
+      if (!started) { c.moveTo(xx,yy); started = true; } else c.lineTo(xx,yy);
+    });
+    c.strokeStyle = col; c.lineWidth = 2; c.stroke();
+
+    // Current dot
+    const curV = key === 'theta' ? state.th : state.ph;
+    const cx = Xp(state.t), cy = Yp(curV);
+    if (cx >= p.l && cx <= W-p.r) {
+      c.beginPath(); c.arc(cx, cy, 3.5, 0, 2*Math.PI);
+      c.fillStyle = col; c.fill();
+    }
+  }
+}
+
+/* ── Simulation loop ── */
+function simStep(now) {
+  if (!state.run) return;
+  if (!simStep.last) simStep.last = now;
+  const dtR = Math.min((now - simStep.last)/1000, 0.05);
+  const dt = dtR/30;
+  const tmax = parseFloat(document.getElementById('tmax-input').value) || 30;
+  simStep.last = now;
+
+  for (let i = 0; i < 30; i++) {
+    const [nth, nthd, nph, nphd] = rk4step(state.th, state.thd, state.ph, state.phd, dt);
+    state.th = nth; state.thd = nthd; state.ph = nph; state.phd = nphd;
+    state.t += dt;
+    if (state.t >= tmax) break;
+  }
+  state.hist.push({t: state.t, th: state.th, thd: state.thd, ph: state.ph, phd: state.phd});
+  if (state.hist.length > 8000) state.hist.shift();
+
+  draw();
+
+  if (state.t >= tmax) { state.run = false; simStep.last = 0; return; }
+  state.anim = requestAnimationFrame(simStep);
+}
+
+function startSim() {
+  cancelAnimationFrame(state.anim);
+  state.t = 0;
+  state.th = state.th0; state.thd = state.thd0;
+  state.ph = state.ph0; state.phd = state.phd0;
+  state.beltPhase = 0;
+  state.hist = [{t:0, th:state.th, thd:state.thd, ph:state.ph, phd:state.phd}];
+  state.run = true; simStep.last = 0;
+  state.anim = requestAnimationFrame(simStep);
+}
+
+function stopSim() {
+  state.run = false; cancelAnimationFrame(state.anim); simStep.last = 0;
+}
+
+function resetSim() {
+  stopSim();
+  state.t = 0;
+  state.th = state.th0; state.thd = state.thd0;
+  state.ph = state.ph0; state.phd = state.phd0;
+  state.beltPhase = 0;
+  state.hist = [];
+  state.view = mainViewHome();
+  thetaView.active = false; phiView.active = false;
+  draw();
+}
+
+/* ── Canvas resize ── */
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  const availW = cont.clientWidth-10, availH = cont.clientHeight-10;
+  const w = Math.max(380, Math.min(availW, availH*1.15));
+  const h = Math.max(400, Math.min(availH, w));
+  canvas.width = w|0; canvas.height = h|0;
+}
+
+/* ── Plot pan/zoom ── */
+function setupPanZoom(cv, view, redraw) {
+  const p = {l:42, r:10, t:14, b:24};
+
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const f = e.deltaY > 0 ? 1.15 : 1/1.15;
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left)*(cv.width/rect.width);
+    const py = (e.clientY - rect.top)*(cv.height/rect.height);
+    const plotW = cv.width - p.l - p.r, plotH = cv.height - p.t - p.b;
+    const tx = Math.min(1, Math.max(0, (px-p.l)/plotW));
+    const ty = Math.min(1, Math.max(0, (py-p.t)/plotH));
+    const cx = view.x0 + tx*(view.x1-view.x0);
+    const cy = view.y0 + (1-ty)*(view.y1-view.y0);
+    view.x0 = cx + (view.x0-cx)*f; view.x1 = cx + (view.x1-cx)*f;
+    view.y0 = cy + (view.y0-cy)*f; view.y1 = cy + (view.y1-cy)*f;
+    view.active = true; redraw();
+  }, {passive:false});
+
+  let drag = false, lx = 0, ly = 0;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const r = cv.getBoundingClientRect();
+    lx = (e.clientX-r.left)*(cv.width/r.width);
+    ly = (e.clientY-r.top)*(cv.height/r.height);
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const r = cv.getBoundingClientRect();
+    const nx = (e.clientX-r.left)*(cv.width/r.width);
+    const ny = (e.clientY-r.top)*(cv.height/r.height);
+    const plotW = cv.width-p.l-p.r, plotH = cv.height-p.t-p.b;
+    const sx = (view.x1-view.x0)/plotW, sy = (view.y1-view.y0)/plotH;
+    view.x0 -= (nx-lx)*sx; view.x1 -= (nx-lx)*sx;
+    view.y0 += (ny-ly)*sy; view.y1 += (ny-ly)*sy;
+    lx = nx; ly = ny; view.active = true; redraw();
+  });
+  window.addEventListener('mouseup', () => drag = false);
+  cv.addEventListener('dblclick', () => { view.active = false; redraw(); });
+}
+
+/* ── Main canvas pan/zoom ── */
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY > 0 ? 1/1.12 : 1.12;
+  const r = canvas.getBoundingClientRect();
+  const mx = (e.clientX-r.left)*(canvas.width/r.width);
+  const my = (e.clientY-r.top)*(canvas.height/r.height);
+  state.view.ox = (mx - canvas.width*VIEW_ANCHOR_X)*(1-f) + state.view.ox*f;
+  state.view.oy = (my - canvas.height*VIEW_ANCHOR_Y)*(1-f) + state.view.oy*f;
+  state.view.z *= f;
+  if (!state.run) draw();
+}, {passive:false});
+
+{
+  let drag = false, lx = 0, ly = 0;
+  canvas.addEventListener('mousedown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const r = canvas.getBoundingClientRect();
+    state.view.ox += (e.clientX-lx)*(canvas.width/r.width);
+    state.view.oy += (e.clientY-ly)*(canvas.height/r.height);
+    lx = e.clientX; ly = e.clientY;
+    if (!state.run) draw();
+  });
+  window.addEventListener('mouseup', () => drag = false);
+  canvas.addEventListener('dblclick', () => { state.view = mainViewHome(); if (!state.run) draw(); });
+}
+
+/* ── Collapsible sections ── */
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); if (!state.run) draw(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const d = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth)||180, Math.min(startW+d, window.innerWidth*.45));
+    panel.style.width = w+'px'; resize(); if (!state.run) draw();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+
+/* ── Init ── */
+function init() {
+  setupResizer('left-resizer', 'left-panel', 'left');
+  setupResizer('right-resizer', 'right-panel', 'right');
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      if (!body || !toggle) return;
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  setupPanZoom(document.getElementById('theta-canvas'), thetaView, draw);
+  setupPanZoom(document.getElementById('phi-canvas'), phiView, draw);
+
+  const dayCb = document.getElementById('theme-day');
+  dayCb.addEventListener('change', () => {
+    document.body.classList.toggle('theme-day', dayCb.checked);
+    document.body.classList.toggle('theme-night', !dayCb.checked);
+    if (!state.run) draw();
+  });
+
+  document.getElementById('btn-simulate').addEventListener('click', startSim);
+  document.getElementById('btn-stop').addEventListener('click', stopSim);
+  document.getElementById('btn-reset').addEventListener('click', resetSim);
+  document.getElementById('chk-debug').addEventListener('change', () => { if (!state.run) draw(); });
+
+  window.addEventListener('resize', () => { resize(); state.view = mainViewHome(); if (!state.run) draw(); });
+
+  const helpOv = document.getElementById('help-overlay');
+  document.getElementById('help-close').addEventListener('click', () => helpOv.classList.add('hidden'));
+  helpOv.addEventListener('click', e => { if (e.target === helpOv) helpOv.classList.add('hidden'); });
+
+  const eqOv = document.getElementById('eq-overlay');
+  const eqContent = document.getElementById('eq-content');
+  document.getElementById('eq-close').addEventListener('click', () => eqOv.classList.add('hidden'));
+  eqOv.addEventListener('click', e => { if (e.target === eqOv) eqOv.classList.add('hidden'); });
+  document.getElementById('btn-show-equations').addEventListener('click', () => {
+    eqOv.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([eqContent]).catch(()=>{});
+  });
+
+  const runMj = () => { if (window.MathJax && MathJax.typesetPromise) return MathJax.typesetPromise().catch(()=>{}); };
+  if (window.MathJax && MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(runMj); else runMj();
+
+  resize();
+  readSliders();
+  state.view = mainViewHome();
+  draw();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
