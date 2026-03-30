@@ -133,7 +133,7 @@ mjx-container { display:inline !important; }
       <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on all views.</li>
       <li><strong>Double-click</strong> to reset any view.</li>
     </ul>
-    <div class="note">Small oscillations about static equilibrium.</div>
+    <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
     <button id="help-close">Got it</button>
   </div>
 </div>
@@ -145,6 +145,22 @@ mjx-container { display:inline !important; }
       <div class="eq-section-title">Equations of motion (small oscillations)</div>
       \[ (J_1 + m_1 a^2 + m_2 b^2)\,\ddot\theta + \bigl[(k_2+k_3)b^2 + 2k_1 c^2\bigr]\,\theta + (k_2-k_3)\,b\,r\,\varphi = 0 \]
       \[ J_2\,\ddot\varphi + (k_2+k_3)\,r^2\,\varphi + (k_2-k_3)\,b\,r\,\theta = 0 \]
+
+      <div class="eq-section-title" style="margin-top:18px;">Matrix form</div>
+      \[
+        \mathbf{M}\,\ddot{\mathbf{q}} + \mathbf{K}\,\mathbf{q} = \mathbf{0}
+      \]
+      \[
+        \begin{bmatrix} J_1+m_1 a^2+m_2 b^2 & 0 \\ 0 & J_2 \end{bmatrix}
+        \begin{bmatrix}\ddot\theta \\ \ddot\varphi\end{bmatrix}
+        +
+        \begin{bmatrix} (k_2+k_3)b^2+2k_1 c^2 & (k_2-k_3)\,b\,r \\ (k_2-k_3)\,b\,r & (k_2+k_3)\,r^2 \end{bmatrix}
+        \begin{bmatrix}\theta \\ \varphi\end{bmatrix}
+        = \begin{bmatrix}0\\0\end{bmatrix}
+      \]
+      <div style="font-size:.83em;color:#8b949e;margin-top:6px;">
+        The equations are <strong>decoupled</strong> when k<sub>2</sub> = k<sub>3</sub> (off-diagonal terms vanish).
+      </div>
     </div>
     <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;color:white;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
   </div>
@@ -192,9 +208,9 @@ mjx-container { display:inline !important; }
     <div class="section-title collapsible" id="hdr-ic">Initial conditions <span class="sec-toggle">▼</span></div>
     <div class="section-body" id="body-ic">
       <div class="param-row"><label>$\theta(0)$ (rad):</label><input type="range" id="th0-sl" min="-0.07" max="0.07" step="0.001" value="0.07"><span class="val" id="th0-val"></span></div>
-      <div class="param-row"><label>$\dot\theta(0)$ (rad/s):</label><input type="range" id="thd0-sl" min="-1" max="1" step="0.01" value="0"><span class="val" id="thd0-val"></span></div>
+      <div class="param-row"><label>$\dot\theta(0)$ (rad/s):</label><input type="range" id="thd0-sl" min="-0.3" max="0.3" step="0.005" value="0"><span class="val" id="thd0-val"></span></div>
       <div class="param-row"><label>$\varphi(0)$ (rad):</label><input type="range" id="ph0-sl" min="-0.07" max="0.07" step="0.001" value="0"><span class="val" id="ph0-val"></span></div>
-      <div class="param-row"><label>$\dot\varphi(0)$ (rad/s):</label><input type="range" id="phd0-sl" min="-1" max="1" step="0.01" value="0"><span class="val" id="phd0-val"></span></div>
+      <div class="param-row"><label>$\dot\varphi(0)$ (rad/s):</label><input type="range" id="phd0-sl" min="-0.3" max="0.3" step="0.005" value="0"><span class="val" id="phd0-val"></span></div>
     </div>
   </div>
 
@@ -626,7 +642,7 @@ function drawDisk(Bwx, Bwy, r, ph, T) {
 
   // Spokes
   for (let i=0; i<4; i++) {
-    const angle = ph + i*Math.PI/2 + state.th;
+    const angle = ph + i*Math.PI/2;
     const ex = Bwx + r*Math.cos(angle);
     const ey = Bwy + r*Math.sin(angle);
     const [px1,py1] = mapW(Bwx, Bwy);
