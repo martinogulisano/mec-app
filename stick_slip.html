@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STICK-SLIP</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() { MathJax.startup.defaultReady(); MathJax.startup.promise.then(initApp); }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.3);
+  --info-bg:rgba(0,0,0,.3); --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92);
+  --info-bg:rgba(0,0,0,.06); --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; transition:background .25s,color .25s; }
+.theme-switch-row {
+  display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px;
+  font-size:.78em; user-select:none;
+}
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .sec-toggle { color:#6e7781; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+body.theme-day button.secondary { border-color:#aab; }
+body.theme-day input[type="number"].compact { border-color:#c5cad3; color:#24292f; }
+body.theme-day button {
+  color:#1a1f2e;
+}
+body.theme-day button.secondary {
+  color:#1a1f2e;
+  background:#c8d4e8;
+  border-color:#9aa8bc;
+}
+body.theme-day button.secondary:hover {
+  background:#b8c6dc;
+  color:#1a1f2e;
+}
+body.theme-day #help-close,
+body.theme-day #eq-close {
+  color:#1a1f2e;
+  background:#e8b4bf;
+}
+body.theme-day #help-close:hover,
+body.theme-day #eq-close:hover {
+  color:#1a1f2e;
+  background:#dfa0ae;
+}
+body.theme-day #info-box {
+  color:#24292f;
+  border:1px solid #d8dee4;
+}
+body.theme-day .section > .section-title {
+  color:#57606a;
+}
+body.theme-day .theme-switch-row,
+body.theme-day .theme-switch-row label {
+  color:#24292f;
+}
+body.theme-day #credits-block,
+body.theme-day #credits-block .credits-muted {
+  color:#5a6570 !important;
+}
+body.theme-day .panel::-webkit-scrollbar-thumb {
+  background:rgba(0,0,0,0.22);
+}
+body.theme-day .panel::-webkit-scrollbar-thumb:hover {
+  background:rgba(0,0,0,0.35);
+}
+body.theme-day .panel {
+  scrollbar-color:rgba(0,0,0,0.22) transparent;
+}
+body.theme-day .collapse-btn:hover {
+  color:#fff;
+}
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1001;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
+#btn-show-equations {
+  flex:1; min-width:0; background:var(--highlight); color:#fff;
+  border:1px solid rgba(255,255,255,.28); box-shadow:0 1px 6px rgba(233,69,96,.28);
+  font-size:.8em; font-weight:600; padding:6px 12px;
+}
+body.theme-day #btn-show-equations {
+  color:#1a1f2e;
+  background:#f0a8b4;
+  border-color:#c97d8c;
+  box-shadow:0 1px 6px rgba(199,62,84,.18);
+}
+body.theme-day #btn-show-equations:hover {
+  background:#e895a3;
+  color:#1a1f2e;
+}
+#btn-show-equations:hover { background:#c73e54; box-shadow:0 2px 8px rgba(233,69,96,.38); }
+body.theme-day #btn-show-equations { box-shadow:0 1px 6px rgba(199,62,84,.22); }
+body.theme-day #btn-show-equations:hover { box-shadow:0 2px 8px rgba(199,62,84,.32); }
+#eq-content .eq-section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d;
+}
+#eq-content .eq-section-title:first-child { margin-top:0; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.85em 0 !important; width:100%; text-align:center; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:300px; min-width:200px; max-width:45vw; flex:0 0 auto; }
+#right-panel { width:540px; min-width:240px; max-width:58vw; flex:0 0 auto; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; z-index:10; padding:0; line-height:1;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:500px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 88px; font-size:.8em; text-align:right; }
+button.btn-ic-zero { padding:3px 10px; font-size:.72em; font-weight:600; flex-shrink:0; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 46px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+.checkbox-row { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
+.checkbox-row input[type="checkbox"] { accent-color:var(--highlight); width:14px; height:14px; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button.secondary { background:var(--accent); border:1px solid #555; transition:border-color .2s; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; }
+canvas#canvas:active { cursor:grabbing; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+mjx-container { display:inline !important; }
+</style>
+</head>
+<body class="theme-night">
+
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — adjust system parameters and initial conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot</li>
+      <li><strong>Double-click</strong> a plot to reset the view</li>
+      <li><strong>Scroll the right panel</strong> to explore all widgets</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.88em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      <div class="eq-section-title">Slip (relative speed above threshold)</div>
+      \[ v_{\mathrm{th}} = 0.001\,\mathrm{m/s},\qquad v_{\mathrm{rel}} = \dot{x} - v \]
+      \[ \dot{x} - v > v_{\mathrm{th}} \;\Rightarrow\; m\ddot{x} + kx = -f_d N \]
+      \[ \dot{x} - v < -v_{\mathrm{th}} \;\Rightarrow\; m\ddot{x} + kx = +f_d N \]
+      <div class="eq-section-title">Stick</div>
+      \[ |\dot{x} - v| \le v_{\mathrm{th}} \;\wedge\; |x| \le \frac{f_s N}{k} \quad\Rightarrow\quad \dot{x} = v,\quad \ddot{x} = 0 \]
+      <div class="eq-section-title">Coefficients</div>
+      \[ f_s = (1+\varepsilon)\, f_d \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>STICK-SLIP</h1>
+  <h2>Interactive simulator</h2>
+  <div id="credits-block" style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
+    Prof. Marco Gabiccini &amp; Martino Gulisano<br>Applied mechanics<br>
+    <span class="credits-muted" style="font-size:.9em;color:#666;">All rights reserved</span>
+  </div>
+
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Parameters</div>
+    <div class="param-row"><label>$m$ (kg):</label>
+      <input type="range" id="m-slider" min="0" max="5" value="1" step="0.05">
+      <span class="val" id="m-val">1.0</span></div>
+    <div class="param-row"><label>$k$ (N/m):</label>
+      <input type="range" id="k-slider" min="0" max="30" value="6" step="0.5">
+      <span class="val" id="k-val">6.0</span></div>
+    <div class="param-row"><label>$N$ (N):</label>
+      <input type="range" id="N-slider" min="0.1" max="10" value="5" step="0.1">
+      <span class="val" id="N-val">5.0</span></div>
+    <div class="param-row"><label>$f_d$:</label>
+      <input type="range" id="fd-slider" min="0.1" max="1" value="0.3" step="0.01">
+      <span class="val" id="fd-val">0.30</span></div>
+    <div class="param-row"><label>$\varepsilon$:</label>
+      <input type="range" id="eps-slider" min="0.05" max="0.2" value="0.12" step="0.005">
+      <span class="val" id="eps-val">0.120</span></div>
+    <div class="param-row"><label>$v$ (m/s):</label>
+      <input type="range" id="v-slider" min="0" max="1" value="0" step="0.05">
+      <span class="val" id="v-val">0.00</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Initial conditions</div>
+    <div class="param-row"><label>$x(0)$ (m):</label>
+      <input type="range" id="x0-slider" min="-0.5" max="0.5" value="0.15" step="0.005">
+      <span class="val" id="x0-val">0.150</span></div>
+    <div class="param-row"><label>$\dot x(0)$:</label>
+      <input type="range" id="xd0-slider" min="-1" max="1" value="0" step="0.05">
+      <span class="val" id="xd0-val">0.00</span></div>
+    <div class="param-row" style="justify-content:flex-end; margin-top:2px; gap:6px; flex-wrap:wrap;">
+      <button type="button" id="btn-ic-zero" class="secondary btn-ic-zero" title="Set x(0)=0 and ẋ(0)=0">x(0)=0, ẋ(0)=0</button>
+      <button type="button" id="btn-ic-belt" class="secondary btn-ic-zero" title="Set x(0) = 0 and ẋ(0) = v (belt speed)">x(0)=0, ẋ(0)=v</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="param-row" style="margin-bottom:4px;">
+      <label>$T_{\max}$ (s):</label>
+      <input type="number" id="tmax-input" class="compact" value="15" min="1" max="600" step="1">
+      <span class="val"></span>
+    </div>
+    <div class="btn-row">
+      <button id="btn-simulate">▶ Play</button>
+      <button id="btn-stop" class="secondary">■ Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">State</div>
+    <div id="info-box">Set I.C. and press Play.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-time-x">
+      <span>Time history $x(t)$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-time-x">
+      <canvas id="x-time-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-time-xd">
+      <span>Time history $\dot x(t)$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-time-xd">
+      <canvas id="xd-time-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-energy">
+      <span>Potential $U=\tfrac12 k x^2$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-energy">
+      <canvas id="energy-canvas" class="plot-view" width="340" height="150" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-phase">
+      <span>State space $(x,\dot x)$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-phase">
+      <canvas id="phase-canvas" class="plot-view" width="340" height="220" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const L_SPRING = 1;
+const V_THRESH = 0.001;
+/** Tiny margin so float noise does not leave ẋ ≠ v while still classified as stick. */
+const V_STICK_SLACK = 1e-9;
+const BELT_R = 0.1;
+const BELT_NPTS = 30;
+/** Time-history curve: stick = red, slip +vr = blue, slip −vr = green (relative to belt v). */
+const DYN_LINE_RGB = ['#e94560', '#2563eb', '#16a34a'];
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let params = {};
+let simState = null;
+let simRunning = false;
+let animId = null;
+let simHistory = [];
+/** Energy plot autoscale: y-max and |x| half-span only grow (no shrink when E or |x| drop). Cleared on reset / new IC. */
+let energyPlotYMaxFloor = null;
+let energyPlotXmFloor = null;
+
+const MAIN_VIEW_ZOOM_DEFAULT = 1.42;
+const MAIN_VIEW_OFFX_DEFAULT = -105;
+const mainView = { offX: MAIN_VIEW_OFFX_DEFAULT, offY: 0, zoom: MAIN_VIEW_ZOOM_DEFAULT };
+
+const MI = {};
+async function makeMathImg(latex, color, heightPx) {
+  const wrapper = MathJax.tex2svg(latex, {display: false});
+  const svg = wrapper.querySelector('svg');
+  const hEx = parseFloat(svg.getAttribute('height')) || 1;
+  const wEx = parseFloat(svg.getAttribute('width'))  || 1;
+  const wPx = Math.ceil(wEx / hEx * heightPx) + 2;
+  svg.setAttribute('height', heightPx); svg.setAttribute('width', wPx);
+  let s = new XMLSerializer().serializeToString(svg);
+  s = s.replace(/currentColor/g, color);
+  const url = URL.createObjectURL(new Blob([s], {type:'image/svg+xml;charset=utf-8'}));
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  URL.revokeObjectURL(url); return img;
+}
+
+async function preloadMath() {
+  const defs = [
+    ['x_lab', 'x(t)', '#00b4d8', 13],
+    ['xd_lab', '\\dot{x}(t)', '#4ecdc4', 13],
+    ['t_lab', 't', '#888', 13],
+    ['U_lab', 'U(x)', '#00b4d8', 13],
+    ['x_ax', 'x', '#888', 13],
+    ['E_mech', 'E', 'rgba(180,100,255,0.95)', 12],
+  ];
+  for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
+}
+function mimg(c2d, key, x, y, anchor='left') {
+  const img = MI[key]; if (!img) return;
+  const w = img.naturalWidth;
+  if (anchor === 'center') x -= w / 2;
+  else if (anchor === 'right') x -= w;
+  c2d.drawImage(img, Math.round(x), Math.round(y));
+}
+
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0=x0; this._x1=x1; this._y0=y0; this._y1=y1;
+    this.xMin=x0; this.xMax=x1; this.yMin=y0; this.yMax=y1; this.active=false;
+  }
+  toX(v, pad, W) { return pad.l + (v-this.xMin)/(this.xMax-this.xMin)*(W-pad.l-pad.r); }
+  toY(v, pad, H) { return pad.t + (H-pad.t-pad.b)*(1-(v-this.yMin)/(this.yMax-this.yMin)); }
+  px2data(px, py, pad, W, H) {
+    const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+    return [this.xMin+(px-pad.l)/pw*(this.xMax-this.xMin),
+            this.yMin+(1-(py-pad.t)/ph)*(this.yMax-this.yMin)];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active=true;
+    this.xMin=xd+(this.xMin-xd)*factor; this.xMax=xd+(this.xMax-xd)*factor;
+    this.yMin=yd+(this.yMin-yd)*factor; this.yMax=yd+(this.yMax-yd)*factor;
+  }
+  pan(dxd, dyd) {
+    this.active=true;
+    this.xMin-=dxd; this.xMax-=dxd; this.yMin-=dyd; this.yMax-=dyd;
+  }
+  reset() {
+    this.active=false;
+    this.xMin=this._x0; this.xMax=this._x1; this.yMin=this._y0; this.yMax=this._y1;
+  }
+  setRange(x0, x1, y0, y1) {
+    if (!this.active) { this.xMin=x0; this.xMax=x1; this.yMin=y0; this.yMax=y1; }
+  }
+}
+
+const PHASE_PAD  = {l:42,r:32,t:16,b:26};
+const TIME_PAD   = {l:42,r:32,t:12,b:26};
+const ENERGY_PAD = {l:44,r:32,t:12,b:26};
+const phaseView  = new PanZoomView(-0.5, 0.5, -2, 2);
+const timeViewX  = new PanZoomView(0, 5, -0.3, 0.3);
+const timeViewXd = new PanZoomView(0, 5, -2, 2);
+const energyView = new PanZoomView(-0.4, 0.4, 0, 2);
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX-rect.left)*(cv.width/rect.width);
+    const py = (e.clientY-rect.top)*(cv.height/rect.height);
+    const [xd, yd] = view.px2data(px, py, pad, cv.width, cv.height);
+    view.zoomAt(e.deltaY > 0 ? 1.15 : 1/1.15, xd, yd);
+    redrawFn();
+  }, {passive:false});
+  let drag=false, lx, ly;
+  cv.addEventListener('mousedown', e => {
+    drag=true;
+    const rect = cv.getBoundingClientRect();
+    lx=(e.clientX-rect.left)*(cv.width/rect.width);
+    ly=(e.clientY-rect.top)*(cv.height/rect.height);
+    cv.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(cv.width/rect.width);
+    const py=(e.clientY-rect.top)*(cv.height/rect.height);
+    const pw=cv.width-pad.l-pad.r, ph=cv.height-pad.t-pad.b;
+    view.pan((px-lx)/pw*(view.xMax-view.xMin), -(py-ly)/ph*(view.yMax-view.yMin));
+    lx=px; ly=py; redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag=false; cv.style.cursor='crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function niceTicks(lo, hi, target=5) {
+  if (hi <= lo) return [];
+  const range = hi - lo;
+  const rough = range / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(Math.abs(rough) || 1)));
+  const step = [1,2,2.5,5,10].find(f => f*pow >= rough - 1e-10) * pow;
+  const start = Math.ceil(lo / step - 1e-9) * step;
+  const ticks = [];
+  for (let v=start; v<=hi+step*1e-9; v+=step)
+    ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  const sz = Math.min(cont.clientWidth-12, cont.clientHeight-12);
+  canvas.width=sz; canvas.height=sz;
+}
+function redrawAll() {
+  if (simRunning && simState) draw(simState.x, simState.xd);
+  else draw();
+}
+window.addEventListener('resize', () => { resize(); redrawAll(); });
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function plotPlotTheme() {
+  const d = document.body.classList.contains('theme-day');
+  return {
+    grid: d ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
+    grid0: d ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
+    axis: d ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.2)',
+    tick: d ? '#3d4554' : '#888',
+    zoom: d ? 'rgba(199,62,84,0.78)' : 'rgba(233,69,96,0.6)',
+    marker: '#ffdd57',
+    markerStroke: d ? '#a67c00' : '#aa8800',
+    trajPhase: d ? 'rgba(210,160,0,0.95)' : 'rgba(255,221,87,0.9)',
+    lineXt: '#00b4d8',
+    lineXdt: '#4ecdc4',
+    refG: d ? 'rgba(25,110,50,0.6)' : 'rgba(100,200,120,0.45)',
+    refO: d ? 'rgba(190,95,15,0.65)' : 'rgba(255,180,100,0.4)',
+    refP: d ? 'rgba(95,70,175,0.6)' : 'rgba(180,140,255,0.55)',
+    refV: d ? 'rgba(70,70,190,0.75)' : 'rgba(150,150,255,0.75)',
+    energyU: '#00b4d8',
+    eTot: d ? 'rgba(120,55,200,0.88)' : 'rgba(180,100,255,0.85)',
+    vertGuide: d ? 'rgba(200,155,0,0.2)' : 'rgba(255,221,87,0.12)'
+  };
+}
+
+/** $v_{\max} = 1.5\, f_d N / \sqrt{k m}$: belt slider max and symmetric range for $\dot x(0)$. */
+function updateVSliderMax() {
+  const m = parseFloat(document.getElementById('m-slider').value);
+  const k = parseFloat(document.getElementById('k-slider').value);
+  const Nn = parseFloat(document.getElementById('N-slider').value);
+  const fd = parseFloat(document.getElementById('fd-slider').value);
+  const km = Math.max(k * m, 1e-18);
+  const vmax = (1.5 * fd * Nn) / Math.sqrt(km);
+  const vSl = document.getElementById('v-slider');
+  vSl.max = String(vmax);
+  let v = parseFloat(vSl.value);
+  if (v > vmax) {
+    vSl.value = String(vmax);
+    document.getElementById('v-val').textContent = parseFloat(vSl.value).toFixed(2);
+  }
+  const xd0Sl = document.getElementById('xd0-slider');
+  xd0Sl.min = String(-vmax);
+  xd0Sl.max = String(vmax);
+  let xd0 = parseFloat(xd0Sl.value);
+  if (xd0 < -vmax) {
+    xd0Sl.value = String(-vmax);
+    document.getElementById('xd0-val').textContent = (-vmax).toFixed(2);
+  } else if (xd0 > vmax) {
+    xd0Sl.value = String(vmax);
+    document.getElementById('xd0-val').textContent = vmax.toFixed(2);
+  }
+}
+
+function readParams() {
+  updateVSliderMax();
+  const m = parseFloat(document.getElementById('m-slider').value);
+  const k = parseFloat(document.getElementById('k-slider').value);
+  const Nn = parseFloat(document.getElementById('N-slider').value);
+  const fd = parseFloat(document.getElementById('fd-slider').value);
+  const eps = parseFloat(document.getElementById('eps-slider').value);
+  const v = parseFloat(document.getElementById('v-slider').value);
+  params = { m, k, N: Nn, fd, fs: fd * (1 + eps), eps, v };
+}
+
+function wireSlider(id, valId, fmt) {
+  const sl=document.getElementById(id), vl=document.getElementById(valId);
+  const upd=()=>{ vl.textContent=fmt(parseFloat(sl.value)); readParams(); redrawAll(); };
+  sl.addEventListener('input', upd); upd();
+}
+wireSlider('m-slider', 'm-val', v=>v.toFixed(2));
+wireSlider('k-slider', 'k-val', v=>v.toFixed(1));
+wireSlider('N-slider', 'N-val', v=>v.toFixed(1));
+wireSlider('fd-slider', 'fd-val', v=>v.toFixed(2));
+wireSlider('eps-slider', 'eps-val', v=>v.toFixed(3));
+wireSlider('v-slider', 'v-val', v=>v.toFixed(2));
+wireSlider('x0-slider', 'x0-val', v=>v.toFixed(3));
+wireSlider('xd0-slider', 'xd0-val', v=>v.toFixed(2));
+
+function resetEnergyYFloor() { energyPlotYMaxFloor = null; energyPlotXmFloor = null; }
+['x0-slider', 'xd0-slider', 'm-slider', 'k-slider'].forEach(id => {
+  document.getElementById(id).addEventListener('input', resetEnergyYFloor, true);
+});
+
+document.getElementById('btn-ic-zero').addEventListener('click', () => {
+  resetEnergyYFloor();
+  document.getElementById('x0-slider').value = '0';
+  document.getElementById('xd0-slider').value = '0';
+  document.getElementById('x0-val').textContent = (0).toFixed(3);
+  document.getElementById('xd0-val').textContent = (0).toFixed(2);
+  readParams();
+  redrawAll();
+});
+
+document.getElementById('btn-ic-belt').addEventListener('click', () => {
+  resetEnergyYFloor();
+  readParams();
+  const vb = parseFloat(document.getElementById('v-slider').value);
+  document.getElementById('x0-slider').value = '0';
+  document.getElementById('xd0-slider').value = String(vb);
+  document.getElementById('x0-val').textContent = (0).toFixed(3);
+  document.getElementById('xd0-val').textContent = vb.toFixed(2);
+  readParams();
+  redrawAll();
+});
+
+function stickZone(x) {
+  return Math.abs(x) <= params.fs * params.N / params.k;
+}
+
+/** v_thresh only classifies near relative rest; imposed stick velocity is always belt speed v. */
+function inStickBand(xd) {
+  return Math.abs(xd - params.v) <= V_THRESH + V_STICK_SLACK;
+}
+
+/** 0 = stick, 1 = slip with ẋ−v > 0, 2 = slip with ẋ−v < 0 (threshold band uses sign of v_rel). */
+function dynamicsModeAt(p) {
+  if (inStickBand(p.xd) && stickZone(p.x)) return 0;
+  const vr = p.xd - params.v;
+  if (vr > V_THRESH) return 1;
+  if (vr < -V_THRESH) return 2;
+  return vr >= 0 ? 1 : 2;
+}
+
+/** Keep $t=0$ and $x=0$ / $\dot x=0$ inside the plot range (time history plots). */
+function ensureTimePlotIncludesOrigins(view) {
+  if (view.xMin > 0) view.xMin = 0;
+  if (view.yMin > 0) view.yMin = 0;
+  if (view.yMax < 0) view.yMax = 0;
+  if (view.yMax - view.yMin < 1e-12) {
+    view.yMin -= 1e-6;
+    view.yMax += 1e-6;
+  }
+}
+
+function drawTimeOriginGuides(c, toX, toY, pad, W, H, pt) {
+  const px0 = toX(0), py0 = toY(0);
+  c.save();
+  if (px0 >= pad.l - 1 && px0 <= W - pad.r + 1) {
+    c.beginPath();
+    c.moveTo(px0, pad.t);
+    c.lineTo(px0, H - pad.b);
+    c.strokeStyle = pt.axis;
+    c.lineWidth = 1.4;
+    c.stroke();
+  }
+  if (py0 >= pad.t - 1 && py0 <= H - pad.b + 1) {
+    c.beginPath();
+    c.moveTo(pad.l, py0);
+    c.lineTo(W - pad.r, py0);
+    c.strokeStyle = pt.grid0;
+    c.lineWidth = 1.25;
+    c.stroke();
+  }
+  c.restore();
+}
+
+function strokeColoredTimeHistory(c, simHistory, tMin, tMax, toX, toY, getVal) {
+  let curM = -1;
+  c.lineWidth = 1.5;
+  let hasOpen = false;
+  for (let i = 1; i < simHistory.length; i++) {
+    const p0 = simHistory[i - 1], p1 = simHistory[i];
+    if (p1.t < tMin - 0.01) continue;
+    if (p0.t > tMax + 0.01) break;
+    const m = dynamicsModeAt(p1);
+    if (m !== curM) {
+      if (hasOpen) c.stroke();
+      c.beginPath();
+      c.strokeStyle = DYN_LINE_RGB[m];
+      c.moveTo(toX(p0.t), toY(getVal(p0)));
+      c.lineTo(toX(p1.t), toY(getVal(p1)));
+      curM = m;
+      hasOpen = true;
+    } else {
+      c.lineTo(toX(p1.t), toY(getVal(p1)));
+      hasOpen = true;
+    }
+  }
+  if (hasOpen) c.stroke();
+}
+
+function getAccel(x, xd) {
+  const { m, k, N, fd, fs, v } = params;
+  const vr = xd - v;
+  const xlim = fs * N / k;
+  if (inStickBand(xd) && stickZone(x)) return 0;
+  let vrEff = vr;
+  if (Math.abs(vr) <= V_THRESH && Math.abs(x) > xlim)
+    vrEff = (V_THRESH + 1e-9) * Math.sign(-k * x);
+  if (vrEff > V_THRESH) return (-k * x - fd * N) / m;
+  if (vrEff < -V_THRESH) return (-k * x + fd * N) / m;
+  return 0;
+}
+
+function rk4StepSpring(x, xd, dt) {
+  const { m, k, N, fd, fs, v } = params;
+  const xlim = fs * N / k;
+  // Stick: exact belt velocity v (v_thresh is not used for xd magnitude, only classification)
+  if (inStickBand(xd) && stickZone(x)) {
+    return [x + v * dt, v];
+  }
+  function f(px, pxd) {
+    const vr = pxd - v;
+    // In stick zone with negligible relative speed: imposed kinematics ẋ = v, ẍ = 0 (not [pxd, 0])
+    if (stickZone(px) && inStickBand(pxd)) return [v, 0];
+    let vrE = vr;
+    if (Math.abs(vr) <= V_THRESH && Math.abs(px) > xlim) vrE = (V_THRESH + 1e-9) * Math.sign(-k * px);
+    let a;
+    if (vrE > V_THRESH) a = (-k * px - fd * N) / m;
+    else if (vrE < -V_THRESH) a = (-k * px + fd * N) / m;
+    else a = 0;
+    return [pxd, a];
+  }
+  const k1 = f(x, xd);
+  const k2 = f(x + 0.5*dt*k1[0], xd + 0.5*dt*k1[1]);
+  const k3 = f(x + 0.5*dt*k2[0], xd + 0.5*dt*k2[1]);
+  const k4 = f(x + dt*k3[0], xd + dt*k3[1]);
+  let xn = x + dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+  let xdn = xd + dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+  // Snap to manifold: in stick zone with negligible slip, ẋ must be exactly v (RK4 blend can drift)
+  if (stickZone(xn) && inStickBand(xdn)) xdn = v;
+  return [xn, xdn];
+}
+
+function potentialU(x) { return 0.5 * params.k * x * x; }
+function totalE(x, xd) { return potentialU(x) + 0.5 * params.m * xd * xd; }
+
+// World→canvas mapping (same scale as other glifo sims); spring drawing from glifo_a_croce.html
+function worldToCanvas(x, y) {
+  const sz = canvas.width;
+  const scale = sz / (4.8 * L_SPRING) * mainView.zoom;
+  return [sz * 0.45 + mainView.offX + x * scale, sz * 0.50 + mainView.offY - y * scale];
+}
+function canvasLen(len) {
+  return len * canvas.width / (4.8 * L_SPRING) * mainView.zoom;
+}
+
+function drawLine(x1, y1, x2, y2, color, width = 2, dash = null) {
+  const [cx1, cy1] = worldToCanvas(x1, y1);
+  const [cx2, cy2] = worldToCanvas(x2, y2);
+  ctx.beginPath();
+  if (dash) ctx.setLineDash(dash);
+  ctx.moveTo(cx1, cy1); ctx.lineTo(cx2, cy2);
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.stroke();
+  if (dash) ctx.setLineDash([]);
+}
+
+function drawLeftWall() {
+  const day = document.body.classList.contains('theme-day');
+  const col = day ? 'rgba(45,50,65,0.95)' : 'rgba(200,205,220,0.9)';
+  drawLine(0, -0.5, 0, 0.5, col, 4);
+}
+
+// Draw spring (solenoid along segment, stubs + smooth loops) — same as glifo_a_croce.html
+function drawSpring(c2d, x1, y1, x2, y2, coils, color) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 4) return;
+  const ux = dx / len, uy = dy / len;
+  const nx = -uy, ny = ux;
+  const amp = 7;
+  const stub = len * 0.13;
+  const coilLen = len - 2 * stub;
+  const N = coils;
+  const steps = N * 32;
+
+  c2d.beginPath();
+  c2d.moveTo(x1, y1);
+  c2d.lineTo(x1 + ux * stub, y1 + uy * stub);
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const base = stub + t * coilLen;
+    const off = amp * Math.sin(t * N * 2 * Math.PI);
+    c2d.lineTo(x1 + ux * base + nx * off, y1 + uy * base + ny * off);
+  }
+  c2d.lineTo(x2, y2);
+  c2d.strokeStyle = color;
+  c2d.lineWidth = 2;
+  c2d.stroke();
+}
+
+function drawCross(wx, wy, half) {
+  const [cx,cy]=worldToCanvas(wx,wy);
+  const h = canvasLen(half);
+  const cs = document.body.classList.contains('theme-day') ? 'rgba(40,45,58,0.9)' : 'rgba(255,255,255,0.85)';
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI / 4);
+  ctx.beginPath();
+  ctx.moveTo(-h, 0); ctx.lineTo(h, 0);
+  ctx.moveTo(0, -h); ctx.lineTo(0, h);
+  ctx.strokeStyle = cs;
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function beltPathSample(s, b, r) {
+  const yTop = -b/2, yBot = -2*r - b/2;
+  const cxL = 0.2, cxR = 2;
+  const cyC = -r - b/2;
+  const Lh = cxR - cxL;
+  const arc = Math.PI * r;
+  const Ltot = 2 * Lh + 2 * arc;
+  let u = ((s % Ltot) + Ltot) % Ltot;
+  if (u < Lh) {
+    const t = u / Lh;
+    return [cxL + t * (cxR - cxL), yTop];
+  }
+  u -= Lh;
+  if (u < arc) {
+    const phi = Math.PI/2 - u / r;
+    return [cxR + r * Math.cos(phi), cyC + r * Math.sin(phi)];
+  }
+  u -= arc;
+  if (u < Lh) {
+    const t = u / Lh;
+    return [cxR - t * (cxR - cxL), yBot];
+  }
+  u -= Lh;
+  // Left semicircle (outer path bulges left): φ from −π/2 → −3π/2 through π, not −π/2 → π/2 through 0
+  const phi = -Math.PI/2 - u / r;
+  return [cxL + r * Math.cos(phi), cyC + r * Math.sin(phi)];
+}
+
+function drawBelt(b, phase) {
+  const r = BELT_R;
+  const cxL = 0.2, cxR = 2;
+  const cyC = -r - b/2;
+  const yTop = -b/2, yBot = -2*r - b/2;
+  const [p0x,p0y]=worldToCanvas(cxL, yTop), [p1x,p1y]=worldToCanvas(cxR, yTop);
+  const [q0x,q0y]=worldToCanvas(cxL, yBot), [q1x,q1y]=worldToCanvas(cxR, yBot);
+  ctx.beginPath();
+  ctx.moveTo(p0x,p0y); ctx.lineTo(p1x,p1y);
+  ctx.moveTo(q0x,q0y); ctx.lineTo(q1x,q1y);
+  const beltStroke = document.body.classList.contains('theme-day') ? 'rgba(55,60,75,0.88)' : 'rgba(200,200,210,0.75)';
+  ctx.strokeStyle=beltStroke; ctx.lineWidth=2; ctx.stroke();
+  const arcLen = Math.PI * r;
+  const Lh = cxR - cxL;
+  const Ltot = 2*Lh + 2*arcLen;
+  function strokeArcWorld(cx, cy, r0, a0, a1, n) {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const t = a0 + (a1 - a0) * (i / n);
+      const wx = cx + r0 * Math.cos(t), wy = cy + r0 * Math.sin(t);
+      const [px, py] = worldToCanvas(wx, wy);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = beltStroke; ctx.lineWidth = 2; ctx.stroke();
+  }
+  strokeArcWorld(cxR, cyC, r, Math.PI/2, -Math.PI/2, 28);
+  strokeArcWorld(cxL, cyC, r, -Math.PI/2, -3 * Math.PI / 2, 28);
+  drawCross(cxL, cyC, 0.018);
+  drawCross(cxR, cyC, 0.018);
+  const beltV = params.v;
+  for (let i = 0; i < BELT_NPTS; i++) {
+    const s = (i / BELT_NPTS) * Ltot + phase;
+    const [bx, by] = beltPathSample(s, b, r);
+    const [bxc, byc] = worldToCanvas(bx, by);
+    ctx.beginPath(); ctx.arc(bxc, byc, 3, 0, 2*Math.PI);
+    ctx.fillStyle = beltV !== 0 ? 'rgba(255,200,80,0.95)' : 'rgba(120,130,150,0.5)';
+    ctx.fill();
+  }
+}
+
+function draw(x_ov, xd_ov) {
+  const x  = x_ov  !== undefined ? x_ov  : parseFloat(document.getElementById('x0-slider').value);
+  const xd = xd_ov !== undefined ? xd_ov : parseFloat(document.getElementById('xd0-slider').value);
+  readParams();
+  const { m } = params;
+  const b = 0.2 * Math.cbrt(m);
+  const xL = L_SPRING + x;
+  const xR = xL + b;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = cssVar('--canvas-bg', '#0d1117');
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  drawLeftWall();
+  drawBelt(b, simState ? simState.beltPhase : 0);
+
+  {
+    const [sx0, sy0] = worldToCanvas(0, 0);
+    const [sx1, sy1] = worldToCanvas(xL, 0);
+    drawSpring(ctx, sx0, sy0, sx1, sy1, 5, '#f0c040');
+  }
+
+  const rpx = 6;
+  const [x1,y1]=worldToCanvas(xL, b/2), [x2,y2]=worldToCanvas(xR, -b/2);
+  const rx = Math.min(x1,x2), ry = Math.min(y1,y2), rw = Math.abs(x2-x1), rh = Math.abs(y2-y1);
+  ctx.beginPath();
+  ctx.roundRect(rx, ry, rw, rh, rpx);
+  ctx.fillStyle='#e94560'; ctx.fill();
+  ctx.strokeStyle='#c73e54'; ctx.lineWidth=2; ctx.stroke();
+
+  updateInfo(x, xd);
+  drawPhaseSpace(x, xd);
+  drawXTime(x);
+  drawXdTime(xd);
+  drawEnergyPlot(x, xd);
+}
+
+function updateInfo(x, xd) {
+  const { m, k, N, fd, fs, v } = params;
+  const a = getAccel(x, xd);
+  const vr = xd - v;
+  const xlim = fs * N / k;
+  let mode = 'slip';
+  if (inStickBand(xd) && stickZone(x)) mode = 'stick';
+  let txt = '';
+  txt += `x   = ${x.toFixed(5)} m\n`;
+  txt += `ẋ  = ${xd.toFixed(5)} m/s\n`;
+  txt += `ẍ  = ${a.toFixed(5)} m/s²\n`;
+  txt += `mode: ${mode}\n`;
+  txt += `f_s = ${fs.toFixed(4)}  |x|_stick ≤ ${xlim.toFixed(5)} m\n`;
+  txt += '─────────────────────\n';
+  txt += `U = ${potentialU(x).toFixed(5)} J\n`;
+  txt += `E = ${totalE(x, xd).toFixed(5)} J\n`;
+  if (simState) txt += `t = ${simState.time.toFixed(3)} s\n`;
+  document.getElementById('info-box').textContent = txt;
+}
+
+function drawPhaseSpace(x, xd) {
+  const cv=document.getElementById('phase-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=PHASE_PAD;
+  const pt = plotPlotTheme();
+
+  let xmin = x, xmax = x, ymin = xd, ymax = xd;
+  for (const p of simHistory) {
+    if (p.x < xmin) xmin = p.x;
+    if (p.x > xmax) xmax = p.x;
+    if (p.xd < ymin) ymin = p.xd;
+    if (p.xd > ymax) ymax = p.xd;
+  }
+  const mx = Math.max(Math.abs(xmin), Math.abs(xmax), 0.1) * 1.2;
+  const my = Math.max(Math.abs(ymin), Math.abs(ymax), 0.5) * 1.2;
+  phaseView.setRange(-mx, mx, -my, my);
+
+  const toX=v=>phaseView.toX(v,pad,W);
+  const toY=v=>phaseView.toY(v,pad,H);
+  c.clearRect(0,0,W,H);
+
+  const xTicks=niceTicks(phaseView.xMin, phaseView.xMax, 5);
+  const yTicks=niceTicks(phaseView.yMin, phaseView.yMax, 5);
+  c.font='9px sans-serif';
+  for (const vx of xTicks) {
+    const px=toX(vx); if(px<pad.l||px>W-pad.r) continue;
+    c.beginPath(); c.moveTo(px,pad.t); c.lineTo(px,H-pad.b);
+    c.strokeStyle=pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='center';
+    c.fillText(vx.toFixed(2), px, H-4);
+  }
+  for (const vy of yTicks) {
+    const py=toY(vy); if(py<pad.t||py>H-pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l,py); c.lineTo(W-pad.r,py);
+    c.strokeStyle=Math.abs(vy)<1e-9?pt.grid0:pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='right';
+    c.fillText(vy.toFixed(2), pad.l-3, py+3);
+  }
+  c.strokeStyle=pt.axis; c.beginPath();
+  c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
+
+  mimg(c, 'xd_lab', 2, pad.t+1);
+  mimg(c, 'x_ax', W-pad.r-20, H-pad.b+14);
+
+  const { k, N, fd, fs, v } = params;
+  const xfd = (fd * N) / k, xfs = (fs * N) / k;
+  for (const xv of [-xfd, xfd]) {
+    const px = toX(xv);
+    if (px >= pad.l && px <= W-pad.r) {
+      c.setLineDash([5,4]);
+      c.beginPath(); c.moveTo(px, pad.t); c.lineTo(px, H-pad.b);
+      c.strokeStyle = pt.refG; c.lineWidth = 1; c.stroke();
+      c.setLineDash([]);
+    }
+  }
+  for (const xv of [-xfs, xfs]) {
+    const px = toX(xv);
+    if (px >= pad.l && px <= W-pad.r) {
+      c.setLineDash([4,3]);
+      c.beginPath(); c.moveTo(px, pad.t); c.lineTo(px, H-pad.b);
+      c.strokeStyle = pt.refO; c.lineWidth = 1; c.stroke();
+      c.setLineDash([]);
+    }
+  }
+  if (Math.abs(v) > 1e-9) {
+    const py = toY(v);
+    if (py >= pad.t && py <= H-pad.b) {
+      c.setLineDash([6,3]);
+      c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W-pad.r, py);
+      c.strokeStyle = pt.refV; c.lineWidth = 1; c.stroke();
+      c.setLineDash([]);
+    }
+  }
+
+  if (simHistory.length > 1) {
+    c.strokeStyle=pt.trajPhase; c.lineWidth=2; c.beginPath();
+    c.moveTo(toX(simHistory[0].x), toY(simHistory[0].xd));
+    for (let i=1;i<simHistory.length;i++)
+      c.lineTo(toX(simHistory[i].x), toY(simHistory[i].xd));
+    c.stroke();
+  }
+  const cx=toX(x), cy=toY(xd);
+  if (cx>=pad.l&&cx<=W-pad.r&&cy>=pad.t&&cy<=H-pad.b) {
+    c.beginPath(); c.arc(cx,cy,5,0,2*Math.PI);
+    c.fillStyle=pt.marker; c.fill(); c.strokeStyle=pt.markerStroke; c.lineWidth=1.5; c.stroke();
+  }
+  if (phaseView.active) {
+    c.fillStyle=pt.zoom; c.font='bold 9px sans-serif';
+    c.fillText('🔒 zoom', W-pad.r-42, pad.t+10);
+  }
+}
+
+/** Semi-transparent orange band for |x| ≤ f_s N/k on the x(t) plot (drawn under grid). */
+function drawStickZoneBandTimeX(c, toY, pad, W, H) {
+  const { k, N, fs } = params;
+  const yfs = (fs * N) / k;
+  const d = document.body.classList.contains('theme-day');
+  const pA = toY(yfs), pB = toY(-yfs);
+  const yTop = Math.min(pA, pB), yBot = Math.max(pA, pB);
+  if (yBot <= pad.t || yTop >= H - pad.b) return;
+  const top = Math.max(pad.t, yTop);
+  const bot = Math.min(H - pad.b, yBot);
+  c.fillStyle = d ? 'rgba(230, 150, 70, 0.16)' : 'rgba(255, 180, 100, 0.14)';
+  c.fillRect(pad.l, top, W - pad.l - pad.r, bot - top);
+}
+
+function drawRefLinesX(c, toY, pad, W, H) {
+  const pt = plotPlotTheme();
+  const d = document.body.classList.contains('theme-day');
+  const { k, N, fd, fs, eps, v } = params;
+  const yfd = (fd * N) / k, yfs = (fs * N) / k;
+  const yEps = (1 - eps) * fd * N / k;
+  const colFdPos = d ? 'rgba(28, 120, 55, 0.92)' : 'rgba(90, 210, 120, 0.88)';
+  const colFdNeg = d ? 'rgba(30, 90, 200, 0.9)' : 'rgba(120, 170, 255, 0.9)';
+  const colEpsCyan = d ? 'rgba(0, 145, 175, 0.88)' : 'rgba(120, 215, 235, 0.88)';
+  function hline(y, dash, col) {
+    const py = toY(y);
+    if (py < pad.t || py > H-pad.b) return;
+    c.setLineDash(dash);
+    c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W-pad.r, py);
+    c.strokeStyle = col; c.lineWidth = 1.2; c.stroke();
+    c.setLineDash([]);
+  }
+  hline(yfd, [6, 4], colFdPos);
+  hline(-yfd, [6, 4], colFdNeg);
+  hline(yfs, [4, 4], pt.refO);
+  hline(-yfs, [4, 4], pt.refO);
+  if (Math.abs(v) > 1e-9) {
+    hline(yEps, [8, 3], colEpsCyan);
+    hline(-yEps, [8, 3], colEpsCyan);
+  }
+}
+
+function drawXTime(x) {
+  const cv=document.getElementById('x-time-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=TIME_PAD;
+  if (!timeViewX.active) {
+    const tMax = simHistory.length > 1 ? simHistory[simHistory.length-1].t : 0;
+    const tEnd = Math.max(tMax, 5);
+    timeViewX.xMin = 0;
+    timeViewX.xMax = tEnd;
+    let ymin = x, ymax = x;
+    for (const p of simHistory) { if (p.x < ymin) ymin = p.x; if (p.x > ymax) ymax = p.x; }
+    const span = Math.max(ymax - ymin, 0.02);
+    const yLo = ymin - span * 0.12, yHi = ymax + span * 0.12;
+    timeViewX.yMin = Math.min(yLo, 0);
+    timeViewX.yMax = Math.max(yHi, 0);
+  }
+  ensureTimePlotIncludesOrigins(timeViewX);
+  const toX=v=>timeViewX.toX(v,pad,W);
+  const toY=v=>timeViewX.toY(v,pad,H);
+  const pt = plotPlotTheme();
+  c.clearRect(0,0,W,H);
+  drawStickZoneBandTimeX(c, toY, pad, W, H);
+  const xTicks=niceTicks(timeViewX.xMin, timeViewX.xMax, 5);
+  const yTicks=niceTicks(timeViewX.yMin, timeViewX.yMax, 5);
+  c.font='9px sans-serif';
+  for (const t of xTicks) {
+    const px=toX(t); if(px<pad.l||px>W-pad.r) continue;
+    c.beginPath(); c.moveTo(px,pad.t); c.lineTo(px,H-pad.b);
+    c.strokeStyle=pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='center';
+    c.fillText(t.toFixed(t<10?1:0), px, H-4);
+  }
+  for (const vy of yTicks) {
+    const py=toY(vy); if(py<pad.t||py>H-pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l,py); c.lineTo(W-pad.r,py);
+    c.strokeStyle=Math.abs(vy)<1e-9?pt.grid0:pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='right';
+    c.fillText(vy.toFixed(3), pad.l-2, py+3);
+  }
+  c.strokeStyle=pt.axis; c.beginPath();
+  c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
+  mimg(c, 'x_lab', pad.l+4, pad.t+1);
+  mimg(c, 't_lab', W-pad.r-9, H-pad.b+14);
+
+  drawRefLinesX(c, toY, pad, W, H);
+  drawTimeOriginGuides(c, toX, toY, pad, W, H, pt);
+
+  if (simHistory.length < 2) {
+    const py=toY(x);
+    if(py>=pad.t&&py<=H-pad.b){
+      const dm = simHistory.length >= 1
+        ? dynamicsModeAt(simHistory[simHistory.length - 1])
+        : dynamicsModeAt({ x, xd: parseFloat(document.getElementById('xd0-slider').value) });
+      c.beginPath(); c.arc(pad.l+10,py,4,0,2*Math.PI); c.fillStyle=DYN_LINE_RGB[dm]; c.fill();
+      c.strokeStyle=pt.markerStroke; c.lineWidth=1.2; c.stroke();
+    }
+    return;
+  }
+  strokeColoredTimeHistory(c, simHistory, timeViewX.xMin, timeViewX.xMax, toX, toY, p => p.x);
+  const last=simHistory[simHistory.length-1];
+  const lx=toX(last.t), ly=toY(last.x);
+  if (lx>=pad.l&&lx<=W-pad.r&&ly>=pad.t&&ly<=H-pad.b) {
+    c.beginPath(); c.arc(lx,ly,4,0,2*Math.PI);
+    c.fillStyle=DYN_LINE_RGB[dynamicsModeAt(last)]; c.fill();
+    c.strokeStyle=pt.markerStroke; c.lineWidth=1.2; c.stroke();
+  }
+  if (timeViewX.active) {
+    c.fillStyle=pt.zoom; c.font='bold 9px sans-serif';
+    c.fillText('🔒 zoom', W-pad.r-42, pad.t+10);
+  }
+}
+
+function drawXdTime(xd) {
+  const cv=document.getElementById('xd-time-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=TIME_PAD;
+  if (!timeViewXd.active) {
+    const tMax = simHistory.length > 1 ? simHistory[simHistory.length-1].t : 0;
+    const tEnd = Math.max(tMax, 5);
+    timeViewXd.xMin = 0;
+    timeViewXd.xMax = tEnd;
+    let ymin = xd, ymax = xd;
+    for (const p of simHistory) { if (p.xd < ymin) ymin = p.xd; if (p.xd > ymax) ymax = p.xd; }
+    const span = Math.max(ymax - ymin, 0.2);
+    const yLo = ymin - span * 0.12, yHi = ymax + span * 0.12;
+    timeViewXd.yMin = Math.min(yLo, 0);
+    timeViewXd.yMax = Math.max(yHi, 0);
+  }
+  ensureTimePlotIncludesOrigins(timeViewXd);
+  const toX=v=>timeViewXd.toX(v,pad,W);
+  const toY=v=>timeViewXd.toY(v,pad,H);
+  const pt = plotPlotTheme();
+  c.clearRect(0,0,W,H);
+  const xTicks=niceTicks(timeViewXd.xMin, timeViewXd.xMax, 5);
+  const yTicks=niceTicks(timeViewXd.yMin, timeViewXd.yMax, 5);
+  for (const t of xTicks) {
+    const px=toX(t); if(px<pad.l||px>W-pad.r) continue;
+    c.beginPath(); c.moveTo(px,pad.t); c.lineTo(px,H-pad.b);
+    c.strokeStyle=pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.font='9px sans-serif'; c.textAlign='center';
+    c.fillText(t.toFixed(t<10?1:0), px, H-4);
+  }
+  for (const vy of yTicks) {
+    const py=toY(vy); if(py<pad.t||py>H-pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l,py); c.lineTo(W-pad.r,py);
+    c.strokeStyle=Math.abs(vy)<1e-9?pt.grid0:pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='right';
+    c.fillText(vy.toFixed(2), pad.l-2, py+3);
+  }
+  c.strokeStyle=pt.axis; c.beginPath();
+  c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
+  mimg(c, 'xd_lab', pad.l+4, pad.t+1);
+  mimg(c, 't_lab', W-pad.r-9, H-pad.b+14);
+
+  const v = params.v;
+  if (Math.abs(v) > 1e-9) {
+    const py = toY(v);
+    if (py >= pad.t && py <= H-pad.b) {
+      c.setLineDash([7,4]);
+      c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W-pad.r, py);
+      c.strokeStyle = pt.refV; c.lineWidth = 1.3; c.stroke();
+      c.setLineDash([]);
+    }
+  }
+  drawTimeOriginGuides(c, toX, toY, pad, W, H, pt);
+
+  if (simHistory.length < 2) {
+    const py=toY(xd);
+    if(py>=pad.t&&py<=H-pad.b){
+      const dm = simHistory.length >= 1
+        ? dynamicsModeAt(simHistory[simHistory.length - 1])
+        : dynamicsModeAt({ x: parseFloat(document.getElementById('x0-slider').value), xd });
+      c.beginPath(); c.arc(pad.l+10,py,4,0,2*Math.PI); c.fillStyle=DYN_LINE_RGB[dm]; c.fill();
+      c.strokeStyle=pt.markerStroke; c.lineWidth=1.2; c.stroke();
+    }
+    return;
+  }
+  strokeColoredTimeHistory(c, simHistory, timeViewXd.xMin, timeViewXd.xMax, toX, toY, p => p.xd);
+  const last=simHistory[simHistory.length-1];
+  const lx=toX(last.t), ly=toY(last.xd);
+  if (lx>=pad.l&&lx<=W-pad.r&&ly>=pad.t&&ly<=H-pad.b) {
+    c.beginPath(); c.arc(lx,ly,4,0,2*Math.PI);
+    c.fillStyle=DYN_LINE_RGB[dynamicsModeAt(last)]; c.fill();
+    c.strokeStyle=pt.markerStroke; c.lineWidth=1.2; c.stroke();
+  }
+  if (timeViewXd.active) {
+    c.fillStyle=pt.zoom; c.font='bold 9px sans-serif';
+    c.fillText('🔒 zoom', W-pad.r-42, pad.t+10);
+  }
+}
+
+function drawEnergyPlot(x, xd) {
+  const cv=document.getElementById('energy-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=ENERGY_PAD;
+  const { k } = params;
+  const x0 = parseFloat(document.getElementById('x0-slider').value);
+  const xd0 = parseFloat(document.getElementById('xd0-slider').value);
+  const E0 = totalE(x0, xd0);
+  const Ucur = potentialU(x);
+  const Ecur = totalE(x, xd);
+
+  if (!energyView.active) {
+    const xmNeed = Math.max(Math.abs(x0), Math.abs(x), 0.15) * 1.3;
+    const needTop = Math.max(E0, Ecur, Ucur) * 1.15 + 0.01;
+    if (energyPlotXmFloor === null) energyPlotXmFloor = xmNeed;
+    else energyPlotXmFloor = Math.max(energyPlotXmFloor, xmNeed);
+    if (energyPlotYMaxFloor === null) energyPlotYMaxFloor = needTop;
+    else energyPlotYMaxFloor = Math.max(energyPlotYMaxFloor, needTop);
+    energyView.setRange(-energyPlotXmFloor, energyPlotXmFloor, 0, energyPlotYMaxFloor);
+  }
+
+  const toX=v=>energyView.toX(v,pad,W);
+  const toY=v=>energyView.toY(v,pad,H);
+  const pt = plotPlotTheme();
+  c.clearRect(0,0,W,H);
+
+  const xTicks=niceTicks(energyView.xMin, energyView.xMax, 5);
+  const yTicks=niceTicks(energyView.yMin, energyView.yMax, 4);
+  for (const vx of xTicks) {
+    const px=toX(vx); if(px<pad.l||px>W-pad.r) continue;
+    c.beginPath(); c.moveTo(px,pad.t); c.lineTo(px,H-pad.b);
+    c.strokeStyle=pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.font='9px sans-serif'; c.textAlign='center';
+    c.fillText(vx.toFixed(2), px, H-4);
+  }
+  for (const vy of yTicks) {
+    const py=toY(vy); if(py<pad.t||py>H-pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l,py); c.lineTo(W-pad.r,py);
+    c.strokeStyle=pt.grid; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='right';
+    c.fillText(vy.toFixed(3), pad.l-2, py+3);
+  }
+  c.strokeStyle=pt.axis; c.beginPath();
+  c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
+  mimg(c, 'U_lab', 2, pad.t+1);
+  mimg(c, 'x_ax', W-pad.r-20, H-pad.b+14);
+
+  const Ns = 200;
+  c.beginPath();
+  for (let i=0;i<=Ns;i++) {
+    const xv = energyView.xMin + i/Ns*(energyView.xMax-energyView.xMin);
+    const u = 0.5 * k * xv * xv;
+    const px = toX(xv), py = toY(u);
+    if (i===0) c.moveTo(px,py); else c.lineTo(px,py);
+  }
+  c.strokeStyle=pt.energyU; c.lineWidth=2; c.stroke();
+
+  const yEc = toY(Ecur);
+  if (yEc>=pad.t&&yEc<=H-pad.b) {
+    c.beginPath(); c.moveTo(pad.l,yEc); c.lineTo(W-pad.r,yEc);
+    c.strokeStyle=pt.eTot; c.lineWidth=1.5; c.stroke();
+    mimg(c, 'E_mech', W-pad.r-22, yEc-14);
+  }
+  const cx=toX(x), cy=toY(Ucur);
+  if (cx>=pad.l&&cx<=W-pad.r&&cy>=pad.t&&cy<=H-pad.b) {
+    c.beginPath(); c.arc(cx,cy,5,0,2*Math.PI);
+    c.fillStyle=pt.marker; c.fill(); c.strokeStyle=pt.markerStroke; c.lineWidth=1.5; c.stroke();
+    c.beginPath(); c.moveTo(cx,pad.t); c.lineTo(cx,H-pad.b);
+    c.strokeStyle=pt.vertGuide; c.lineWidth=1; c.stroke();
+  }
+  if (energyView.active) {
+    c.fillStyle=pt.zoom; c.font='bold 9px sans-serif';
+    c.fillText('🔒 zoom', W-pad.r-42, pad.t+10);
+  }
+}
+
+function getTMax() { return parseFloat(document.getElementById('tmax-input').value) || 15; }
+
+function startSim() {
+  if (simRunning) return;
+  resetEnergyYFloor();
+  const x0 = parseFloat(document.getElementById('x0-slider').value);
+  const xd0 = parseFloat(document.getElementById('xd0-slider').value);
+  readParams();
+  const r = BELT_R;
+  const Lh = 2 - 0.2;
+  const arcLen = Math.PI * r;
+  const Ltot = 2 * Lh + 2 * arcLen;
+  simState = { x: x0, xd: xd0, time: 0, beltPhase: 0, beltLen: Ltot, stickHoldTime: 0 };
+  simHistory = [{ t: 0, x: x0, xd: xd0 }];
+  simRunning = true;
+  let lastTime = performance.now();
+  function step(now) {
+    if (!simRunning) return;
+    const tmax = getTMax();
+    if (simState.time >= tmax) { stopSim(); draw(simState.x, simState.xd); return; }
+    const realDt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    const substeps = 25, dt = realDt / substeps;
+    for (let i = 0; i < substeps; i++) {
+      const [nx, nxd] = rk4StepSpring(simState.x, simState.xd, dt);
+      simState.x = nx;
+      simState.xd = nxd;
+      simState.time += dt;
+      const Lb = simState.beltLen;
+      simState.beltPhase = ((simState.beltPhase + params.v * dt) % Lb + Lb) % Lb;
+      if (Math.abs(params.v) < 1e-12 && inStickBand(simState.xd) && stickZone(simState.x)) {
+        simState.stickHoldTime += dt;
+        if (simState.stickHoldTime >= 1) {
+          stopSim();
+          simHistory.push({ t: simState.time, x: simState.x, xd: simState.xd });
+          if (simHistory.length > 8000) simHistory.shift();
+          draw(simState.x, simState.xd);
+          return;
+        }
+      } else simState.stickHoldTime = 0;
+      if (simState.time >= tmax) break;
+    }
+    simHistory.push({ t: simState.time, x: simState.x, xd: simState.xd });
+    if (simHistory.length > 8000) simHistory.shift();
+    draw(simState.x, simState.xd);
+    animId = requestAnimationFrame(step);
+  }
+  animId = requestAnimationFrame(step);
+}
+
+function stopSim() { simRunning = false; if (animId) cancelAnimationFrame(animId); }
+function resetSim() { stopSim(); simState = null; simHistory = []; resetEnergyYFloor(); draw(); }
+
+document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1/1.13 : 1.13;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const sz = canvas.width;
+  mainView.offX = (mx - sz * 0.45) * (1 - factor) + mainView.offX * factor;
+  mainView.offY = (my - sz * 0.50) * (1 - factor) + mainView.offY * factor;
+  mainView.zoom *= factor;
+  redrawAll();
+}, { passive: false });
+
+{
+  let mainDrag = false, mlx = 0, mly = 0;
+  canvas.addEventListener('mousedown', e => { mainDrag = true; mlx = e.clientX; mly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!mainDrag) return;
+    const rect = canvas.getBoundingClientRect();
+    const scX = canvas.width / rect.width, scY = canvas.height / rect.height;
+    mainView.offX += (e.clientX - mlx) * scX;
+    mainView.offY += (e.clientY - mly) * scY;
+    mlx = e.clientX; mly = e.clientY;
+    redrawAll();
+  });
+  window.addEventListener('mouseup', () => { mainDrag = false; });
+  canvas.addEventListener('dblclick', () => { mainView.offX = MAIN_VIEW_OFFX_DEFAULT; mainView.offY = 0; mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT; redrawAll(); });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); redrawAll(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side, maxVwFrac = 0.45) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * maxVwFrac));
+    panel.style.width = w + 'px'; resize(); redrawAll();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+setupResizer('left-resizer', 'left-panel', 'left');
+setupResizer('right-resizer', 'right-panel', 'right', 0.56);
+
+async function initApp() {
+  await preloadMath();
+  MathJax.typeset();
+  setupPanZoom('phase-canvas', phaseView, PHASE_PAD, redrawAll);
+  setupPanZoom('x-time-canvas', timeViewX, TIME_PAD, redrawAll);
+  setupPanZoom('xd-time-canvas', timeViewXd, TIME_PAD, redrawAll);
+  setupPanZoom('energy-canvas', energyView, ENERGY_PAD, redrawAll);
+  document.getElementById('energy-canvas').addEventListener('dblclick', resetEnergyYFloor, { capture: true });
+
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  resize(); readParams(); redrawAll();
+
+  document.getElementById('theme-day').addEventListener('change', () => {
+    document.body.classList.toggle('theme-day', document.getElementById('theme-day').checked);
+    redrawAll();
+  });
+
+  const eqOv = document.getElementById('eq-overlay');
+  const eqContent = document.getElementById('eq-content');
+  document.getElementById('eq-close').addEventListener('click', () => eqOv.classList.add('hidden'));
+  eqOv.addEventListener('click', e => { if (e.target === eqOv) eqOv.classList.add('hidden'); });
+  document.getElementById('btn-show-equations').addEventListener('click', () => {
+    eqOv.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([eqContent]).catch(() => {});
+  });
+
+  const overlay = document.getElementById('help-overlay');
+  document.getElementById('help-close').addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+}
+</script>
+</body>
+</html>
