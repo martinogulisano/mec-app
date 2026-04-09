@@ -103,25 +103,11 @@ body.theme-day .collapse-btn:hover {
 body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
 body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
 #btn-show-equations {
-  flex:1; min-width:0; background:var(--highlight); color:#fff;
-  border:1px solid rgba(255,255,255,.28); box-shadow:0 1px 6px rgba(233,69,96,.28);
+  flex:1; min-width:0;
   font-size:.8em; font-weight:600; padding:6px 12px;
 }
-body.theme-day #btn-show-equations {
-  color:#1a1f2e;
-  background:#f0a8b4;
-  border-color:#c97d8c;
-  box-shadow:0 1px 6px rgba(199,62,84,.18);
-}
-body.theme-day #btn-show-equations:hover {
-  background:#e895a3;
-  color:#1a1f2e;
-}
-#btn-show-equations:hover { background:#c73e54; box-shadow:0 2px 8px rgba(233,69,96,.38); }
-body.theme-day #btn-show-equations { box-shadow:0 1px 6px rgba(199,62,84,.22); }
-body.theme-day #btn-show-equations:hover { box-shadow:0 2px 8px rgba(199,62,84,.32); }
 #eq-content .eq-section-title {
-  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  font-size:.78em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
   color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d;
 }
 #eq-content .eq-section-title:first-child { margin-top:0; }
@@ -190,13 +176,44 @@ button.secondary { background:var(--accent); border:1px solid #555; transition:b
 canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; }
 canvas#canvas:active { cursor:grabbing; }
 canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
-#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; border:1px solid transparent; }
+#belt-fall-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1005;
+  padding: 11px 40px 11px 16px; font-size: .88em; font-weight: 600; text-align: center;
+  background: linear-gradient(90deg, #7f1d1d 0%, #991b1b 50%, #7f1d1d 100%);
+  color: #fff; border-bottom: 3px solid #fbbf24;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+body.theme-day #belt-fall-banner {
+  background: linear-gradient(90deg, #fff1f2 0%, #fee2e2 50%, #fff1f2 100%);
+  color: #991b1b; border-bottom-color: #f87171;
+  box-shadow: 0 3px 12px rgba(185,28,28,.2);
+}
+#belt-fall-banner.hidden { display: none !important; }
+.belt-fall-banner-inner { display: flex; align-items: center; justify-content: center; gap: 10px; max-width: 920px; margin: 0 auto; }
+.belt-fall-banner-ico { font-size: 1.15em; flex-shrink: 0; }
+#belt-fall-dismiss {
+  position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+  background: rgba(255,255,255,.15); border: none; color: inherit; width: 30px; height: 30px;
+  border-radius: 6px; font-size: 1.25em; line-height: 1; cursor: pointer; font-weight: 700;
+}
+body.theme-day #belt-fall-dismiss { background: rgba(153,27,27,.08); color: #991b1b; }
+#belt-fall-dismiss:hover { background: rgba(255,255,255,.28); }
+body.theme-day #belt-fall-dismiss:hover { background: rgba(153,27,27,.15); }
 .plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
 body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
 mjx-container { display:inline !important; }
 </style>
 </head>
 <body class="theme-night">
+
+<div id="belt-fall-banner" class="hidden" role="alert" aria-live="polite">
+  <div class="belt-fall-banner-inner">
+    <span class="belt-fall-banner-ico" aria-hidden="true">⚠</span>
+    <span id="belt-fall-banner-msg"></span>
+  </div>
+  <button type="button" id="belt-fall-dismiss" title="Dismiss">×</button>
+</div>
 
 <div id="help-overlay">
   <div id="help-box">
@@ -214,18 +231,18 @@ mjx-container { display:inline !important; }
 </div>
 
 <div id="eq-overlay" class="hidden">
-  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.88em;line-height:1.75;position:relative;">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.93em;line-height:1.75;position:relative;">
     <div id="eq-content">
-      <div class="eq-section-title">Slip (relative speed above threshold)</div>
-      \[ v_{\mathrm{th}} = 0.001\,\mathrm{m/s},\qquad v_{\mathrm{rel}} = \dot{x} - v \]
-      \[ \dot{x} - v > v_{\mathrm{th}} \;\Rightarrow\; m\ddot{x} + kx = -f_d N \]
-      \[ \dot{x} - v < -v_{\mathrm{th}} \;\Rightarrow\; m\ddot{x} + kx = +f_d N \]
+      <div class="eq-section-title">Slip</div>
+      \[ v_{\mathrm{rel}} = \dot{x} - v \]
+      \[ v_{\mathrm{rel}} > 0 \;\vee\; \bigl(v_{\mathrm{rel}} = 0 \;\wedge\; kx > f_s N\bigr) \;\Rightarrow\; m\ddot{x} + kx = -f_d N \]
+      \[ v_{\mathrm{rel}} < 0 \;\vee\; \bigl(v_{\mathrm{rel}} = 0 \;\wedge\; kx < -f_s N\bigr) \;\Rightarrow\; m\ddot{x} + kx = +f_d N \]
       <div class="eq-section-title">Stick</div>
-      \[ |\dot{x} - v| \le v_{\mathrm{th}} \;\wedge\; |x| \le \frac{f_s N}{k} \quad\Rightarrow\quad \dot{x} = v,\quad \ddot{x} = 0 \]
+      \[ v_{\mathrm{rel}} = 0 \;\wedge\; k|x| \le f_s N \quad\Rightarrow\quad \dot{x} = v \]
       <div class="eq-section-title">Coefficients</div>
       \[ f_s = (1+\varepsilon)\, f_d \]
     </div>
-    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:600;">Close</button>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:600;">Close</button>
   </div>
 </div>
 
@@ -247,8 +264,8 @@ mjx-container { display:inline !important; }
       <input type="range" id="m-slider" min="0" max="5" value="1" step="0.05">
       <span class="val" id="m-val">1.0</span></div>
     <div class="param-row"><label>$k$ (N/m):</label>
-      <input type="range" id="k-slider" min="0" max="30" value="6" step="0.5">
-      <span class="val" id="k-val">6.0</span></div>
+      <input type="range" id="k-slider" min="0" max="30" value="23" step="0.5">
+      <span class="val" id="k-val">23.0</span></div>
     <div class="param-row"><label>$N$ (N):</label>
       <input type="range" id="N-slider" min="0.1" max="10" value="5" step="0.1">
       <span class="val" id="N-val">5.0</span></div>
@@ -256,11 +273,11 @@ mjx-container { display:inline !important; }
       <input type="range" id="fd-slider" min="0.1" max="1" value="0.3" step="0.01">
       <span class="val" id="fd-val">0.30</span></div>
     <div class="param-row"><label>$\varepsilon$:</label>
-      <input type="range" id="eps-slider" min="0.05" max="0.2" value="0.12" step="0.005">
+      <input type="range" id="eps-slider" min="0" max="0.2" value="0.12" step="0.005">
       <span class="val" id="eps-val">0.120</span></div>
     <div class="param-row"><label>$v$ (m/s):</label>
-      <input type="range" id="v-slider" min="0" max="1" value="0" step="0.05">
-      <span class="val" id="v-val">0.00</span></div>
+      <input type="range" id="v-slider" min="0" max="1" value="0" step="any">
+      <span class="val" id="v-val">0.000</span></div>
   </div>
 
   <div class="section">
@@ -269,8 +286,8 @@ mjx-container { display:inline !important; }
       <input type="range" id="x0-slider" min="-0.5" max="0.5" value="0.15" step="0.005">
       <span class="val" id="x0-val">0.150</span></div>
     <div class="param-row"><label>$\dot x(0)$:</label>
-      <input type="range" id="xd0-slider" min="-1" max="1" value="0" step="0.05">
-      <span class="val" id="xd0-val">0.00</span></div>
+      <input type="range" id="xd0-slider" min="-1" max="1" value="0" step="any">
+      <span class="val" id="xd0-val">0.000</span></div>
     <div class="param-row" style="justify-content:flex-end; margin-top:2px; gap:6px; flex-wrap:wrap;">
       <button type="button" id="btn-ic-zero" class="secondary btn-ic-zero" title="Set x(0)=0 and ẋ(0)=0">x(0)=0, ẋ(0)=0</button>
       <button type="button" id="btn-ic-belt" class="secondary btn-ic-zero" title="Set x(0) = 0 and ẋ(0) = v (belt speed)">x(0)=0, ẋ(0)=v</button>
@@ -291,6 +308,9 @@ mjx-container { display:inline !important; }
     </div>
     <div class="btn-row" style="margin-top:4px;">
       <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+    <div class="theme-switch-row" style="margin-top:8px;">
+      <label><input type="checkbox" id="chk-show-forces"> Show forces</label>
     </div>
   </div>
 
@@ -355,6 +375,8 @@ const V_THRESH = 0.001;
 /** Tiny margin so float noise does not leave ẋ ≠ v while still classified as stick. */
 const V_STICK_SLACK = 1e-9;
 const BELT_R = 0.1;
+/** Top straight belt span in world x (same as drawBelt). */
+const BELT_TOP_XL = 0.2, BELT_TOP_XR = 2;
 const BELT_NPTS = 30;
 /** Time-history curve: stick = red, slip +vr = blue, slip −vr = green (relative to belt v). */
 const DYN_LINE_RGB = ['#e94560', '#2563eb', '#16a34a'];
@@ -366,6 +388,8 @@ let simState = null;
 let simRunning = false;
 let animId = null;
 let simHistory = [];
+/** Set when the block leaves the belt; cleared on Reset / new Play. */
+let beltFallWarning = null;
 /** Energy plot autoscale: y-max and |x| half-span only grow (no shrink when E or |x| drop). Cleared on reset / new IC. */
 let energyPlotYMaxFloor = null;
 let energyPlotXmFloor = null;
@@ -394,9 +418,14 @@ async function preloadMath() {
   const defs = [
     ['x_lab', 'x(t)', '#00b4d8', 13],
     ['xd_lab', '\\dot{x}(t)', '#4ecdc4', 13],
+    ['x_lab_day', 'x(t)', '#0a4f5c', 13],
+    ['xd_lab_day', '\\dot{x}(t)', '#0a5c52', 13],
     ['t_lab', 't', '#888', 13],
     ['U_lab', 'U(x)', '#00b4d8', 13],
+    ['U_lab_day', 'U(x)', '#0a4f5c', 13],
     ['x_ax', 'x', '#888', 13],
+    ['x_vers_day', 'x', '#000000', 15],
+    ['x_vers_night', 'x', '#ffffff', 15],
     ['E_mech', 'E', 'rgba(180,100,255,0.95)', 12],
   ];
   for (const [key, latex, color, h] of defs) MI[key] = await makeMathImg(latex, color, h);
@@ -520,13 +549,13 @@ function plotPlotTheme() {
     marker: '#ffdd57',
     markerStroke: d ? '#a67c00' : '#aa8800',
     trajPhase: d ? 'rgba(210,160,0,0.95)' : 'rgba(255,221,87,0.9)',
-    lineXt: '#00b4d8',
-    lineXdt: '#4ecdc4',
+    lineXt: d ? '#0a4f5c' : '#00b4d8',
+    lineXdt: d ? '#0a5c52' : '#4ecdc4',
     refG: d ? 'rgba(25,110,50,0.6)' : 'rgba(100,200,120,0.45)',
     refO: d ? 'rgba(190,95,15,0.65)' : 'rgba(255,180,100,0.4)',
     refP: d ? 'rgba(95,70,175,0.6)' : 'rgba(180,140,255,0.55)',
     refV: d ? 'rgba(70,70,190,0.75)' : 'rgba(150,150,255,0.75)',
-    energyU: '#00b4d8',
+    energyU: d ? '#0a4f5c' : '#00b4d8',
     eTot: d ? 'rgba(120,55,200,0.88)' : 'rgba(180,100,255,0.85)',
     vertGuide: d ? 'rgba(200,155,0,0.2)' : 'rgba(255,221,87,0.12)'
   };
@@ -545,7 +574,7 @@ function updateVSliderMax() {
   let v = parseFloat(vSl.value);
   if (v > vmax) {
     vSl.value = String(vmax);
-    document.getElementById('v-val').textContent = parseFloat(vSl.value).toFixed(2);
+    document.getElementById('v-val').textContent = parseFloat(vSl.value).toFixed(3);
   }
   const xd0Sl = document.getElementById('xd0-slider');
   xd0Sl.min = String(-vmax);
@@ -553,10 +582,10 @@ function updateVSliderMax() {
   let xd0 = parseFloat(xd0Sl.value);
   if (xd0 < -vmax) {
     xd0Sl.value = String(-vmax);
-    document.getElementById('xd0-val').textContent = (-vmax).toFixed(2);
+    document.getElementById('xd0-val').textContent = (-vmax).toFixed(3);
   } else if (xd0 > vmax) {
     xd0Sl.value = String(vmax);
-    document.getElementById('xd0-val').textContent = vmax.toFixed(2);
+    document.getElementById('xd0-val').textContent = vmax.toFixed(3);
   }
 }
 
@@ -581,9 +610,9 @@ wireSlider('k-slider', 'k-val', v=>v.toFixed(1));
 wireSlider('N-slider', 'N-val', v=>v.toFixed(1));
 wireSlider('fd-slider', 'fd-val', v=>v.toFixed(2));
 wireSlider('eps-slider', 'eps-val', v=>v.toFixed(3));
-wireSlider('v-slider', 'v-val', v=>v.toFixed(2));
+wireSlider('v-slider', 'v-val', v=>v.toFixed(3));
 wireSlider('x0-slider', 'x0-val', v=>v.toFixed(3));
-wireSlider('xd0-slider', 'xd0-val', v=>v.toFixed(2));
+wireSlider('xd0-slider', 'xd0-val', v=>v.toFixed(3));
 
 function resetEnergyYFloor() { energyPlotYMaxFloor = null; energyPlotXmFloor = null; }
 ['x0-slider', 'xd0-slider', 'm-slider', 'k-slider'].forEach(id => {
@@ -595,7 +624,7 @@ document.getElementById('btn-ic-zero').addEventListener('click', () => {
   document.getElementById('x0-slider').value = '0';
   document.getElementById('xd0-slider').value = '0';
   document.getElementById('x0-val').textContent = (0).toFixed(3);
-  document.getElementById('xd0-val').textContent = (0).toFixed(2);
+  document.getElementById('xd0-val').textContent = (0).toFixed(3);
   readParams();
   redrawAll();
 });
@@ -607,13 +636,22 @@ document.getElementById('btn-ic-belt').addEventListener('click', () => {
   document.getElementById('x0-slider').value = '0';
   document.getElementById('xd0-slider').value = String(vb);
   document.getElementById('x0-val').textContent = (0).toFixed(3);
-  document.getElementById('xd0-val').textContent = vb.toFixed(2);
+  document.getElementById('xd0-val').textContent = vb.toFixed(3);
   readParams();
   redrawAll();
 });
 
 function stickZone(x) {
   return Math.abs(x) <= params.fs * params.N / params.k;
+}
+
+const BELT_FALL_MSG = 'ACHTUNG: The box fell off the belt — tweak your parameters :D';
+
+/** Block bottom sits on the top belt segment [BELT_TOP_XL, BELT_TOP_XR]. */
+function blockOnBeltTop(xDisp, m) {
+  const b = 0.2 * Math.cbrt(m);
+  const xL = L_SPRING + xDisp, xR = xL + b;
+  return xR >= BELT_TOP_XL && xL <= BELT_TOP_XR;
 }
 
 /** v_thresh only classifies near relative rest; imposed stick velocity is always belt speed v. */
@@ -630,11 +668,8 @@ function dynamicsModeAt(p) {
   return vr >= 0 ? 1 : 2;
 }
 
-/** Keep $t=0$ and $x=0$ / $\dot x=0$ inside the plot range (time history plots). */
-function ensureTimePlotIncludesOrigins(view) {
-  if (view.xMin > 0) view.xMin = 0;
-  if (view.yMin > 0) view.yMin = 0;
-  if (view.yMax < 0) view.yMax = 0;
+/** Avoid degenerate vertical span when zooming/panning time plots (toY division). */
+function ensureTimePlotYSpan(view) {
   if (view.yMax - view.yMin < 1e-12) {
     view.yMin -= 1e-6;
     view.yMax += 1e-6;
@@ -740,8 +775,150 @@ function worldToCanvas(x, y) {
   const scale = sz / (4.8 * L_SPRING) * mainView.zoom;
   return [sz * 0.45 + mainView.offX + x * scale, sz * 0.50 + mainView.offY - y * scale];
 }
+
+/** Belt friction on the block along +x. Stick: T = kx. Slip: T = m ẍ + kx from m ẍ = −k x + T. */
+function frictionT(x, xd) {
+  const { m, k } = params;
+  if (inStickBand(xd) && stickZone(x)) return k * x;
+  return m * getAccel(x, xd) + k * x;
+}
+
+/** Optional outlineColor: halo for contrast on light/dark/red backgrounds (e.g. friction T). */
+function drawArrowWorld(x0w, y0w, x1w, y1w, color, outlineColor = null) {
+  const [x0, y0] = worldToCanvas(x0w, y0w);
+  const [x1, y1] = worldToCanvas(x1w, y1w);
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 3) return;
+  const ux = dx / len, uy = dy / len;
+  const hl = 11;
+  const hlO = outlineColor ? hl + 3.5 : hl;
+  if (outlineColor) {
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - hlO * ux + hlO * 0.35 * uy, y1 - hlO * uy - hlO * 0.35 * ux);
+    ctx.lineTo(x1 - hlO * ux - hlO * 0.35 * uy, y1 - hlO * uy + hlO * 0.35 * ux);
+    ctx.closePath();
+    ctx.fillStyle = outlineColor;
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - hl * ux + hl * 0.35 * uy, y1 - hl * uy - hl * 0.35 * ux);
+  ctx.lineTo(x1 - hl * ux - hl * 0.35 * uy, y1 - hl * uy + hl * 0.35 * ux);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+/** Normal N (load) downward on top face; friction T along the belt at contact. */
+function drawBlockForces(x, xd, xL, b) {
+  const xc = xL + b / 2;
+  /** Tail of T: bottom center of block, x = L + x_disp + b/2, y = −b/2 (contact). */
+  const xTailT = L_SPRING + x + b / 2;
+  const yTailT = -b / 2;
+  const { N: Nn, fs } = params;
+  const T = frictionT(x, xd);
+  const day = document.body.classList.contains('theme-day');
+  const colN = day ? '#1565c0' : '#9fd6ff';
+  const colT = day ? '#ea580c' : '#fb923c';
+  const colTOutline = day ? '#ffffff' : '#0d1117';
+  const Nmin = 0.1, Nmax = 10;
+  const tN = (Nn - Nmin) / (Nmax - Nmin);
+  /** Arrow length scales with N (slider range) so the diagram tracks the load. */
+  const lenN = 0.11 + tN * 0.38;
+  /** Tip exactly on top face y = b/2 (not below — avoids arrowhead inside the block). */
+  drawArrowWorld(xc, b / 2 + lenN + 0.04, xc, b / 2, colN);
+  const [nmx, nmy] = worldToCanvas(xc - 0.02, b / 2 + lenN * 0.45);
+  ctx.save();
+  ctx.font = 'italic bold 15px "Times New Roman", Georgia, serif';
+  ctx.fillStyle = colN;
+  ctx.textAlign = 'right';
+  ctx.fillText('N', nmx - 8, nmy + 4);
+  ctx.restore();
+
+  if (Math.abs(T) > 1e-9) {
+    const Tref = Math.max(fs * Nn, 1e-9);
+    let lenT = 0.22 * (Math.abs(T) / Tref);
+    lenT = Math.max(0.08, Math.min(0.34, lenT));
+    const dir = T > 0 ? 1 : -1;
+    drawArrowWorld(xTailT, yTailT, xTailT + dir * lenT, yTailT, colT, colTOutline);
+    const [ttx, tty] = worldToCanvas(xTailT + dir * lenT * 0.55, yTailT);
+    ctx.save();
+    ctx.font = 'italic bold 15px "Times New Roman", Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = colTOutline;
+    ctx.strokeText('T', ttx, tty - 12);
+    ctx.fillStyle = colT;
+    ctx.fillText('T', ttx, tty - 12);
+    ctx.restore();
+  }
+}
 function canvasLen(len) {
   return len * canvas.width / (4.8 * L_SPRING) * mainView.zoom;
+}
+
+/** Coordinate versor: arrow with perpendicular bar at tail (same as glifo_a_croce.html). Canvas px coords. centerLabelAbove: label centered on shaft, above the arrow (transverse center). */
+function drawVersor(c2d, cx, cy, ex, ey, color, labelKey, centerLabelAbove = false) {
+  const dx = ex - cx, dy = ey - cy, len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 2) return;
+  const ux = dx / len, uy = dy / len, hl = 11;
+  const barHalf = 6;
+  c2d.beginPath();
+  c2d.moveTo(cx - uy * barHalf, cy + ux * barHalf);
+  c2d.lineTo(cx + uy * barHalf, cy - ux * barHalf);
+  c2d.strokeStyle = color;
+  c2d.lineWidth = 2;
+  c2d.stroke();
+  c2d.beginPath();
+  c2d.moveTo(cx, cy);
+  c2d.lineTo(ex, ey);
+  c2d.strokeStyle = color;
+  c2d.lineWidth = 2;
+  c2d.stroke();
+  c2d.beginPath();
+  c2d.moveTo(ex, ey);
+  c2d.lineTo(ex - hl * ux + hl * 0.38 * uy, ey - hl * uy - hl * 0.38 * ux);
+  c2d.lineTo(ex - hl * ux - hl * 0.38 * uy, ey - hl * uy + hl * 0.38 * ux);
+  c2d.closePath();
+  c2d.fillStyle = color;
+  c2d.fill();
+  if (labelKey) {
+    const img = MI[labelKey];
+    if (img) {
+      let lx, ly;
+      if (centerLabelAbove) {
+        const yBar1 = cy + ux * barHalf;
+        const yBar2 = cy - ux * barHalf;
+        const hy1 = ey - hl * uy - hl * 0.38 * ux;
+        const hy2 = ey - hl * uy + hl * 0.38 * ux;
+        const topY = Math.min(cy, ey, yBar1, yBar2, hy1, hy2);
+        const gap = 10;
+        lx = (cx + ex) / 2 - img.naturalWidth / 2;
+        ly = topY - gap - img.naturalHeight;
+      } else {
+        lx = ex + ux * 4 - uy * 8 - img.naturalWidth / 2;
+        ly = ey + uy * 4 + ux * 8 - img.naturalHeight / 2;
+      }
+      c2d.drawImage(img, Math.round(lx), Math.round(ly));
+    }
+  }
 }
 
 function drawLine(x1, y1, x2, y2, color, width = 2, dash = null) {
@@ -894,6 +1071,16 @@ function draw(x_ov, xd_ov) {
     drawSpring(ctx, sx0, sy0, sx1, sy1, 5, '#f0c040');
   }
 
+  /** Tail (vertical bar) at x = L: unloaded spring length from the wall; +x to the right. */
+  {
+    const x0 = L_SPRING, y0 = 0.58, vLenW = 0.34;
+    const [tx, ty] = worldToCanvas(x0, y0);
+    const [hx, hy] = worldToCanvas(x0 + vLenW, y0);
+    const day = document.body.classList.contains('theme-day');
+    const vcol = day ? '#000000' : '#ffffff';
+    drawVersor(ctx, tx, ty, hx, hy, vcol, day ? 'x_vers_day' : 'x_vers_night', true);
+  }
+
   const rpx = 6;
   const [x1,y1]=worldToCanvas(xL, b/2), [x2,y2]=worldToCanvas(xR, -b/2);
   const rx = Math.min(x1,x2), ry = Math.min(y1,y2), rw = Math.abs(x2-x1), rh = Math.abs(y2-y1);
@@ -902,6 +1089,8 @@ function draw(x_ov, xd_ov) {
   ctx.fillStyle='#e94560'; ctx.fill();
   ctx.strokeStyle='#c73e54'; ctx.lineWidth=2; ctx.stroke();
 
+  if (document.getElementById('chk-show-forces').checked) drawBlockForces(x, xd, xL, b);
+
   updateInfo(x, xd);
   drawPhaseSpace(x, xd);
   drawXTime(x);
@@ -909,7 +1098,20 @@ function draw(x_ov, xd_ov) {
   drawEnergyPlot(x, xd);
 }
 
+function syncBeltFallBanner() {
+  const ban = document.getElementById('belt-fall-banner');
+  const msg = document.getElementById('belt-fall-banner-msg');
+  if (!ban || !msg) return;
+  if (beltFallWarning) {
+    msg.textContent = beltFallWarning;
+    ban.classList.remove('hidden');
+  } else {
+    ban.classList.add('hidden');
+  }
+}
+
 function updateInfo(x, xd) {
+  const box = document.getElementById('info-box');
   const { m, k, N, fd, fs, v } = params;
   const a = getAccel(x, xd);
   const vr = xd - v;
@@ -926,7 +1128,8 @@ function updateInfo(x, xd) {
   txt += `U = ${potentialU(x).toFixed(5)} J\n`;
   txt += `E = ${totalE(x, xd).toFixed(5)} J\n`;
   if (simState) txt += `t = ${simState.time.toFixed(3)} s\n`;
-  document.getElementById('info-box').textContent = txt;
+  box.textContent = txt;
+  syncBeltFallBanner();
 }
 
 function drawPhaseSpace(x, xd) {
@@ -970,7 +1173,7 @@ function drawPhaseSpace(x, xd) {
   c.strokeStyle=pt.axis; c.beginPath();
   c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
 
-  mimg(c, 'xd_lab', 2, pad.t+1);
+  mimg(c, document.body.classList.contains('theme-day') ? 'xd_lab_day' : 'xd_lab', 2, pad.t+1);
   mimg(c, 'x_ax', W-pad.r-20, H-pad.b+14);
 
   const { k, N, fd, fs, v } = params;
@@ -1044,18 +1247,18 @@ function drawRefLinesX(c, toY, pad, W, H) {
   const colFdPos = d ? 'rgba(28, 120, 55, 0.92)' : 'rgba(90, 210, 120, 0.88)';
   const colFdNeg = d ? 'rgba(30, 90, 200, 0.9)' : 'rgba(120, 170, 255, 0.9)';
   const colEpsCyan = d ? 'rgba(0, 145, 175, 0.88)' : 'rgba(120, 215, 235, 0.88)';
-  function hline(y, dash, col) {
+  function hline(y, dash, col, lw = 1.2) {
     const py = toY(y);
     if (py < pad.t || py > H-pad.b) return;
     c.setLineDash(dash);
     c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W-pad.r, py);
-    c.strokeStyle = col; c.lineWidth = 1.2; c.stroke();
+    c.strokeStyle = col; c.lineWidth = lw; c.stroke();
     c.setLineDash([]);
   }
   hline(yfd, [6, 4], colFdPos);
   hline(-yfd, [6, 4], colFdNeg);
-  hline(yfs, [4, 4], pt.refO);
-  hline(-yfs, [4, 4], pt.refO);
+  hline(yfs, [], pt.refO, 0.55);
+  hline(-yfs, [], pt.refO, 0.55);
   if (Math.abs(v) > 1e-9) {
     hline(yEps, [8, 3], colEpsCyan);
     hline(-yEps, [8, 3], colEpsCyan);
@@ -1078,7 +1281,7 @@ function drawXTime(x) {
     timeViewX.yMin = Math.min(yLo, 0);
     timeViewX.yMax = Math.max(yHi, 0);
   }
-  ensureTimePlotIncludesOrigins(timeViewX);
+  ensureTimePlotYSpan(timeViewX);
   const toX=v=>timeViewX.toX(v,pad,W);
   const toY=v=>timeViewX.toY(v,pad,H);
   const pt = plotPlotTheme();
@@ -1103,7 +1306,7 @@ function drawXTime(x) {
   }
   c.strokeStyle=pt.axis; c.beginPath();
   c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
-  mimg(c, 'x_lab', pad.l+4, pad.t+1);
+  mimg(c, document.body.classList.contains('theme-day') ? 'x_lab_day' : 'x_lab', pad.l+4, pad.t+1);
   mimg(c, 't_lab', W-pad.r-9, H-pad.b+14);
 
   drawRefLinesX(c, toY, pad, W, H);
@@ -1150,7 +1353,7 @@ function drawXdTime(xd) {
     timeViewXd.yMin = Math.min(yLo, 0);
     timeViewXd.yMax = Math.max(yHi, 0);
   }
-  ensureTimePlotIncludesOrigins(timeViewXd);
+  ensureTimePlotYSpan(timeViewXd);
   const toX=v=>timeViewXd.toX(v,pad,W);
   const toY=v=>timeViewXd.toY(v,pad,H);
   const pt = plotPlotTheme();
@@ -1173,7 +1376,7 @@ function drawXdTime(xd) {
   }
   c.strokeStyle=pt.axis; c.beginPath();
   c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
-  mimg(c, 'xd_lab', pad.l+4, pad.t+1);
+  mimg(c, document.body.classList.contains('theme-day') ? 'xd_lab_day' : 'xd_lab', pad.l+4, pad.t+1);
   mimg(c, 't_lab', W-pad.r-9, H-pad.b+14);
 
   const v = params.v;
@@ -1257,7 +1460,7 @@ function drawEnergyPlot(x, xd) {
   }
   c.strokeStyle=pt.axis; c.beginPath();
   c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
-  mimg(c, 'U_lab', 2, pad.t+1);
+  mimg(c, document.body.classList.contains('theme-day') ? 'U_lab_day' : 'U_lab', 2, pad.t+1);
   mimg(c, 'x_ax', W-pad.r-20, H-pad.b+14);
 
   const Ns = 200;
@@ -1293,12 +1496,22 @@ function getTMax() { return parseFloat(document.getElementById('tmax-input').val
 
 function startSim() {
   if (simRunning) return;
+  beltFallWarning = null;
   resetEnergyYFloor();
   const x0 = parseFloat(document.getElementById('x0-slider').value);
   const xd0 = parseFloat(document.getElementById('xd0-slider').value);
   readParams();
+  const m0 = params.m;
+  if (!blockOnBeltTop(x0, m0)) {
+    beltFallWarning = BELT_FALL_MSG;
+    simState = null;
+    simRunning = false;
+    simHistory = [];
+    draw();
+    return;
+  }
   const r = BELT_R;
-  const Lh = 2 - 0.2;
+  const Lh = BELT_TOP_XR - BELT_TOP_XL;
   const arcLen = Math.PI * r;
   const Ltot = 2 * Lh + 2 * arcLen;
   simState = { x: x0, xd: xd0, time: 0, beltPhase: 0, beltLen: Ltot, stickHoldTime: 0 };
@@ -1312,6 +1525,7 @@ function startSim() {
     const realDt = Math.min((now - lastTime) / 1000, 0.05);
     lastTime = now;
     const substeps = 25, dt = realDt / substeps;
+    let fellOff = false;
     for (let i = 0; i < substeps; i++) {
       const [nx, nxd] = rk4StepSpring(simState.x, simState.xd, dt);
       simState.x = nx;
@@ -1319,6 +1533,11 @@ function startSim() {
       simState.time += dt;
       const Lb = simState.beltLen;
       simState.beltPhase = ((simState.beltPhase + params.v * dt) % Lb + Lb) % Lb;
+      if (!blockOnBeltTop(simState.x, params.m)) {
+        beltFallWarning = BELT_FALL_MSG;
+        fellOff = true;
+        break;
+      }
       if (Math.abs(params.v) < 1e-12 && inStickBand(simState.xd) && stickZone(simState.x)) {
         simState.stickHoldTime += dt;
         if (simState.stickHoldTime >= 1) {
@@ -1331,6 +1550,13 @@ function startSim() {
       } else simState.stickHoldTime = 0;
       if (simState.time >= tmax) break;
     }
+    if (fellOff) {
+      stopSim();
+      simHistory.push({ t: simState.time, x: simState.x, xd: simState.xd });
+      if (simHistory.length > 8000) simHistory.shift();
+      draw(simState.x, simState.xd);
+      return;
+    }
     simHistory.push({ t: simState.time, x: simState.x, xd: simState.xd });
     if (simHistory.length > 8000) simHistory.shift();
     draw(simState.x, simState.xd);
@@ -1340,7 +1566,7 @@ function startSim() {
 }
 
 function stopSim() { simRunning = false; if (animId) cancelAnimationFrame(animId); }
-function resetSim() { stopSim(); simState = null; simHistory = []; resetEnergyYFloor(); draw(); }
+function resetSim() { stopSim(); beltFallWarning = null; simState = null; simHistory = []; resetEnergyYFloor(); draw(); }
 
 document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
 document.getElementById('btn-stop').addEventListener('click', stopSim);
@@ -1432,6 +1658,11 @@ async function initApp() {
 
   document.getElementById('theme-day').addEventListener('change', () => {
     document.body.classList.toggle('theme-day', document.getElementById('theme-day').checked);
+    redrawAll();
+  });
+  document.getElementById('chk-show-forces').addEventListener('change', redrawAll);
+  document.getElementById('belt-fall-dismiss').addEventListener('click', () => {
+    beltFallWarning = null;
     redrawAll();
   });
 
