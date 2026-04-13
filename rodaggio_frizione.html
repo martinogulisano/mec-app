@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clutch break-in</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)'], ['$', '$']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  svg: { fontCache: 'local' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.3);
+  --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92);
+  --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { height:100%; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; min-height:0; overflow:hidden; transition:background .25s,color .25s; align-items:stretch; }
+.theme-switch-row {
+  display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px;
+  font-size:.78em; user-select:none;
+}
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+body.theme-day #help-close { color:#1a1f2e; background:#e8b4bf; }
+body.theme-day #help-close:hover { color:#1a1f2e; background:#dfa0ae; }
+body.theme-day .section > .section-title { color:#57606a; }
+body.theme-day .theme-switch-row, body.theme-day .theme-switch-row label { color:#24292f; }
+body.theme-day .panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.22); }
+body.theme-day .panel { scrollbar-color:rgba(0,0,0,0.22) transparent; }
+body.theme-day .collapse-btn:hover { color:#fff; }
+body.theme-day button { color:#1a1f2e; }
+body.theme-day button.secondary { color:#1a1f2e; background:#c8d4e8; border-color:#9aa8bc; }
+body.theme-day button.secondary:hover { background:#b8c6dc; color:#1a1f2e; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button.secondary { background:var(--accent); border:1px solid #555; transition:border-color .2s; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note { font-size:.82em; color:#8b949e; border-top:1px solid #21262d; padding-top:10px; margin-top:4px; }
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1001;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
+#btn-show-equations {
+  flex:0 0 auto;
+  width:auto;
+  align-self:flex-start;
+  font-size:.78em; font-weight:600; padding:5px 10px;
+}
+#eq-content .eq-section-title {
+  font-size:.78em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d;
+}
+#eq-content .eq-section-title:first-child { margin-top:0; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.85em 0 !important; width:100%; text-align:center; }
+#eq-content .eq-defs { font-size:.92em; line-height:1.65; margin:0 0 14px 0; color:inherit; }
+body.theme-day #eq-content .eq-defs { color:#24292f; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:380px; min-width:240px; max-width:50vw; flex:0 0 auto; }
+#right-panel { width:400px; min-width:260px; max-width:56vw; flex:0 0 auto; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; z-index:10; padding:0; line-height:1;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:500px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-meaning {
+  flex:0 0 92px; font-size:.68em; line-height:1.25; color:#9aa4b2; text-align:left; align-self:center;
+}
+body.theme-day .param-meaning { color:#57606a; }
+.param-row label { flex:0 0 88px; font-size:.76em; text-align:right; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 64px; font-size:.72em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+body.theme-day .param-row .val { color:#333; }
+#canvas-container { flex:1 1 0; min-width:0; min-height:0; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; display:block; }
+canvas#canvas:active { cursor:grabbing; }
+#canvas-stack { position:relative; display:inline-block; line-height:0; max-width:100%; max-height:100%; }
+#micron-axis-labels { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; overflow:visible; z-index:2; }
+#micron-axis-labels .mj-ruler-lbl {
+  position:absolute; transform:translateY(-50%); font-size:14px; line-height:1;
+  white-space:nowrap;
+}
+#micron-axis-labels .mj-ruler-lbl mjx-container { font-size:14px !important; }
+body.theme-night #micron-axis-labels mjx-container { color:rgba(220, 245, 255, 0.95) !important; }
+body.theme-day #micron-axis-labels mjx-container { color:rgba(0, 45, 75, 0.92) !important; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+.muted { font-size:.78em; color:#888; line-height:1.45; }
+body.theme-day .muted { color:#57606a; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; width:100%; display:block; }
+/* Right column: only plots — fill viewport, split evenly (no global .section-body 500px cap). */
+#right-panel {
+  overflow: hidden;
+}
+#right-plots-stack {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+#right-plots-stack > .section {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 1;
+}
+#right-plots-stack > .section .section-title {
+  flex-shrink: 0;
+}
+#right-plots-stack > .section .section-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: none;
+  transition: opacity .2s ease, max-height .25s ease;
+}
+#right-plots-stack > .section .section-body.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.right-plot-frame {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 140px;
+  width: 100%;
+}
+.right-plot-frame canvas.plot-view {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+</style>
+</head>
+<body class="theme-night">
+
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — adjust geometry, model, and angle</li>
+      <li><strong>Play / Stop / Reset</strong> — control the angle sweep</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot or the main view</li>
+      <li><strong>Double-click</strong> a plot to reset its view</li>
+      <li><strong>Zoom in / Zoom out</strong> — detail or full section on the main canvas</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
+    <button type="button" id="help-close">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.93em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      <div class="eq-section-title">Definitions</div>
+      <p class="eq-defs">\(a\): feed displacement (m)<br>
+\(h\): wear (m)<br>
+\(z\): compression (m)</p>
+      <div class="eq-section-title">Kinematic relation</div>
+      \[ \frac{\mathrm{d}a(t)}{\mathrm{d}t} = \frac{\mathrm{d}h(t,r)}{\mathrm{d}t} + \frac{\mathrm{d}z(t,r)}{\mathrm{d}t} \]
+      <div class="eq-section-title">Reye wear and Winkler contact</div>
+      \[ \frac{\mathrm{d}h(t,r)}{\mathrm{d}t} = c\,f\,p(t,r)\,v(t,r) \]
+      \[ p(t,r) = k\,z(t,r) \]
+      <div class="eq-section-title">Kinematic relation upgrade</div>
+      \[ \frac{\mathrm{d}a(t)}{\mathrm{d}t} = c\,f\,k\,z(t,r)\,v(t,r) + \frac{\mathrm{d}z(t,r)}{\mathrm{d}t} \]
+      <div class="eq-section-title">Variable change, from time to angle</div>
+      With \( \mathrm{d}\alpha = \omega(t)\,\mathrm{d}t \) and \( v(t,r) = r\,\omega(t) \),
+      \[ \frac{\mathrm{d}a}{\mathrm{d}\alpha} = c\,f\,k\,z(\alpha,r)\,r + \frac{\mathrm{d}z(\alpha,r)}{\mathrm{d}\alpha} \]
+      <div class="eq-section-title">Uniform feed rate</div>
+      Assuming \( \mathrm{d}a/\mathrm{d}\alpha = a' \),
+      \[ a' = c\,f\,k\,z(\alpha,r)\,r + \frac{\mathrm{d}z(\alpha,r)}{\mathrm{d}\alpha} \]
+      <div class="eq-section-title">Initial conditions</div>
+      \[ z(0,r) = z_0,\qquad h(0,r) = 0 \]
+      <div class="eq-section-title">Closed-form solution</div>
+      \[ z(\alpha,r) = \left(z_0 - \frac{a'}{c f k r}\right)\mathrm{e}^{-c f k r\,\alpha} + \frac{a'}{c f k r} \]
+      \[ h(\alpha,r) = \left(z_0 - \frac{a'}{c f k r}\right)\bigl(1 - \mathrm{e}^{-c f k r\,\alpha}\bigr) + a'\,\alpha \]
+      \[ a(\alpha) = z_0 + a'\,\alpha \]
+    </div>
+    <button type="button" id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>Clutch break-in</h1>
+  <h2>Transient wear and pressure analysis</h2>
+
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Geometry</div>
+    <div class="param-row"><span class="param-meaning">Inner radius</span><label>r<sub>i</sub> (m):</label>
+      <input type="range" id="ri-slider" min="0.02" max="0.18" step="0.001" value="0.065">
+      <span class="val" id="ri-val">0.065</span></div>
+    <div class="param-row"><span class="param-meaning">Outer radius</span><label>r<sub>e</sub> (m):</label>
+      <input type="range" id="re-slider" min="0.03" max="0.25" step="0.001" value="0.162">
+      <span class="val" id="re-val">0.162</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Model</div>
+    <div class="param-row"><span class="param-meaning">Initial gap scale</span><label>$z_0$ (m):</label>
+      <input type="range" id="z0-lg-slider" min="0" max="1000" value="500" step="1">
+      <span class="val" id="z0-val"></span></div>
+    <div class="param-row"><span class="param-meaning">Friction coeff.</span><label>$f$:</label>
+      <input type="range" id="f-lg-slider" min="0" max="1000" value="500" step="1">
+      <span class="val" id="f-val"></span></div>
+    <div class="param-row"><span class="param-meaning">Wear coeff.</span><label>$c$ (m³/(N·m)):</label>
+      <input type="range" id="c-lg-slider" min="0" max="1000" value="500" step="1">
+      <span class="val" id="c-val"></span></div>
+    <div class="param-row"><span class="param-meaning">Stiffness</span><label>$k$ (Pa/m):</label>
+      <input type="range" id="k-lg-slider" min="0" max="1000" value="500" step="1">
+      <span class="val" id="k-val"></span></div>
+    <div class="param-row"><span class="param-meaning">Feed</span><label>$a'$ (m/rad):</label>
+      <input type="range" id="ap-lg-slider" min="0" max="1000" value="500" step="1">
+      <span class="val" id="ap-val"></span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="param-row"><span class="param-meaning">Angle $\alpha$</span><label>$\alpha$ (rad):</label>
+      <input type="range" id="alpha-slider" min="0" max="1000" value="0" step="1">
+      <span class="val" id="alpha-val"></span></div>
+    <div class="btn-row" style="margin-top:8px;">
+      <button type="button" id="btn-sim-play">▶ Play</button>
+      <button type="button" id="btn-sim-stop" class="secondary">■ Stop</button>
+      <button type="button" id="btn-sim-reset" class="secondary">Reset</button>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Main view</div>
+    <div class="btn-row">
+      <button type="button" id="btn-zoom-in" title="r ∈ [0.9·r_i, 1.2·r_e], y ∈ [-50, +10] µm">Zoom in</button>
+      <button type="button" id="btn-zoom-out" class="secondary" title="Full section and default zoom/pan">Zoom out</button>
+    </div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button type="button" class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
+</div>
+<div id="canvas-container">
+  <div id="canvas-stack">
+    <canvas id="canvas"></canvas>
+    <div id="micron-axis-labels"></div>
+  </div>
+</div>
+<div id="right-resizer" class="resizer">
+  <button type="button" class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div id="right-plots-stack">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-p-alpha">
+      <span>Pressure $p(\alpha,r)=k\,z(\alpha,r)$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-p-alpha">
+      <div class="right-plot-frame"><canvas id="p-alpha-canvas" class="plot-view" width="360" height="220"></canvas></div>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-h-alpha">
+      <span>Wear $h(\alpha,r)$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-h-alpha">
+      <div class="right-plot-frame"><canvas id="h-alpha-canvas" class="plot-view" width="360" height="220"></canvas></div>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<script>
+/** Axial section depth (m): inner step t, outer step 2t. */
+const T_SECTION = 0.03;
+
+/** Nominal mids for log sliders: $z_0$ (m), $f$, $c$ (m³/(N·m)), $k$ (Pa/m), $a'$ (m/rad). */
+const NOM = { z0: 1e-5, f: 0.4, c: 1e-14, k: 1e10, ap: 3e-12 };
+
+const ALPHA_MIN = 0;
+const ALPHA_MAX = 2.5e6;
+
+/** Detail-view y-axis ticks (µm), interface window [-50, +10]. */
+const MICRON_TICK_UM = [-50, -40, -30, -20, -10, 0, 10];
+
+function latexMicronUm(um) {
+  const sign = um < 0 ? '-' : '';
+  const a = Math.abs(um);
+  return '\\(' + sign + a + '\\,\\mu\\mathrm{m}\\)';
+}
+
+const MAIN_VIEW_ZOOM_DEFAULT = 1.12;
+const MAIN_VIEW_OFFX_DEFAULT = 0;
+const mainView = { offX: MAIN_VIEW_OFFX_DEFAULT, offY: 0, zoom: MAIN_VIEW_ZOOM_DEFAULT };
+
+/** $0$ = full section, $1$ = detail window; animated for zoom in/out transitions. */
+let mainViewDetailBlend = 0;
+let mainViewBlendAnimId = null;
+/** Duration of zoom-in / zoom-out transition (ms). */
+const MAIN_VIEW_DETAIL_TRANSITION_MS = 520;
+/** Micron ruler fades in when blend passes this (smooth zoom). */
+const MAIN_VIEW_DETAIL_RULER_BLEND = 0.88;
+
+let simRunning = false;
+let simAnimId = null;
+/** True while Play is waiting for detail zoom to finish before sweeping $\alpha$. */
+let simPlayAwaitingAlpha = false;
+let simPlayStart = 0;
+let simAlphaSlider0 = 0;
+const ALPHA_SLIDER_DEFAULT = 0;
+/** Wall-clock ms only for UI sweep of $\alpha$ slider (not a model parameter). */
+const PLAY_ALPHA_SWEEP_MS = 18000;
+
+let canvas = null;
+let ctx = null;
+
+function logHalfToDoubleNorm(s) {
+  const t = s / 1000;
+  return 0.5 * Math.pow(4, t);
+}
+function valFromLogSlider(s, nominal) {
+  return nominal * logHalfToDoubleNorm(s);
+}
+function alphaFromSlider01(s) {
+  const t = s / 1000;
+  return ALPHA_MIN + t * (ALPHA_MAX - ALPHA_MIN);
+}
+function getAlpha() {
+  const sl = document.getElementById('alpha-slider');
+  let v = sl ? parseFloat(sl.value) : ALPHA_SLIDER_DEFAULT;
+  if (!Number.isFinite(v)) v = ALPHA_SLIDER_DEFAULT;
+  const a = alphaFromSlider01(v);
+  return Number.isFinite(a) ? Math.min(ALPHA_MAX, Math.max(ALPHA_MIN, a)) : ALPHA_MIN;
+}
+/** Sliders give SI: $z_0$ [m], $c$ [m³/(N·m)], $k$ [Pa/m], $a'$ [m/rad], $C=c f k$ [1/m]. Internally $z,h$ [m], $p=k z$ [Pa]. */
+function readPhysics() {
+  let ri = parseFloat(document.getElementById('ri-slider').value);
+  let re = parseFloat(document.getElementById('re-slider').value);
+  if (re <= ri) re = ri + 1e-9;
+  const z0 = valFromLogSlider(parseFloat(document.getElementById('z0-lg-slider').value), NOM.z0);
+  const f = valFromLogSlider(parseFloat(document.getElementById('f-lg-slider').value), NOM.f);
+  const cWear = valFromLogSlider(parseFloat(document.getElementById('c-lg-slider').value), NOM.c);
+  const k = valFromLogSlider(parseFloat(document.getElementById('k-lg-slider').value), NOM.k);
+  const ap = valFromLogSlider(parseFloat(document.getElementById('ap-lg-slider').value), NOM.ap);
+  const C = cWear * f * k;
+  return { ri, re, z0, c: cWear, f, k, C, ap };
+}
+
+/** Wear $h$ (m). Same as GeoGebra: $h=(z_0-\frac{a'}{C r})(1-e^{-(C r)\alpha})+a'\alpha$ with $\alpha$ [rad], $r$ [m]. */
+function hOf(alpha, r, p) {
+  const al = Number.isFinite(alpha) ? alpha : 0;
+  const C_times_r = p.C * r;
+  const inv = 1 / Math.max(C_times_r, 1e-40);
+  const linearExpArg = Math.min(Math.max(C_times_r * al, -700), 700);
+  const ex = Math.exp(-linearExpArg);
+  const om = 1 - ex;
+  return p.z0 * om + p.ap * al - p.ap * inv * om;
+}
+
+/** Compression $z$ (m). Same as GeoGebra: $z=(z_0-\frac{a'}{C r})e^{-(C r)\alpha}+\frac{a'}{C r}$. */
+function zOf(alpha, r, p) {
+  const al = Number.isFinite(alpha) ? alpha : 0;
+  const C_times_r = p.C * r;
+  const inv = 1 / Math.max(C_times_r, 1e-40);
+  const linearExpArg = Math.min(Math.max(C_times_r * al, -700), 700);
+  const ex = Math.exp(-linearExpArg);
+  return p.z0 * ex + p.ap * inv * (1 - ex);
+}
+function fmtSci(x, nd) {
+  nd = nd || 4;
+  if (!isFinite(x)) return '—';
+  const ax = Math.abs(x);
+  if (ax >= 1e4 || ax < 1e-3) return x.toExponential(nd);
+  return x.toFixed(Math.min(6, nd + 1));
+}
+
+/** $\alpha$ readout next to slider: integers only (rad). */
+function fmtAlphaUi(alpha) {
+  if (!isFinite(alpha)) return '—';
+  return String(Math.round(alpha));
+}
+
+/** Plots: $\alpha$ from 0 to `ALPHA_MAX` rad (same window as slider max). */
+const PLOT_ALPHA_MAX = ALPHA_MAX;
+/** Fixed vertical range for pressure plot (Pa); max = $10^5$ Pa. */
+const P_PRESSURE_PLOT_Y_MAX_PA = 1e5;
+/** Display only: $h$ is computed in m; the $h$ vs $\alpha$ plot uses this for the vertical axis (µm). No extra scaling in `hOf` / `zOf` / `pressurePa`. */
+const METERS_TO_MICRON_PLOT = 1e6;
+/** Number of $r$ values from $r_i$ to $r_e$ (inclusive, uniform) on the right-hand plots. */
+const NUM_RADIUS_SAMPLES = 5;
+/** Main canvas: number of $(r,-h)$ samples along $r\in[r_i,r_e]$ on the wear polygon (plus the two top corners). */
+const WEAR_REGION_R_SAMPLES = 100;
+/** Vertical arrows from $(r,-h)$ toward $(r,-a)$ for $r$ in $[1.1\,r_i,\,0.95\,r_e]$. */
+const FEED_WEAR_ARROW_COUNT = 10;
+const P_PAD = { l: 48, r: 18, t: 14, b: 28 };
+
+/** Maps data to pixels with linear interpolation on both axes (ordinary Cartesian plots, not logarithmic). */
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0 = x0; this._x1 = x1; this._y0 = y0; this._y1 = y1;
+    this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; this.active = false;
+  }
+  toX(v, pad, W) {
+    const d = this.xMax - this.xMin;
+    const den = Math.abs(d) < 1e-30 ? 1e-30 : d;
+    return pad.l + (v - this.xMin) / den * (W - pad.l - pad.r);
+  }
+  toY(v, pad, H) {
+    const d = this.yMax - this.yMin;
+    const den = Math.abs(d) < 1e-30 ? 1e-30 : d;
+    return pad.t + (H - pad.t - pad.b) * (1 - (v - this.yMin) / den);
+  }
+  px2data(px, py, pad, W, H) {
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    const pwD = Math.abs(pw) < 1e-9 ? 1e-9 : pw;
+    const phD = Math.abs(ph) < 1e-9 ? 1e-9 : ph;
+    const xd = Math.max(this.xMax - this.xMin, 1e-30);
+    const yd = Math.max(this.yMax - this.yMin, 1e-30);
+    return [this.xMin + (px - pad.l) / pwD * xd, this.yMin + (1 - (py - pad.t) / phD) * yd];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active = true;
+    this.xMin = xd + (this.xMin - xd) * factor;
+    this.xMax = xd + (this.xMax - xd) * factor;
+    this.yMin = yd + (this.yMin - yd) * factor;
+    this.yMax = yd + (this.yMax - yd) * factor;
+  }
+  pan(dxd, dyd) { this.active = true; this.xMin -= dxd; this.xMax -= dxd; this.yMin -= dyd; this.yMax -= dyd; }
+  reset() {
+    this.active = false;
+    this.xMin = this._x0; this.xMax = this._x1; this.yMin = this._y0; this.yMax = this._y1;
+  }
+  setRange(x0, x1, y0, y1) {
+    if (!this.active) { this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; }
+  }
+}
+
+const pAlphaView = new PanZoomView(0, PLOT_ALPHA_MAX, 0, P_PRESSURE_PLOT_Y_MAX_PA);
+const hAlphaView = new PanZoomView(0, PLOT_ALPHA_MAX, 0, 10);
+
+/** Linear axis tick positions; `log10` is only used to pick a round step size, not a log scale. */
+function niceTicks(lo, hi, target = 5) {
+  if (hi <= lo) return [];
+  const range = hi - lo;
+  const rough = range / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(Math.abs(rough) || 1)));
+  const step = [1, 2, 2.5, 5, 10].find(f => f * pow >= rough - 1e-10) * pow;
+  const start = Math.ceil(lo / step - 1e-9) * step;
+  const ticks = [];
+  for (let v = start; v <= hi + step * 1e-9; v += step)
+    ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+function plotPlotTheme() {
+  const d = document.body.classList.contains('theme-day');
+  return {
+    grid: d ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
+    grid0: d ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
+    tick: d ? '#3d4554' : '#888'
+  };
+}
+
+/** Uniform samples $r \in [r_i,r_e]$ (inclusive). */
+function sampleRadiiUniform(ri, re, n) {
+  const d = re - ri;
+  const out = [];
+  if (n <= 1) { out.push(ri); return out; }
+  for (let j = 0; j < n; j++) out.push(ri + (j / (n - 1)) * d);
+  return out;
+}
+
+/** $p=k\,z$ with $k$ (Pa/m), $z$ (m) → Pa. Same $k$ as in $C=c f k$; no other factor. */
+function pressurePa(alpha, r, phys) {
+  return phys.k * zOf(alpha, r, phys);
+}
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  if (!cv) return;
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const [xd, yd] = view.px2data(px, py, pad, cv.width, cv.height);
+    view.zoomAt(e.deltaY > 0 ? 1.15 : 1 / 1.15, xd, yd);
+    redrawFn();
+  }, { passive: false });
+  let drag = false, lx, ly;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const rect = cv.getBoundingClientRect();
+    lx = (e.clientX - rect.left) * (cv.width / rect.width);
+    ly = (e.clientY - rect.top) * (cv.height / rect.height);
+    cv.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const pw = cv.width - pad.l - pad.r, ph = cv.height - pad.t - pad.b;
+    const xSpan = Math.max(view.xMax - view.xMin, 1e-30);
+    const ySpan = Math.max(view.yMax - view.yMin, 1e-30);
+    view.pan((px - lx) / Math.max(pw, 1e-9) * xSpan, -(py - ly) / Math.max(ph, 1e-9) * ySpan);
+    lx = px; ly = py; redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag = false; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function resizePlotCanvases() {
+  [['p-alpha-canvas', 360, 220], ['h-alpha-canvas', 360, 220]].forEach(([id, dw, dh]) => {
+    const cv = document.getElementById(id);
+    if (!cv) return;
+    const rect = cv.getBoundingClientRect();
+    let w = Math.floor(rect.width) || dw;
+    let h = Math.floor(rect.height) || dh;
+    if (w < 80) w = dw;
+    if (h < 80) h = dh;
+    if (cv.width !== w || cv.height !== h) {
+      cv.width = w;
+      cv.height = h;
+    }
+  });
+}
+
+/** Five rainbow hues: inner $r_i$ (red) → outer $r_e$ (blue). */
+const PLOT_LINE_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
+
+function drawPAlphaPlot(phys) {
+  const cv = document.getElementById('p-alpha-canvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = P_PAD;
+  const pt = plotPlotTheme();
+  const rs = sampleRadiiUniform(phys.ri, phys.re, NUM_RADIUS_SAMPLES);
+  const nSteps = 220;
+  pAlphaView.setRange(0, PLOT_ALPHA_MAX, 0, P_PRESSURE_PLOT_Y_MAX_PA);
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = document.body.classList.contains('theme-day') ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.28)';
+  ctx.fillRect(0, 0, W, H);
+
+  const toX = v => pAlphaView.toX(v, pad, W);
+  const toY = v => pAlphaView.toY(v, pad, H);
+
+  ctx.strokeStyle = pt.grid;
+  ctx.lineWidth = 1;
+  const tx = niceTicks(pAlphaView.xMin, pAlphaView.xMax, 6);
+  for (const x of tx) {
+    const px = toX(x);
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, H - pad.b); ctx.stroke();
+  }
+  const ty = niceTicks(pAlphaView.yMin, pAlphaView.yMax, 5);
+  for (const y of ty) {
+    const py = toY(y);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(W - pad.r, py); ctx.stroke();
+  }
+  ctx.strokeStyle = pt.grid0;
+  ctx.beginPath();
+  const px0 = toX(0);
+  if (px0 >= pad.l - 1 && px0 <= W - pad.r + 1) { ctx.moveTo(px0, pad.t); ctx.lineTo(px0, H - pad.b); }
+  ctx.stroke();
+  ctx.beginPath();
+  const py0 = toY(0);
+  if (py0 >= pad.t - 1 && py0 <= H - pad.b + 1) { ctx.moveTo(pad.l, py0); ctx.lineTo(W - pad.r, py0); }
+  ctx.stroke();
+
+  ctx.fillStyle = pt.tick;
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const x of tx) {
+    const px = toX(x);
+    ctx.fillText(x >= 1e5 ? x.toExponential(0) : x.toFixed(0), px, H - pad.b + 4);
+  }
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const y of ty) {
+    const py = toY(y);
+    ctx.fillText(y < 1e5 ? y.toFixed(0) : y.toExponential(1), pad.l - 4, py);
+  }
+
+  ctx.lineWidth = 1.75;
+  for (let j = 0; j < rs.length; j++) {
+    ctx.beginPath();
+    let first = true;
+    for (let i = 0; i <= nSteps; i++) {
+      const al = (i / nSteps) * PLOT_ALPHA_MAX;
+      const pv = pressurePa(al, rs[j], phys);
+      const px = toX(al), py = toY(pv);
+      if (first) { ctx.moveTo(px, py); first = false; } else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = PLOT_LINE_COLORS[j % PLOT_LINE_COLORS.length];
+    ctx.stroke();
+  }
+
+  const nR = rs.length;
+  if (nR >= 2) {
+    const lx = W - pad.r - 6;
+    const ly0 = pad.t + 12;
+    ctx.font = 'italic 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = PLOT_LINE_COLORS[0];
+    ctx.fillText('r_i', lx, ly0);
+    ctx.fillStyle = PLOT_LINE_COLORS[nR - 1];
+    ctx.fillText('r_e', lx, ly0 + 14);
+  }
+
+  ctx.fillStyle = pt.tick;
+  ctx.font = '11px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('α (rad)', (pad.l + W - pad.r) / 2, H - 2);
+  ctx.save();
+  ctx.translate(12, (pad.t + H - pad.b) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textBaseline = 'top';
+  ctx.fillText('p (Pa)', 0, 0);
+  ctx.restore();
+
+  const alMark = getAlpha();
+  for (let j = 0; j < rs.length; j++) {
+    const cx = toX(alMark);
+    const cy = toY(pressurePa(alMark, rs[j], phys));
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4.2, 0, Math.PI * 2);
+    ctx.fillStyle = PLOT_LINE_COLORS[j % PLOT_LINE_COLORS.length];
+    ctx.fill();
+  }
+}
+
+function drawHAlphaPlot(phys) {
+  const cv = document.getElementById('h-alpha-canvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = P_PAD;
+  const pt = plotPlotTheme();
+  const rs = sampleRadiiUniform(phys.ri, phys.re, NUM_RADIUS_SAMPLES);
+  const nSteps = 220;
+  let hMaxUm = 1e-9;
+  for (let j = 0; j < rs.length; j++) {
+    for (let i = 0; i <= nSteps; i++) {
+      const al = (i / nSteps) * PLOT_ALPHA_MAX;
+      hMaxUm = Math.max(hMaxUm, hOf(al, rs[j], phys) * METERS_TO_MICRON_PLOT);
+    }
+  }
+  hMaxUm *= 1.1;
+  if (hMaxUm < 0.05) hMaxUm = 0.05;
+  hAlphaView.setRange(0, PLOT_ALPHA_MAX, 0, hMaxUm);
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = document.body.classList.contains('theme-day') ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.28)';
+  ctx.fillRect(0, 0, W, H);
+
+  const toX = v => hAlphaView.toX(v, pad, W);
+  const toY = v => hAlphaView.toY(v, pad, H);
+
+  ctx.strokeStyle = pt.grid;
+  ctx.lineWidth = 1;
+  const tx = niceTicks(hAlphaView.xMin, hAlphaView.xMax, 6);
+  for (const x of tx) {
+    const px = toX(x);
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, H - pad.b); ctx.stroke();
+  }
+  const ty = niceTicks(hAlphaView.yMin, hAlphaView.yMax, 5);
+  for (const y of ty) {
+    const py = toY(y);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(W - pad.r, py); ctx.stroke();
+  }
+  ctx.strokeStyle = pt.grid0;
+  ctx.beginPath();
+  const px0 = toX(0);
+  if (px0 >= pad.l - 1 && px0 <= W - pad.r + 1) { ctx.moveTo(px0, pad.t); ctx.lineTo(px0, H - pad.b); }
+  ctx.stroke();
+  ctx.beginPath();
+  const py0 = toY(0);
+  if (py0 >= pad.t - 1 && py0 <= H - pad.b + 1) { ctx.moveTo(pad.l, py0); ctx.lineTo(W - pad.r, py0); }
+  ctx.stroke();
+
+  ctx.fillStyle = pt.tick;
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const x of tx) {
+    const px = toX(x);
+    ctx.fillText(x >= 1e5 ? x.toExponential(0) : x.toFixed(0), px, H - pad.b + 4);
+  }
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const y of ty) {
+    const py = toY(y);
+    ctx.fillText(y.toFixed(2), pad.l - 4, py);
+  }
+
+  ctx.lineWidth = 1.75;
+  for (let j = 0; j < rs.length; j++) {
+    ctx.beginPath();
+    let first = true;
+    for (let i = 0; i <= nSteps; i++) {
+      const al = (i / nSteps) * PLOT_ALPHA_MAX;
+      const hm = hOf(al, rs[j], phys) * METERS_TO_MICRON_PLOT;
+      const px = toX(al), py = toY(hm);
+      if (first) { ctx.moveTo(px, py); first = false; } else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = PLOT_LINE_COLORS[j % PLOT_LINE_COLORS.length];
+    ctx.stroke();
+  }
+
+  const nR = rs.length;
+  if (nR >= 2) {
+    const lx = W - pad.r - 6;
+    const ly0 = pad.t + 12;
+    ctx.font = 'italic 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = PLOT_LINE_COLORS[0];
+    ctx.fillText('r_i', lx, ly0);
+    ctx.fillStyle = PLOT_LINE_COLORS[nR - 1];
+    ctx.fillText('r_e', lx, ly0 + 14);
+  }
+
+  ctx.fillStyle = pt.tick;
+  ctx.font = '11px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('α (rad)', (pad.l + W - pad.r) / 2, H - 2);
+  ctx.save();
+  ctx.translate(12, (pad.t + H - pad.b) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textBaseline = 'top';
+  ctx.fillText('h (µm)', 0, 0);
+  ctx.restore();
+
+  const alMark = getAlpha();
+  for (let j = 0; j < rs.length; j++) {
+    const cx = toX(alMark);
+    const cy = toY(hOf(alMark, rs[j], phys) * METERS_TO_MICRON_PLOT);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4.2, 0, Math.PI * 2);
+    ctx.fillStyle = PLOT_LINE_COLORS[j % PLOT_LINE_COLORS.length];
+    ctx.fill();
+  }
+}
+
+function worldBounds(ri, re, t) {
+  const u = Math.max(0, Math.min(1, mainViewDetailBlend));
+  const yBot = -2 * t * 1.08;
+  const yTop = t * 0.12;
+  const full = { xMin: -re * 1.06, xMax: re * 1.06, yMin: yBot, yMax: yTop };
+  const det = { xMin: 0.9 * ri, xMax: 1.2 * re, yMin: -50e-6, yMax: 10e-6 };
+  return {
+    xMin: full.xMin + (det.xMin - full.xMin) * u,
+    xMax: full.xMax + (det.xMax - full.xMax) * u,
+    yMin: full.yMin + (det.yMin - full.yMin) * u,
+    yMax: full.yMax + (det.yMax - full.yMax) * u
+  };
+}
+
+function resetMainViewTransform() {
+  mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+  mainView.offY = 0;
+  mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+}
+
+function worldToCanvas(wx, wy, bx, sz) {
+  const bw = Math.max(bx.xMax - bx.xMin, 1e-30);
+  const bh = Math.max(bx.yMax - bx.yMin, 1e-30);
+  const margin = 0.92;
+  const u = Math.max(0, Math.min(1, mainViewDetailBlend));
+  const scaleUni = Math.min((sz * margin) / bw, (sz * margin) / bh) * mainView.zoom;
+  const scaleXd = ((sz * margin) / bw) * mainView.zoom;
+  const scaleYd = ((sz * margin) / bh) * mainView.zoom;
+  const scaleX = scaleUni + (scaleXd - scaleUni) * u;
+  const scaleY = scaleUni + (scaleYd - scaleUni) * u;
+  const cx = 0.5 * (bx.xMin + bx.xMax);
+  const cy = 0.5 * (bx.yMin + bx.yMax);
+  return [
+    sz * 0.5 + mainView.offX + (wx - cx) * scaleX,
+    sz * 0.5 + mainView.offY - (wy - cy) * scaleY
+  ];
+}
+
+function smoothstep01(k) {
+  k = Math.max(0, Math.min(1, k));
+  return k * k * (3 - 2 * k);
+}
+
+function startMainViewDetailBlendAnim(targetBlend, onDone) {
+  if (mainViewBlendAnimId) cancelAnimationFrame(mainViewBlendAnimId);
+  mainViewBlendAnimId = null;
+  const from = mainViewDetailBlend;
+  const to = Math.max(0, Math.min(1, targetBlend));
+  if (Math.abs(to - from) < 1e-5) {
+    mainViewDetailBlend = to;
+    redrawAll();
+    if (onDone) onDone();
+    return;
+  }
+  const t0 = performance.now();
+  const dur = MAIN_VIEW_DETAIL_TRANSITION_MS;
+  function frame(now) {
+    const k = Math.min(1, (now - t0) / dur);
+    mainViewDetailBlend = from + (to - from) * smoothstep01(k);
+    redrawAll();
+    if (k < 1) mainViewBlendAnimId = requestAnimationFrame(frame);
+    else {
+      mainViewDetailBlend = to;
+      mainViewBlendAnimId = null;
+      redrawAll();
+      if (onDone) onDone();
+    }
+  }
+  mainViewBlendAnimId = requestAnimationFrame(frame);
+}
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+/** World r where the micron ruler is drawn (inside the window, left of center). */
+function micronRulerWorldX(bx) {
+  const bw = bx.xMax - bx.xMin;
+  return bx.xMax - 0.2 * bw;
+}
+
+function drawDetailMicronAxisRuler(bx, sz, day) {
+  const lineCol = day ? 'rgba(10, 55, 85, 0.9)' : 'rgba(220, 245, 255, 0.85)';
+  const xr = micronRulerWorldX(bx);
+  const [rxTop, ryTop] = worldToCanvas(xr, bx.yMax, bx, sz);
+  const [rxBot, ryBot] = worldToCanvas(xr, bx.yMin, bx, sz);
+  ctx.strokeStyle = lineCol;
+  ctx.lineWidth = day ? 2.15 : 1.95;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(rxTop, ryTop);
+  ctx.lineTo(rxBot, ryBot);
+  ctx.stroke();
+  const tickPx = 10;
+  for (const um of MICRON_TICK_UM) {
+    const yw = um * 1e-6;
+    if (yw < bx.yMin - 1e-20 || yw > bx.yMax + 1e-20) continue;
+    const [px, py] = worldToCanvas(xr, yw, bx, sz);
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px - tickPx, py);
+    ctx.strokeStyle = lineCol;
+    ctx.lineWidth = day ? 1.55 : 1.4;
+    ctx.stroke();
+  }
+}
+
+function layoutMicronAxisLabels(bx, sz) {
+  const el = document.getElementById('micron-axis-labels');
+  if (!el || !canvas) return;
+  if (mainViewDetailBlend < MAIN_VIEW_DETAIL_RULER_BLEND) {
+    el.innerHTML = '';
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width ? rect.width / canvas.width : 1;
+  const sy = canvas.height ? rect.height / canvas.height : 1;
+  const html = [];
+  for (let i = 0; i < MICRON_TICK_UM.length; i++) {
+    const um = MICRON_TICK_UM[i];
+    const yw = um * 1e-6;
+    if (yw < bx.yMin - 1e-20 || yw > bx.yMax + 1e-20) continue;
+    const [px, py] = worldToCanvas(micronRulerWorldX(bx), yw, bx, sz);
+    const left = px * sx + 6 * sx;
+    const top = py * sy;
+    html.push('<span class="mj-ruler-lbl" style="left:' + left + 'px;top:' + top + 'px">' + latexMicronUm(um) + '</span>');
+  }
+  el.innerHTML = html.join('');
+  if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
+}
+
+/**
+ * Uniform rigid feed depth $a(\alpha)=z_0+a'\alpha$ (m): rectangle
+ * $(r_e,0)\to(r_i,0)\to(r_i,-a)\to(r_e,-a)$.
+ */
+function drawFeedRectangleMain(alpha, phys, ri, re, bx, sz, day) {
+  const a = phys.z0 + phys.ap * alpha;
+  if (!(a > 0)) return;
+  ctx.beginPath();
+  let xy = worldToCanvas(re, 0, bx, sz);
+  ctx.moveTo(xy[0], xy[1]);
+  xy = worldToCanvas(ri, 0, bx, sz);
+  ctx.lineTo(xy[0], xy[1]);
+  xy = worldToCanvas(ri, -a, bx, sz);
+  ctx.lineTo(xy[0], xy[1]);
+  xy = worldToCanvas(re, -a, bx, sz);
+  ctx.lineTo(xy[0], xy[1]);
+  ctx.closePath();
+  ctx.fillStyle = day ? 'rgba(48, 105, 175, 0.38)' : 'rgba(6, 18, 48, 0.62)';
+  ctx.fill();
+
+  ctx.beginPath();
+  xy = worldToCanvas(ri, -a, bx, sz);
+  ctx.moveTo(xy[0], xy[1]);
+  xy = worldToCanvas(re, -a, bx, sz);
+  ctx.lineTo(xy[0], xy[1]);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.setLineDash([]);
+  ctx.strokeStyle = day ? '#1d4ed8' : '#4f7ec4';
+  ctx.lineWidth = day ? 2.5 : 2.25;
+  ctx.shadowColor = day ? 'rgba(30, 64, 175, 0.28)' : 'rgba(79, 126, 196, 0.45)';
+  ctx.shadowBlur = day ? 2 : 5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+}
+
+/**
+ * Vertical arrows from $(r,-h)$ to $(r,-a)$ (head at $(r,-a)$), `FEED_WEAR_ARROW_COUNT` radii in $[1.1\,r_i,\,0.95\,r_e]$.
+ */
+function drawFeedWearLinkArrows(alpha, phys, ri, re, bx, sz, day) {
+  const a = phys.z0 + phys.ap * alpha;
+  if (!(a > 0)) return;
+  let rLo = 1.1 * ri;
+  let rHi = 0.95 * re;
+  if (rLo >= rHi) {
+    const pad = 0.05 * (re - ri);
+    rLo = ri + pad;
+    rHi = re - pad;
+  }
+  if (!(rLo < rHi)) return;
+  const n = FEED_WEAR_ARROW_COUNT;
+  const col = day ? 'rgba(55, 78, 120, 0.88)' : 'rgba(210, 225, 255, 0.88)';
+  const head = 5;
+  ctx.setLineDash([]);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let j = 0; j < n; j++) {
+    const u = n === 1 ? 0 : j / (n - 1);
+    const r = rLo + u * (rHi - rLo);
+    const hm = hOf(alpha, r, phys);
+    const yWear = -hm;
+    const yFeed = -a;
+    const [px, cyH] = worldToCanvas(r, yWear, bx, sz);
+    const [, cyA] = worldToCanvas(r, yFeed, bx, sz);
+    if (Math.abs(cyA - cyH) < 1.5) continue;
+    ctx.beginPath();
+    ctx.moveTo(px, cyH);
+    ctx.lineTo(px, cyA);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = day ? 1.35 : 1.2;
+    ctx.stroke();
+    const sign = cyA > cyH ? 1 : -1;
+    ctx.beginPath();
+    ctx.moveTo(px, cyA);
+    ctx.lineTo(px - head * 0.55, cyA - sign * head);
+    ctx.lineTo(px + head * 0.55, cyA - sign * head);
+    ctx.closePath();
+    ctx.fillStyle = col;
+    ctx.fill();
+  }
+}
+
+/**
+ * Fills the wear slab: vertices $(r_e,0)$, $(r_i,0)$, then $(r,-h(\alpha,r))$ for $r$ from $r_i$ to $r_e$
+ * (`WEAR_REGION_R_SAMPLES` points). Current simulation $\alpha$.
+ */
+function drawWearRegionMain(alpha, phys, ri, re, bx, sz, day) {
+  ctx.beginPath();
+  let xy = worldToCanvas(re, 0, bx, sz);
+  ctx.moveTo(xy[0], xy[1]);
+  xy = worldToCanvas(ri, 0, bx, sz);
+  ctx.lineTo(xy[0], xy[1]);
+  const n = WEAR_REGION_R_SAMPLES;
+  const denom = Math.max(n - 1, 1);
+  for (let k = 0; k < n; k++) {
+    const r = ri + ((re - ri) * k) / denom;
+    const hm = hOf(alpha, r, phys);
+    xy = worldToCanvas(r, -hm, bx, sz);
+    ctx.lineTo(xy[0], xy[1]);
+  }
+  ctx.closePath();
+  ctx.fillStyle = day ? 'rgba(250, 185, 205, 0.48)' : 'rgba(200, 45, 48, 0.38)';
+  ctx.fill();
+
+  ctx.beginPath();
+  for (let k = 0; k < n; k++) {
+    const r = ri + ((re - ri) * k) / denom;
+    const hm = hOf(alpha, r, phys);
+    xy = worldToCanvas(r, -hm, bx, sz);
+    if (k === 0) ctx.moveTo(xy[0], xy[1]);
+    else ctx.lineTo(xy[0], xy[1]);
+  }
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.setLineDash([]);
+  ctx.strokeStyle = day ? '#db2777' : '#f87171';
+  ctx.lineWidth = day ? 2.75 : 2.5;
+  ctx.shadowColor = day ? 'rgba(219, 39, 119, 0.3)' : 'rgba(248, 113, 113, 0.45)';
+  ctx.shadowBlur = day ? 2 : 5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+}
+
+function drawScene() {
+  if (!canvas || !ctx) return;
+  if (!canvas.width || !canvas.height) return;
+  const p = readPhysics();
+  const { ri, re } = p;
+  const alpha = getAlpha();
+  const t = T_SECTION;
+  const bx = worldBounds(ri, re, t);
+  const sz = canvas.width;
+  const day = document.body.classList.contains('theme-day');
+
+  /** Azure clutch body; inner pad face slightly darker. */
+  const colBody = day ? 'rgba(125, 200, 245, 0.94)' : 'rgba(90, 170, 230, 0.9)';
+  const colBack = day ? 'rgba(45, 130, 190, 0.96)' : 'rgba(35, 95, 155, 0.96)';
+  const colStroke = day ? '#1a6a9e' : '#93c5fd';
+  const axisCol = day ? 'rgba(10, 55, 85, 0.95)' : 'rgba(220, 245, 255, 0.92)';
+  const labelCol = day ? 'rgba(0, 45, 75, 0.88)' : 'rgba(200, 235, 255, 0.85)';
+
+  const outerLoop = [
+    [-re, 0], [-re, -2 * t], [re, -2 * t], [re, 0],
+    [ri, 0], [ri, -t], [-ri, -t], [-ri, 0]
+  ];
+  const backFace = [[ri, 0], [ri, -t], [-ri, -t], [-ri, 0]];
+
+  ctx.clearRect(0, 0, sz, sz);
+  ctx.fillStyle = cssVar('--canvas-bg', '#0d1117');
+  ctx.fillRect(0, 0, sz, sz);
+
+  function fillLoop(pts, fill, stroke) {
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const [px, py] = worldToCanvas(pts[i][0], pts[i][1], bx, sz);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = day ? 1.6 : 1.45;
+      ctx.stroke();
+    }
+  }
+
+  fillLoop(outerLoop, colBody, colStroke);
+  fillLoop(backFace, colBack, null);
+
+  drawFeedRectangleMain(alpha, p, ri, re, bx, sz, day);
+  drawWearRegionMain(alpha, p, ri, re, bx, sz, day);
+  drawFeedWearLinkArrows(alpha, p, ri, re, bx, sz, day);
+
+  const axisInView = bx.xMin < 0 && bx.xMax > 0;
+  if (axisInView) {
+    ctx.strokeStyle = axisCol;
+    /** Dash–dot (tratto–punto): long dash, gap, dot, gap — repeats. */
+    ctx.setLineDash([12, 5, 2, 5]);
+    ctx.lineWidth = day ? 2.75 : 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const [ax0, ay0] = worldToCanvas(0, bx.yMax, bx, sz);
+    const [ax1, ay1] = worldToCanvas(0, bx.yMin, bx, sz);
+    ctx.moveTo(ax0, ay0);
+    ctx.lineTo(ax1, ay1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineCap = 'butt';
+
+    ctx.fillStyle = labelCol;
+    ctx.font = '11px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('axis r = 0', ax0, Math.min(ay0, ay1) - 18);
+  }
+
+  if (mainViewDetailBlend >= MAIN_VIEW_DETAIL_RULER_BLEND) {
+    drawDetailMicronAxisRuler(bx, sz, day);
+  }
+
+  document.getElementById('ri-val').textContent = ri.toFixed(3);
+  document.getElementById('re-val').textContent = re.toFixed(3);
+
+  layoutMicronAxisLabels(bx, sz);
+}
+
+function resize() {
+  if (!canvas) return;
+  const cont = document.getElementById('canvas-container');
+  const w = cont ? cont.clientWidth : window.innerWidth;
+  const h = cont ? cont.clientHeight : window.innerHeight;
+  const sz = Math.max(120, Math.min(w - 12, h - 12));
+  canvas.width = sz;
+  canvas.height = sz;
+  const stack = document.getElementById('canvas-stack');
+  if (stack) {
+    stack.style.width = sz + 'px';
+    stack.style.height = sz + 'px';
+  }
+  resizePlotCanvases();
+}
+
+function redrawAll() {
+  drawScene();
+  resizePlotCanvases();
+  const phys = readPhysics();
+  drawPAlphaPlot(phys);
+  drawHAlphaPlot(phys);
+}
+
+function wireLogSliders() {
+  function wire(id, valId, nominal, disp) {
+    const sl = document.getElementById(id), vl = document.getElementById(valId);
+    const sync = () => {
+      const v = valFromLogSlider(parseFloat(sl.value), nominal);
+      vl.textContent = disp(v);
+    };
+    sl.addEventListener('input', () => { sync(); redrawAll(); });
+    sync();
+  }
+  wire('z0-lg-slider', 'z0-val', NOM.z0, v => v.toExponential(2));
+  wire('f-lg-slider', 'f-val', NOM.f, v => v.toFixed(3));
+  wire('c-lg-slider', 'c-val', NOM.c, v => v.toExponential(2));
+  wire('k-lg-slider', 'k-val', NOM.k, v => v.toExponential(2));
+  wire('ap-lg-slider', 'ap-val', NOM.ap, v => v.toExponential(2));
+}
+
+function stopSimAnim() {
+  simRunning = false;
+  if (simAnimId) cancelAnimationFrame(simAnimId);
+  simAnimId = null;
+  if (simPlayAwaitingAlpha && mainViewBlendAnimId) {
+    cancelAnimationFrame(mainViewBlendAnimId);
+    mainViewBlendAnimId = null;
+  }
+  simPlayAwaitingAlpha = false;
+}
+
+function runAlphaSweepAnim() {
+  const sl = document.getElementById('alpha-slider');
+  const Tms = PLAY_ALPHA_SWEEP_MS;
+  simAlphaSlider0 = parseFloat(sl.value);
+  if (!Number.isFinite(simAlphaSlider0)) simAlphaSlider0 = ALPHA_SLIDER_DEFAULT;
+  const s1 = 1000;
+  simPlayStart = performance.now();
+  simRunning = true;
+  function frame(now) {
+    if (!simRunning) return;
+    const u = Math.min(1, (now - simPlayStart) / Tms);
+    const s = simAlphaSlider0 + (s1 - simAlphaSlider0) * u;
+    sl.value = String(Math.round(s));
+    const vl = document.getElementById('alpha-val');
+    if (vl) vl.textContent = fmtAlphaUi(getAlpha());
+    redrawAll();
+    if (u < 1) simAnimId = requestAnimationFrame(frame);
+    else { simRunning = false; simAnimId = null; }
+  }
+  simAnimId = requestAnimationFrame(frame);
+}
+
+function startSimAnim() {
+  stopSimAnim();
+  resetMainViewTransform();
+  simPlayAwaitingAlpha = true;
+  startMainViewDetailBlendAnim(1, () => {
+    if (!simPlayAwaitingAlpha) return;
+    simPlayAwaitingAlpha = false;
+    runAlphaSweepAnim();
+  });
+}
+
+function wireAlphaSlider() {
+  const sl = document.getElementById('alpha-slider');
+  const vl = document.getElementById('alpha-val');
+  const sync = () => { vl.textContent = fmtAlphaUi(getAlpha()); };
+  sl.addEventListener('input', () => {
+    if (simRunning || simPlayAwaitingAlpha) stopSimAnim();
+    sync();
+    redrawAll();
+  });
+  sync();
+}
+
+function setupMainCanvasPanZoom() {
+  if (!canvas) return;
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1 / 1.13 : 1.13;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const s = canvas.width;
+    mainView.offX = (mx - s * 0.5) * (1 - factor) + mainView.offX * factor;
+    mainView.offY = (my - s * 0.5) * (1 - factor) + mainView.offY * factor;
+    mainView.zoom *= factor;
+    redrawAll();
+  }, { passive: false });
+
+  let drag = false, lx = 0, ly = 0;
+  canvas.addEventListener('mousedown', e => {
+    drag = true;
+    lx = e.clientX;
+    ly = e.clientY;
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = canvas.getBoundingClientRect();
+    const scX = canvas.width / rect.width;
+    const scY = canvas.height / rect.height;
+    mainView.offX += (e.clientX - lx) * scX;
+    mainView.offY += (e.clientY - ly) * scY;
+    lx = e.clientX;
+    ly = e.clientY;
+    redrawAll();
+  });
+  window.addEventListener('mouseup', () => { drag = false; });
+  canvas.addEventListener('dblclick', () => {
+    resetMainViewTransform();
+    startMainViewDetailBlendAnim(0);
+  });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+  if (!btn || !panel) return;
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); redrawAll(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side, maxVwFrac) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  if (!panel || !rz) return;
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * maxVwFrac));
+    panel.style.width = w + 'px';
+    resize();
+    redrawAll();
+  }
+  function onUp() {
+    rz.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+}
+
+function initApp() {
+  canvas = document.getElementById('canvas');
+  ctx = canvas && canvas.getContext('2d');
+
+  const helpOv = document.getElementById('help-overlay');
+  const helpBtn = document.getElementById('help-close');
+  if (helpBtn && helpOv) {
+    helpBtn.addEventListener('click', () => { helpOv.classList.add('hidden'); });
+    helpOv.addEventListener('click', e => { if (e.target === helpOv) helpOv.classList.add('hidden'); });
+  }
+
+  const eqOv = document.getElementById('eq-overlay');
+  const eqContent = document.getElementById('eq-content');
+  const eqClose = document.getElementById('eq-close');
+  const btnShowEq = document.getElementById('btn-show-equations');
+  if (eqClose && eqOv) {
+    eqClose.addEventListener('click', () => eqOv.classList.add('hidden'));
+    eqOv.addEventListener('click', e => { if (e.target === eqOv) eqOv.classList.add('hidden'); });
+  }
+  if (btnShowEq && eqOv && eqContent) {
+    btnShowEq.addEventListener('click', () => {
+      eqOv.classList.remove('hidden');
+      if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([eqContent]).catch(() => {});
+    });
+  }
+
+  document.getElementById('theme-day').addEventListener('change', () => {
+    document.body.classList.toggle('theme-day', document.getElementById('theme-day').checked);
+    redrawAll();
+  });
+
+  document.getElementById('ri-slider').addEventListener('input', redrawAll);
+  document.getElementById('re-slider').addEventListener('input', redrawAll);
+  wireLogSliders();
+  wireAlphaSlider();
+
+  document.getElementById('btn-zoom-in').addEventListener('click', () => {
+    resetMainViewTransform();
+    startMainViewDetailBlendAnim(1);
+  });
+  document.getElementById('btn-zoom-out').addEventListener('click', () => {
+    resetMainViewTransform();
+    startMainViewDetailBlendAnim(0);
+  });
+
+  document.getElementById('btn-sim-play').addEventListener('click', startSimAnim);
+  document.getElementById('btn-sim-stop').addEventListener('click', stopSimAnim);
+  document.getElementById('btn-sim-reset').addEventListener('click', () => {
+    stopSimAnim();
+    document.getElementById('alpha-slider').value = String(ALPHA_SLIDER_DEFAULT);
+    document.getElementById('alpha-val').textContent = fmtAlphaUi(getAlpha());
+    redrawAll();
+  });
+
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+  setupResizer('left-resizer', 'left-panel', 'left', 0.45);
+  setupResizer('right-resizer', 'right-panel', 'right', 0.58);
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      if (!body || !toggle) return;
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  setupMainCanvasPanZoom();
+  setupPanZoom('p-alpha-canvas', pAlphaView, P_PAD, redrawAll);
+  setupPanZoom('h-alpha-canvas', hAlphaView, P_PAD, redrawAll);
+  window.addEventListener('resize', () => { resize(); redrawAll(); });
+
+  requestAnimationFrame(() => {
+    resize();
+    redrawAll();
+    requestAnimationFrame(() => { resize(); redrawAll(); });
+  });
+
+  const lp = document.getElementById('left-panel');
+  const rp = document.getElementById('right-panel');
+  if (window.MathJax && MathJax.typesetPromise) {
+    const nodes = [lp, rp].filter(Boolean);
+    if (nodes.length) MathJax.typesetPromise(nodes).catch(() => {});
+  }
+}
+
+initApp();
+</script>
+</body>
+</html>
