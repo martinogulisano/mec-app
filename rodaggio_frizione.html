@@ -311,11 +311,14 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
   <div class="section">
     <div class="section-title">Main view</div>
     <div class="btn-row">
-      <button type="button" id="btn-zoom-in" title="r ∈ [0.7·r_i, 1.2·r_e], y ∈ [-50, +10] µm">Zoom in</button>
+      <button type="button" id="btn-zoom-in" title="r ∈ [0.7·r_i, 1.2·r_e], y ∈ [-25, +15] µm">Zoom in</button>
       <button type="button" id="btn-zoom-out" class="secondary" title="Full section and default zoom/pan">Zoom out</button>
     </div>
     <div class="theme-switch-row" style="margin-top:6px;margin-bottom:4px;justify-content:flex-start;">
       <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:.8em;"><input type="checkbox" id="chk-uniform-baseline" checked> Uniform compression baseline</label>
+    </div>
+    <div class="theme-switch-row" style="margin-top:2px;margin-bottom:4px;justify-content:flex-start;">
+      <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:.8em;"><input type="checkbox" id="chk-wear-profiles" checked> Show different wear profiles</label>
     </div>
   </div>
 </div>
@@ -375,8 +378,8 @@ const NOM = { z0: 6e-6, f: 0.4, c: 5e-15, k: 5e9, ap: 6e-12 };
 const ALPHA_MIN = 0;
 const ALPHA_MAX = 2.5e6;
 
-/** Detail-view y-axis ticks (µm), interface window [-50, +10]. */
-const MICRON_TICK_UM = [-50, -40, -30, -20, -10, 0, 10];
+/** Detail-view y-axis ticks (µm), interface window [-25, +15]. */
+const MICRON_TICK_UM = [-25, -20, -15, -10, -5, 0, 5, 10, 15];
 
 function latexMicronUm(um) {
   const sign = um < 0 ? '-' : '';
@@ -501,6 +504,10 @@ const NUM_RADIUS_SAMPLES = 5;
 const WEAR_REGION_R_SAMPLES = 100;
 /** Vertical arrows from $(r,-h)$ toward $(r,-a)$ for $r$ in $[1.1\,r_i,\,0.95\,r_e]$. */
 const FEED_WEAR_ARROW_COUNT = 10;
+/** Optional overlay: wear polylines $(r,-h(\\alpha,r))$ at fixed $\\alpha$ samples; $100$ points along $r$. */
+const WEAR_SNAPSHOT_R_POINTS = 100;
+/** Light $\\to$ dark red for snapshot curves ($k=0\\ldots 5$). */
+const WEAR_SNAPSHOT_RED_SHADES = ['#fecaca', '#fca5a5', '#f87171', '#ef4444', '#dc2626', '#7f1d1d'];
 const P_PAD = { l: 48, r: 18, t: 14, b: 28 };
 
 /** Maps data to pixels with linear interpolation on both axes (ordinary Cartesian plots, not logarithmic). */
@@ -688,6 +695,37 @@ function drawUniformCompressionBaseline(alpha, phys, ri, re, bx, sz, day) {
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/** Six snapshots $\\alpha=k/5\\cdot\\alpha_{\\max}$, $k=0\\ldots 5$: polylines $r_i\\to r_e$ at $y=-h(\\alpha,r)$ (m); no labels. Shown only when current $\\alpha\\ge$ snapshot $\\alpha$. */
+function drawWearProfileSnapshots(phys, ri, re, bx, sz, day, alphaNow) {
+  const el = document.getElementById('chk-wear-profiles');
+  if (!el || !el.checked) return;
+  const cols = WEAR_SNAPSHOT_RED_SHADES;
+  const npt = WEAR_SNAPSHOT_R_POINTS;
+  const denom = Math.max(npt - 1, 1);
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  for (let k = 0; k <= 5; k++) {
+    const al = (k / 5) * ALPHA_MAX;
+    if (alphaNow < al) continue;
+    ctx.beginPath();
+    for (let j = 0; j < npt; j++) {
+      const r = ri + ((re - ri) * j) / denom;
+      const hm = hOf(al, r, phys);
+      const xy = worldToCanvas(r, -hm, bx, sz);
+      if (j === 0) ctx.moveTo(xy[0], xy[1]);
+      else ctx.lineTo(xy[0], xy[1]);
+    }
+    ctx.strokeStyle = cols[k];
+    ctx.lineWidth = day ? 1.95 : 1.75;
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -1007,7 +1045,7 @@ function worldBounds(ri, re, t) {
   const yBot = -2 * t * 1.08;
   const yTop = t * 0.12;
   const full = { xMin: -re * 1.06, xMax: re * 1.06, yMin: yBot, yMax: yTop };
-  const det = { xMin: 0.7 * ri, xMax: 1.2 * re, yMin: -50e-6, yMax: 10e-6 };
+  const det = { xMin: 0.7 * ri, xMax: 1.2 * re, yMin: -25e-6, yMax: 15e-6 };
   return {
     xMin: full.xMin + (det.xMin - full.xMin) * u,
     xMax: full.xMax + (det.xMax - full.xMax) * u,
@@ -1322,7 +1360,7 @@ function drawInnerRadiusWearDepthArrow(alpha, phys, ri, bx, sz, day) {
   ctx.stroke();
 
   const midY = 0.5 * (py0 + py1);
-  const labelCol = day ? '#92400e' : '#fefce8';
+  const labelCol = day ? '#d97706' : '#fefce8';
   ctx.fillStyle = labelCol;
   ctx.font = labelFont;
   ctx.textAlign = 'center';
@@ -1369,7 +1407,7 @@ function drawInnerRadiusWearDepthArrow(alpha, phys, ri, bx, sz, day) {
   ctx.stroke();
 
   const midZY = 0.5 * (qy0 + qy1);
-  ctx.fillStyle = day ? '#065f46' : '#ecfdf5';
+  ctx.fillStyle = day ? '#14b8a6' : '#ecfdf5';
   ctx.font = labelFont;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -1430,6 +1468,7 @@ function drawScene() {
   drawWearRegionMain(alpha, p, ri, re, bx, sz, day);
   drawFeedWearLinkArrows(alpha, p, ri, re, bx, sz, day);
   drawUniformCompressionBaseline(alpha, p, ri, re, bx, sz, day);
+  drawWearProfileSnapshots(p, ri, re, bx, sz, day, alpha);
 
   const axisInView = bx.xMin < 0 && bx.xMax > 0;
   if (axisInView) {
@@ -1680,6 +1719,8 @@ function initApp() {
   wireAlphaSlider();
   const ucb = document.getElementById('chk-uniform-baseline');
   if (ucb) ucb.addEventListener('change', redrawAll);
+  const wpf = document.getElementById('chk-wear-profiles');
+  if (wpf) wpf.addEventListener('change', redrawAll);
 
   document.getElementById('btn-zoom-in').addEventListener('click', () => {
     resetMainViewTransform();
