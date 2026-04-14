@@ -143,6 +143,9 @@ body.theme-day #micron-axis-labels mjx-container { color:rgba(0, 45, 75, 0.92) !
 body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
 .muted { font-size:.78em; color:#888; line-height:1.45; }
 body.theme-day .muted { color:#57606a; }
+#steady-mean-readout span[id$="-val"] { font-family:monospace; font-size:0.92em; }
+body.theme-day #steady-mean-readout span[id$="-val"] { color:#333; }
+body.theme-night #steady-mean-readout span[id$="-val"] { color:#ccc; }
 canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; width:100%; display:block; }
 /* Right column: only plots — fill viewport, split evenly (no global .section-body 500px cap). */
 #right-panel {
@@ -283,6 +286,11 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
     <div class="param-row"><span class="param-meaning">Feed</span><label>$a'$ (m/rad):</label>
       <input type="range" id="ap-lg-slider" min="0" max="1000" value="500" step="1">
       <span class="val" id="ap-val"></span></div>
+    <div class="muted" id="steady-mean-readout" style="font-size:.72em;line-height:1.5;margin-top:6px;padding-top:8px;border-top:1px solid rgba(128,128,128,0.25);">
+      <div style="margin-bottom:4px;">Mean radius $\bar r=(r_i+r_e)/2$: <span id="rmed-val">—</span> m</div>
+      <div style="margin-bottom:4px;">$a'/(c f k \bar r)$: <span id="ap-cfkrm-val">—</span> m</div>
+      <div>$z_0$: <span id="z0-compare-val">—</span> m</div>
+    </div>
   </div>
 
   <div class="section">
@@ -303,7 +311,7 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
   <div class="section">
     <div class="section-title">Main view</div>
     <div class="btn-row">
-      <button type="button" id="btn-zoom-in" title="r ∈ [0.9·r_i, 1.2·r_e], y ∈ [-50, +10] µm">Zoom in</button>
+      <button type="button" id="btn-zoom-in" title="r ∈ [0.7·r_i, 1.2·r_e], y ∈ [-50, +10] µm">Zoom in</button>
       <button type="button" id="btn-zoom-out" class="secondary" title="Full section and default zoom/pan">Zoom out</button>
     </div>
   </div>
@@ -342,6 +350,15 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
       <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
     </div>
   </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-n-alpha">
+      <span>Normal force $N(\alpha)=2\pi k\int_{r_i}^{r_e} z(\alpha,r)\,r\,\mathrm{d}r$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-n-alpha">
+      <div class="right-plot-frame"><canvas id="n-alpha-canvas" class="plot-view" width="360" height="220"></canvas></div>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
   </div>
 </div>
 
@@ -350,7 +367,7 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 const T_SECTION = 0.03;
 
 /** Nominal mids for log sliders: $z_0$ (m), $f$, $c$ (m³/(N·m)), $k$ (Pa/m), $a'$ (m/rad). */
-const NOM = { z0: 1e-5, f: 0.4, c: 1e-14, k: 1e10, ap: 3e-12 };
+const NOM = { z0: 6e-6, f: 0.4, c: 5e-15, k: 5e9, ap: 6e-12 };
 
 const ALPHA_MIN = 0;
 const ALPHA_MAX = 2.5e6;
@@ -449,6 +466,19 @@ function fmtSci(x, nd) {
   return x.toFixed(Math.min(6, nd + 1));
 }
 
+/** Left panel: $a'/(c f k \bar r)$ with $\bar r=(r_i+r_e)/2$ (m), same units as $z_0$. */
+function updateSteadyMeanReadout(p) {
+  const rbar = 0.5 * (p.ri + p.re);
+  const denom = p.c * p.f * p.k * rbar;
+  const ratio = p.ap / denom;
+  const er = document.getElementById('rmed-val');
+  const ea = document.getElementById('ap-cfkrm-val');
+  const ez = document.getElementById('z0-compare-val');
+  if (er) er.textContent = fmtSci(rbar, 4);
+  if (ea) ea.textContent = fmtSci(ratio, 4);
+  if (ez) ez.textContent = fmtSci(p.z0, 4);
+}
+
 /** $\alpha$ readout next to slider: integers only (rad). */
 function fmtAlphaUi(alpha) {
   if (!isFinite(alpha)) return '—';
@@ -512,6 +542,7 @@ class PanZoomView {
 
 const pAlphaView = new PanZoomView(0, PLOT_ALPHA_MAX, 0, P_PRESSURE_PLOT_Y_MAX_PA);
 const hAlphaView = new PanZoomView(0, PLOT_ALPHA_MAX, 0, 10);
+const nAlphaView = new PanZoomView(0, PLOT_ALPHA_MAX, 0, 1);
 
 /** Linear axis tick positions; `log10` is only used to pick a round step size, not a log scale. */
 function niceTicks(lo, hi, target = 5) {
@@ -587,7 +618,7 @@ function setupPanZoom(cvId, view, pad, redrawFn) {
 }
 
 function resizePlotCanvases() {
-  [['p-alpha-canvas', 360, 220], ['h-alpha-canvas', 360, 220]].forEach(([id, dw, dh]) => {
+  [['p-alpha-canvas', 360, 220], ['h-alpha-canvas', 360, 220], ['n-alpha-canvas', 360, 220]].forEach(([id, dw, dh]) => {
     const cv = document.getElementById(id);
     if (!cv) return;
     const rect = cv.getBoundingClientRect();
@@ -604,6 +635,22 @@ function resizePlotCanvases() {
 
 /** Five rainbow hues: inner $r_i$ (red) → outer $r_e$ (blue). */
 const PLOT_LINE_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
+
+/** Normal force (N): $N(\\alpha)=2\\pi k\\int_{r_i}^{r_e} z(\\alpha,r)\\,r\\,\\mathrm{d}r$. */
+function normalForceN(alpha, phys) {
+  const n = 160;
+  const ri = phys.ri, re = phys.re;
+  const dr = (re - ri) / Math.max(1, n - 1);
+  let acc = 0;
+  for (let j = 0; j < n; j++) {
+    const r = ri + j * dr;
+    const w = (j === 0 || j === n - 1) ? 0.5 : 1.0; // trapezoid
+    const z = zOf(alpha, r, phys);
+    acc += w * (z * r);
+  }
+  const integral = acc * dr;
+  return 2 * Math.PI * phys.k * integral;
+}
 
 function drawPAlphaPlot(phys) {
   const cv = document.getElementById('p-alpha-canvas');
@@ -822,12 +869,106 @@ function drawHAlphaPlot(phys) {
   }
 }
 
+function drawNAlphaPlot(phys) {
+  const cv = document.getElementById('n-alpha-canvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pad = P_PAD;
+  const pt = plotPlotTheme();
+  const nSteps = 240;
+
+  let nMax = 1e-12;
+  for (let i = 0; i <= nSteps; i++) {
+    const al = (i / nSteps) * PLOT_ALPHA_MAX;
+    nMax = Math.max(nMax, normalForceN(al, phys));
+  }
+  nMax *= 1.1;
+  if (nMax < 1e-12) nMax = 1e-12;
+  nAlphaView.setRange(0, PLOT_ALPHA_MAX, 0, nMax);
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = document.body.classList.contains('theme-day') ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.28)';
+  ctx.fillRect(0, 0, W, H);
+
+  const toX = v => nAlphaView.toX(v, pad, W);
+  const toY = v => nAlphaView.toY(v, pad, H);
+
+  ctx.strokeStyle = pt.grid;
+  ctx.lineWidth = 1;
+  const tx = niceTicks(nAlphaView.xMin, nAlphaView.xMax, 6);
+  for (const x of tx) {
+    const px = toX(x);
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, H - pad.b); ctx.stroke();
+  }
+  const ty = niceTicks(nAlphaView.yMin, nAlphaView.yMax, 5);
+  for (const y of ty) {
+    const py = toY(y);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(W - pad.r, py); ctx.stroke();
+  }
+  ctx.strokeStyle = pt.grid0;
+  ctx.beginPath();
+  const px0 = toX(0);
+  if (px0 >= pad.l - 1 && px0 <= W - pad.r + 1) { ctx.moveTo(px0, pad.t); ctx.lineTo(px0, H - pad.b); }
+  ctx.stroke();
+  ctx.beginPath();
+  const py0 = toY(0);
+  if (py0 >= pad.t - 1 && py0 <= H - pad.b + 1) { ctx.moveTo(pad.l, py0); ctx.lineTo(W - pad.r, py0); }
+  ctx.stroke();
+
+  ctx.fillStyle = pt.tick;
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const x of tx) {
+    const px = toX(x);
+    ctx.fillText(x >= 1e5 ? x.toExponential(0) : x.toFixed(0), px, H - pad.b + 4);
+  }
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const y of ty) {
+    const py = toY(y);
+    ctx.fillText((Math.abs(y) >= 1e4 || Math.abs(y) < 1e-2) ? y.toExponential(1) : y.toFixed(0), pad.l - 4, py);
+  }
+
+  ctx.lineWidth = 2.0;
+  ctx.beginPath();
+  let first = true;
+  for (let i = 0; i <= nSteps; i++) {
+    const al = (i / nSteps) * PLOT_ALPHA_MAX;
+    const nv = normalForceN(al, phys);
+    const px = toX(al), py = toY(nv);
+    if (first) { ctx.moveTo(px, py); first = false; } else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = document.body.classList.contains('theme-day') ? '#0f766e' : '#5eead4';
+  ctx.stroke();
+
+  ctx.fillStyle = pt.tick;
+  ctx.font = '11px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('α (rad)', (pad.l + W - pad.r) / 2, H - 2);
+  ctx.save();
+  ctx.translate(12, (pad.t + H - pad.b) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textBaseline = 'top';
+  ctx.fillText('N (N)', 0, 0);
+  ctx.restore();
+
+  const alMark = getAlpha();
+  const cx = toX(alMark);
+  const cy = toY(normalForceN(alMark, phys));
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4.6, 0, Math.PI * 2);
+  ctx.fillStyle = document.body.classList.contains('theme-day') ? '#0f766e' : '#5eead4';
+  ctx.fill();
+}
+
 function worldBounds(ri, re, t) {
   const u = Math.max(0, Math.min(1, mainViewDetailBlend));
   const yBot = -2 * t * 1.08;
   const yTop = t * 0.12;
   const full = { xMin: -re * 1.06, xMax: re * 1.06, yMin: yBot, yMax: yTop };
-  const det = { xMin: 0.9 * ri, xMax: 1.2 * re, yMin: -50e-6, yMax: 10e-6 };
+  const det = { xMin: 0.7 * ri, xMax: 1.2 * re, yMin: -50e-6, yMax: 10e-6 };
   return {
     xMin: full.xMin + (det.xMin - full.xMin) * u,
     xMax: full.xMax + (det.xMax - full.xMax) * u,
@@ -1079,6 +1220,126 @@ function drawWearRegionMain(alpha, phys, ri, re, bx, sz, day) {
   ctx.shadowColor = 'transparent';
 }
 
+/** World $y$ (m) from depth in micrometers: $y = -h_{\\mu\\mathrm{m}}\\,10^{-6}$ (same as $-h$ with $h$ in m). */
+function worldYFromDepthMicron(hMicron) {
+  return -hMicron * 1e-6;
+}
+
+/**
+ * Detail (zoom-in) only at $x=0.9\\,r_i$: (1) $0\\to -h$ using $h_{\\mu\\mathrm{m}}=h\\cdot10^6$; (2) $-h\\to -a$ with label $z(\\alpha,r)$. Bore: high-contrast strokes.
+ */
+function drawInnerRadiusWearDepthArrow(alpha, phys, ri, bx, sz, day) {
+  if (mainViewDetailBlend < MAIN_VIEW_DETAIL_RULER_BLEND) return;
+  const xw = 0.9 * ri;
+  const hiM = hOf(alpha, ri, phys);
+  const hMu = Math.max(0, hiM * 1e6);
+  const aM = phys.z0 + phys.ap * alpha;
+  const aMu = aM * 1e6;
+  const minPx = 10;
+  const labelPadPx = 34;
+  const labelFont = 'italic 18px Segoe UI, system-ui, sans-serif';
+
+  let hMuDraw = hMu;
+  const [px0, py0] = worldToCanvas(xw, worldYFromDepthMicron(0), bx, sz);
+  const [px1t, py1t] = worldToCanvas(xw, worldYFromDepthMicron(hMuDraw), bx, sz);
+  if (Math.abs(py1t - py0) < minPx) {
+    if (hMu < 1e-9) hMuDraw = 0.05;
+    else {
+      const pxPerMu = Math.abs(py1t - py0) / Math.max(hMu, 1e-30);
+      hMuDraw = Math.max(hMu, minPx / Math.max(pxPerMu, 1e-30));
+    }
+  }
+
+  const [px1, py1] = worldToCanvas(xw, worldYFromDepthMicron(hMuDraw), bx, sz);
+  const col = day ? '#b45309' : '#fde047';
+  const colLine = day ? '#f59e0b' : '#fef08a';
+  const head = 7;
+  let sign = py1 > py0 ? 1 : -1;
+
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = colLine;
+  ctx.lineWidth = day ? 2.75 : 2.5;
+  ctx.shadowColor = day ? 'rgba(180, 83, 9, 0.45)' : 'rgba(253, 224, 71, 0.55)';
+  ctx.shadowBlur = day ? 4 : 6;
+  ctx.beginPath();
+  ctx.moveTo(px0, py0);
+  ctx.lineTo(px1, py1);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+
+  ctx.beginPath();
+  ctx.moveTo(px1, py1);
+  ctx.lineTo(px1 - head * 0.55, py1 - sign * head);
+  ctx.lineTo(px1 + head * 0.55, py1 - sign * head);
+  ctx.closePath();
+  ctx.fillStyle = col;
+  ctx.fill();
+  ctx.lineWidth = day ? 1.25 : 1.1;
+  ctx.strokeStyle = day ? '#78350f' : '#fef9c3';
+  ctx.stroke();
+
+  const midY = 0.5 * (py0 + py1);
+  const labelCol = day ? '#92400e' : '#fefce8';
+  ctx.fillStyle = labelCol;
+  ctx.font = labelFont;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.translate(px0 - labelPadPx, midY);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('h(\u03B1, r)', 0, 0);
+  ctx.restore();
+
+  if (!(aM > 0)) return;
+
+  const [qx0, qy0] = worldToCanvas(xw, worldYFromDepthMicron(hMu), bx, sz);
+  const [qx1, qy1] = worldToCanvas(xw, worldYFromDepthMicron(aMu), bx, sz);
+  if (Math.abs(qy1 - qy0) < 0.8) return;
+
+  const colZ = day ? '#047857' : '#6ee7b7';
+  const colLineZ = day ? '#10b981' : '#a7f3d0';
+  sign = qy1 > qy0 ? 1 : -1;
+
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = colLineZ;
+  ctx.lineWidth = day ? 2.5 : 2.25;
+  ctx.shadowColor = day ? 'rgba(4, 120, 87, 0.4)' : 'rgba(110, 231, 183, 0.45)';
+  ctx.shadowBlur = day ? 4 : 6;
+  ctx.beginPath();
+  ctx.moveTo(qx0, qy0);
+  ctx.lineTo(qx1, qy1);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+
+  ctx.beginPath();
+  ctx.moveTo(qx1, qy1);
+  ctx.lineTo(qx1 - head * 0.55, qy1 - sign * head);
+  ctx.lineTo(qx1 + head * 0.55, qy1 - sign * head);
+  ctx.closePath();
+  ctx.fillStyle = colZ;
+  ctx.fill();
+  ctx.lineWidth = day ? 1.15 : 1;
+  ctx.strokeStyle = day ? '#065f46' : '#d1fae5';
+  ctx.stroke();
+
+  const midZY = 0.5 * (qy0 + qy1);
+  ctx.fillStyle = day ? '#065f46' : '#ecfdf5';
+  ctx.font = labelFont;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.translate(qx0 - labelPadPx, midZY);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('z(\u03B1, r)', 0, 0);
+  ctx.restore();
+}
+
 function drawScene() {
   if (!canvas || !ctx) return;
   if (!canvas.width || !canvas.height) return;
@@ -1155,6 +1416,7 @@ function drawScene() {
 
   if (mainViewDetailBlend >= MAIN_VIEW_DETAIL_RULER_BLEND) {
     drawDetailMicronAxisRuler(bx, sz, day);
+    drawInnerRadiusWearDepthArrow(alpha, p, ri, bx, sz, day);
   }
 
   document.getElementById('ri-val').textContent = ri.toFixed(3);
@@ -1183,8 +1445,10 @@ function redrawAll() {
   drawScene();
   resizePlotCanvases();
   const phys = readPhysics();
+  updateSteadyMeanReadout(phys);
   drawPAlphaPlot(phys);
   drawHAlphaPlot(phys);
+  drawNAlphaPlot(phys);
 }
 
 function wireLogSliders() {
@@ -1412,6 +1676,7 @@ function initApp() {
   setupMainCanvasPanZoom();
   setupPanZoom('p-alpha-canvas', pAlphaView, P_PAD, redrawAll);
   setupPanZoom('h-alpha-canvas', hAlphaView, P_PAD, redrawAll);
+  setupPanZoom('n-alpha-canvas', nAlphaView, P_PAD, redrawAll);
   window.addEventListener('resize', () => { resize(); redrawAll(); });
 
   requestAnimationFrame(() => {
