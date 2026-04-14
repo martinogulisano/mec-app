@@ -314,6 +314,9 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
       <button type="button" id="btn-zoom-in" title="r ∈ [0.7·r_i, 1.2·r_e], y ∈ [-50, +10] µm">Zoom in</button>
       <button type="button" id="btn-zoom-out" class="secondary" title="Full section and default zoom/pan">Zoom out</button>
     </div>
+    <div class="theme-switch-row" style="margin-top:6px;margin-bottom:4px;justify-content:flex-start;">
+      <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:.8em;"><input type="checkbox" id="chk-uniform-baseline" checked> Uniform compression baseline</label>
+    </div>
   </div>
 </div>
 
@@ -406,12 +409,13 @@ const PLAY_ALPHA_SWEEP_MS = 18000;
 let canvas = null;
 let ctx = null;
 
-function logHalfToDoubleNorm(s) {
+/** Log slider $0\\ldots 1000$: multiplies nominal from $1/4$ to $4$; $500\\rightarrow 1$ (defaults unchanged). */
+function logSliderFactorFromNominal(s) {
   const t = s / 1000;
-  return 0.5 * Math.pow(4, t);
+  return Math.pow(4, 2 * t - 1);
 }
 function valFromLogSlider(s, nominal) {
-  return nominal * logHalfToDoubleNorm(s);
+  return nominal * logSliderFactorFromNominal(s);
 }
 function alphaFromSlider01(s) {
   const t = s / 1000;
@@ -650,6 +654,41 @@ function normalForceN(alpha, phys) {
   }
   const integral = acc * dr;
   return 2 * Math.PI * phys.k * integral;
+}
+
+/** Mean compression for uniform $p$: $z_m=p_m/k$ with $p_m=N/(\pi(r_e^2-r_i^2))$. */
+function uniformMeanZM(alpha, phys) {
+  const ri = phys.ri, re = phys.re;
+  const area = Math.PI * (re * re - ri * ri);
+  if (!(area > 0)) return 0;
+  return normalForceN(alpha, phys) / (area * phys.k);
+}
+
+/** Horizontal dashed baseline at $y=-a+z_m$ from $r_i$ to $r_e$. */
+function drawUniformCompressionBaseline(alpha, phys, ri, re, bx, sz, day) {
+  const el = document.getElementById('chk-uniform-baseline');
+  if (!el || !el.checked) return;
+  const a = phys.z0 + phys.ap * alpha;
+  const zm = uniformMeanZM(alpha, phys);
+  const y0 = -a + zm;
+  const p0 = worldToCanvas(ri, y0, bx, sz);
+  const p1 = worldToCanvas(re, y0, bx, sz);
+  ctx.save();
+  ctx.setLineDash([6, 5]);
+  ctx.lineWidth = day ? 1.05 : 0.95;
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = '#ffffff';
+  if (day) {
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 2.5;
+  }
+  ctx.beginPath();
+  ctx.moveTo(p0[0], p0[1]);
+  ctx.lineTo(p1[0], p1[1]);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.setLineDash([]);
+  ctx.restore();
 }
 
 function drawPAlphaPlot(phys) {
@@ -1390,6 +1429,7 @@ function drawScene() {
   drawFeedRectangleMain(alpha, p, ri, re, bx, sz, day);
   drawWearRegionMain(alpha, p, ri, re, bx, sz, day);
   drawFeedWearLinkArrows(alpha, p, ri, re, bx, sz, day);
+  drawUniformCompressionBaseline(alpha, p, ri, re, bx, sz, day);
 
   const axisInView = bx.xMin < 0 && bx.xMax > 0;
   if (axisInView) {
@@ -1638,6 +1678,8 @@ function initApp() {
   document.getElementById('re-slider').addEventListener('input', redrawAll);
   wireLogSliders();
   wireAlphaSlider();
+  const ucb = document.getElementById('chk-uniform-baseline');
+  if (ucb) ucb.addEventListener('change', redrawAll);
 
   document.getElementById('btn-zoom-in').addEventListener('click', () => {
     resetMainViewTransform();
