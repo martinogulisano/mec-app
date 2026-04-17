@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulator template</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() {
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(initApp).catch(() => initApp());
+    }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.3);
+  --info-bg:rgba(0,0,0,.3); --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92);
+  --info-bg:rgba(0,0,0,.06); --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; transition:background .25s,color .25s; }
+.theme-switch-row {
+  display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px;
+  font-size:.78em; user-select:none;
+}
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .sec-toggle { color:#6e7781; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+body.theme-day button.secondary { border-color:#aab; }
+body.theme-day input[type="number"].compact { border-color:#c5cad3; color:#24292f; }
+body.theme-day button { color:#1a1f2e; }
+body.theme-day button.secondary { color:#1a1f2e; background:#c8d4e8; border-color:#9aa8bc; }
+body.theme-day button.secondary:hover { background:#b8c6dc; color:#1a1f2e; }
+body.theme-day #help-close,
+body.theme-day #eq-close { color:#1a1f2e; background:#e8b4bf; }
+body.theme-day #help-close:hover,
+body.theme-day #eq-close:hover { color:#1a1f2e; background:#dfa0ae; }
+body.theme-day #info-box { color:#24292f; border:1px solid #d8dee4; }
+body.theme-day .section > .section-title { color:#57606a; }
+body.theme-day .theme-switch-row,
+body.theme-day .theme-switch-row label { color:#24292f; }
+body.theme-day #credits-block,
+body.theme-day #credits-block .credits-muted { color:#5a6570 !important; }
+body.theme-day .panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.22); }
+body.theme-day .panel::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,0.35); }
+body.theme-day .panel { scrollbar-color:rgba(0,0,0,0.22) transparent; }
+body.theme-day .collapse-btn:hover { color:#fff; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1001;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
+#btn-show-equations {
+  flex:1; min-width:0;
+  font-size:.8em; font-weight:600; padding:6px 12px;
+}
+#eq-content .eq-section-title {
+  font-size:.78em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d;
+}
+#eq-content .eq-section-title:first-child { margin-top:0; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.85em 0 !important; width:100%; text-align:center; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:300px; min-width:200px; max-width:45vw; flex:0 0 auto; }
+#right-panel { width:540px; min-width:240px; max-width:58vw; flex:0 0 auto; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; z-index:10; padding:0; line-height:1;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:500px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 88px; font-size:.8em; text-align:right; }
+button.btn-ic-zero { padding:3px 10px; font-size:.72em; font-weight:600; flex-shrink:0; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 46px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button.secondary { background:var(--accent); border:1px solid #555; transition:border-color .2s; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; }
+canvas#canvas:active { cursor:grabbing; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; border:1px solid transparent; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+body.theme-day .plot-hint { color:rgba(0,0,0,.32); }
+body.theme-day #eq-content > p:first-child { color:#57606a !important; }
+mjx-container { display:inline !important; }
+</style>
+</head>
+<body class="theme-night">
+
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — adjust system parameters and initial conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot</li>
+      <li><strong>Double-click</strong> a plot to reset the view</li>
+      <li><strong>Scroll the right panel</strong> to explore all widgets</li>
+      <li><strong>Day mode</strong> — light theme for panels, main view, and plots</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.93em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      <p style="color:#8b949e;font-size:0.95em;margin:0;">Equations panel — add your model here.</p>
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>TEMPLATE</h1>
+  <h2>Interactive simulator</h2>
+  <div id="credits-block" style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
+    Prof. Marco Gabiccini &amp; Martino Gulisano<br>Applied mechanics<br>
+    <span class="credits-muted" style="font-size:.9em;color:#666;">All rights reserved</span>
+  </div>
+
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Parameters</div>
+    <div class="param-row"><label>$a$:</label>
+      <input type="range" id="a-slider" min="0" max="10" value="1" step="0.05">
+      <span class="val" id="a-val">1.00</span></div>
+    <div class="param-row"><label>$b$:</label>
+      <input type="range" id="b-slider" min="0" max="10" value="2" step="0.05">
+      <span class="val" id="b-val">2.00</span></div>
+    <div class="param-row"><label>$c$:</label>
+      <input type="range" id="c-slider" min="0" max="10" value="3" step="0.05">
+      <span class="val" id="c-val">3.00</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="param-row" style="margin-bottom:4px;">
+      <label>$T_{\max}$ (s):</label>
+      <input type="number" id="tmax-input" class="compact" value="15" min="1" max="600" step="1">
+      <span class="val"></span>
+    </div>
+    <div class="btn-row">
+      <button id="btn-simulate">▶ Play</button>
+      <button id="btn-stop" class="secondary">■ Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">State</div>
+    <div id="info-box">Adjust parameters and press Play.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot1">
+      <span>Plot 1</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot1">
+      <canvas id="plot1-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot2">
+      <span>Plot 2</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot2">
+      <canvas id="plot2-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot3">
+      <span>Plot 3</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot3">
+      <canvas id="plot3-canvas" class="plot-view" width="340" height="150" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+{
+  const helpOv = document.getElementById('help-overlay');
+  const helpBtn = document.getElementById('help-close');
+  if (helpOv && helpBtn) {
+    helpBtn.addEventListener('click', () => helpOv.classList.add('hidden'));
+    helpOv.addEventListener('click', e => { if (e.target === helpOv) helpOv.classList.add('hidden'); });
+  }
+}
+let params = { a: 1, b: 2, c: 3 };
+let simRunning = false;
+let animId = null;
+
+const MAIN_VIEW_ZOOM_DEFAULT = 1;
+const MAIN_VIEW_OFFX_DEFAULT = 0;
+const MAIN_VIEW_OFFY_DEFAULT = 0;
+const mainView = { offX: MAIN_VIEW_OFFX_DEFAULT, offY: MAIN_VIEW_OFFY_DEFAULT, zoom: MAIN_VIEW_ZOOM_DEFAULT };
+
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0 = x0; this._x1 = x1; this._y0 = y0; this._y1 = y1;
+    this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; this.active = false;
+  }
+  toX(v, pad, W) { return pad.l + (v - this.xMin) / (this.xMax - this.xMin) * (W - pad.l - pad.r); }
+  toY(v, pad, H) { return pad.t + (H - pad.t - pad.b) * (1 - (v - this.yMin) / (this.yMax - this.yMin)); }
+  px2data(px, py, pad, W, H) {
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    return [this.xMin + (px - pad.l) / pw * (this.xMax - this.xMin),
+      this.yMin + (1 - (py - pad.t) / ph) * (this.yMax - this.yMin)];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active = true;
+    this.xMin = xd + (this.xMin - xd) * factor;
+    this.xMax = xd + (this.xMax - xd) * factor;
+    this.yMin = yd + (this.yMin - yd) * factor;
+    this.yMax = yd + (this.yMax - yd) * factor;
+  }
+  pan(dxd, dyd) {
+    this.active = true;
+    this.xMin -= dxd; this.xMax -= dxd;
+    this.yMin -= dyd; this.yMax -= dyd;
+  }
+  reset() {
+    this.active = false;
+    this.xMin = this._x0; this.xMax = this._x1; this.yMin = this._y0; this.yMax = this._y1;
+  }
+}
+
+const PLOT_PAD = { l: 42, r: 32, t: 12, b: 26 };
+const plot1View = new PanZoomView(0, 5, -1, 1);
+const plot2View = new PanZoomView(0, 5, -1, 1);
+const plot3View = new PanZoomView(-1, 1, -1, 1);
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const [xd, yd] = view.px2data(px, py, pad, cv.width, cv.height);
+    view.zoomAt(e.deltaY > 0 ? 1.15 : 1 / 1.15, xd, yd);
+    redrawFn();
+  }, { passive: false });
+  let drag = false, lx, ly;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const rect = cv.getBoundingClientRect();
+    lx = (e.clientX - rect.left) * (cv.width / rect.width);
+    ly = (e.clientY - rect.top) * (cv.height / rect.height);
+    cv.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const pw = cv.width - pad.l - pad.r, ph = cv.height - pad.t - pad.b;
+    view.pan((px - lx) / pw * (view.xMax - view.xMin), -(py - ly) / ph * (view.yMax - view.yMin));
+    lx = px; ly = py; redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag = false; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function niceTicks(lo, hi, target = 5) {
+  if (hi <= lo) return [];
+  const range = hi - lo;
+  const rough = range / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(Math.abs(rough) || 1)));
+  const step = [1, 2, 2.5, 5, 10].find(f => f * pow >= rough - 1e-10) * pow;
+  const start = Math.ceil(lo / step - 1e-9) * step;
+  const ticks = [];
+  for (let v = start; v <= hi + step * 1e-9; v += step)
+    ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function plotPlotTheme() {
+  const d = document.body.classList.contains('theme-day');
+  return {
+    grid: d ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
+    grid0: d ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
+    axis: d ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.2)',
+    tick: d ? '#3d4554' : '#888',
+    zoom: d ? 'rgba(199,62,84,0.78)' : 'rgba(233,69,96,0.6)',
+  };
+}
+
+function drawPlotAxes(cvId, view, pad, xAxisLbl, yAxisLbl) {
+  const cv = document.getElementById(cvId);
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const pt = plotPlotTheme();
+  const toX = v => view.toX(v, pad, W);
+  const toY = v => view.toY(v, pad, H);
+  c.clearRect(0, 0, W, H);
+  const xTicks = niceTicks(view.xMin, view.xMax, 5);
+  const yTicks = niceTicks(view.yMin, view.yMax, 5);
+  c.font = '9px sans-serif';
+  for (const vx of xTicks) {
+    const px = toX(vx);
+    if (px < pad.l || px > W - pad.r) continue;
+    c.beginPath(); c.moveTo(px, pad.t); c.lineTo(px, H - pad.b);
+    c.strokeStyle = pt.grid; c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'center';
+    c.fillText(vx.toFixed(2), px, H - 4);
+  }
+  for (const vy of yTicks) {
+    const py = toY(vy);
+    if (py < pad.t || py > H - pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W - pad.r, py);
+    c.strokeStyle = Math.abs(vy) < 1e-9 ? pt.grid0 : pt.grid; c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'right';
+    c.fillText(vy.toFixed(2), pad.l - 3, py + 3);
+  }
+  c.strokeStyle = pt.axis; c.beginPath();
+  c.moveTo(pad.l, pad.t); c.lineTo(pad.l, H - pad.b); c.lineTo(W - pad.r, H - pad.b); c.stroke();
+  c.fillStyle = pt.tick; c.textAlign = 'center';
+  c.font = '10px sans-serif';
+  c.fillText(xAxisLbl, (pad.l + W - pad.r) / 2, H - 2);
+  c.save();
+  c.translate(12, (pad.t + H - pad.b) / 2);
+  c.rotate(-Math.PI / 2);
+  c.textAlign = 'center';
+  c.fillText(yAxisLbl, 0, 0);
+  c.restore();
+  if (view.active) {
+    c.fillStyle = pt.zoom; c.font = 'bold 9px sans-serif';
+    c.textAlign = 'right';
+    c.fillText('zoom', W - pad.r - 4, pad.t + 10);
+  }
+}
+
+function readParams() {
+  params = {
+    a: parseFloat(document.getElementById('a-slider').value),
+    b: parseFloat(document.getElementById('b-slider').value),
+    c: parseFloat(document.getElementById('c-slider').value),
+  };
+}
+
+function wireSlider(id, valId, fmt) {
+  const sl = document.getElementById(id), vl = document.getElementById(valId);
+  const upd = () => { vl.textContent = fmt(parseFloat(sl.value)); readParams(); redrawAll(); };
+  sl.addEventListener('input', upd); upd();
+}
+wireSlider('a-slider', 'a-val', v => v.toFixed(2));
+wireSlider('b-slider', 'b-val', v => v.toFixed(2));
+wireSlider('c-slider', 'c-val', v => v.toFixed(2));
+
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  const sz = Math.min(cont.clientWidth - 12, cont.clientHeight - 12);
+  canvas.width = sz; canvas.height = sz;
+}
+
+function drawMain() {
+  readParams();
+  const { a, b, c } = params;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = cssVar('--canvas-bg', '#0d1117');
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const cx = canvas.width * 0.5 + mainView.offX;
+  const cy = canvas.height * 0.5 + mainView.offY;
+  const s = 40 * mainView.zoom;
+  ctx.strokeStyle = document.body.classList.contains('theme-day') ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = -6; i <= 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx + i * s * 2, 0);
+    ctx.lineTo(cx + i * s * 2, canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, cy + i * s * 2);
+    ctx.lineTo(canvas.width, cy + i * s * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = document.body.classList.contains('theme-day') ? '#1a1f2e' : '#c9d1d9';
+  ctx.font = '600 15px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Main view — scroll: zoom · drag: pan · double-click: reset', cx, cy - 36);
+  ctx.font = '13px monospace';
+  ctx.fillText(`a = ${a.toFixed(2)}   b = ${b.toFixed(2)}   c = ${c.toFixed(2)}`, cx, cy);
+  ctx.font = '12px Segoe UI, sans-serif';
+  ctx.fillStyle = document.body.classList.contains('theme-day') ? '#57606a' : '#8b949e';
+  ctx.fillText(simRunning ? 'Simulation running (hook your model here).' : 'Idle.', cx, cy + 28);
+}
+
+function redrawAll() {
+  drawMain();
+  drawPlotAxes('plot1-canvas', plot1View, PLOT_PAD, 't', 'y1');
+  drawPlotAxes('plot2-canvas', plot2View, PLOT_PAD, 't', 'y2');
+  drawPlotAxes('plot3-canvas', plot3View, PLOT_PAD, 'x', 'y3');
+  updateInfo();
+}
+
+function updateInfo() {
+  const box = document.getElementById('info-box');
+  const tmax = document.getElementById('tmax-input').value;
+  const { a, b, c } = params;
+  box.textContent =
+    `a = ${a.toFixed(4)}\n` +
+    `b = ${b.toFixed(4)}\n` +
+    `c = ${c.toFixed(4)}\n` +
+    `T_max = ${tmax} s\n` +
+    `run = ${simRunning ? 'yes' : 'no'}`;
+}
+
+document.getElementById('tmax-input').addEventListener('change', updateInfo);
+
+function simStep() {
+  if (!simRunning) return;
+  animId = requestAnimationFrame(simStep);
+  redrawAll();
+}
+
+function startSim() {
+  simRunning = true;
+  if (animId) cancelAnimationFrame(animId);
+  simStep();
+}
+
+function stopSim() {
+  simRunning = false;
+  if (animId) cancelAnimationFrame(animId);
+  animId = null;
+  redrawAll();
+}
+
+function resetSim() {
+  stopSim();
+  mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+  mainView.offY = MAIN_VIEW_OFFY_DEFAULT;
+  mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+  plot1View.reset(); plot2View.reset(); plot3View.reset();
+  redrawAll();
+}
+
+document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1 / 1.13 : 1.13;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const sz = canvas.width;
+  mainView.offX = (mx - sz * 0.5) * (1 - factor) + mainView.offX * factor;
+  mainView.offY = (my - sz * 0.5) * (1 - factor) + mainView.offY * factor;
+  mainView.zoom *= factor;
+  redrawAll();
+}, { passive: false });
+
+{
+  let mainDrag = false, mlx = 0, mly = 0;
+  canvas.addEventListener('mousedown', e => { mainDrag = true; mlx = e.clientX; mly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!mainDrag) return;
+    const rect = canvas.getBoundingClientRect();
+    const scX = canvas.width / rect.width, scY = canvas.height / rect.height;
+    mainView.offX += (e.clientX - mlx) * scX;
+    mainView.offY += (e.clientY - mly) * scY;
+    mlx = e.clientX; mly = e.clientY;
+    redrawAll();
+  });
+  window.addEventListener('mouseup', () => { mainDrag = false; });
+  canvas.addEventListener('dblclick', () => {
+    mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+    mainView.offY = MAIN_VIEW_OFFY_DEFAULT;
+    mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+    redrawAll();
+  });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); redrawAll(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side, maxVwFrac = 0.45) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * maxVwFrac));
+    panel.style.width = w + 'px'; resize(); redrawAll();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+setupResizer('left-resizer', 'left-panel', 'left');
+setupResizer('right-resizer', 'right-panel', 'right', 0.56);
+
+async function initApp() {
+  if (window.__templateSimInit) return;
+  window.__templateSimInit = true;
+  try {
+    if (window.MathJax && MathJax.typeset) MathJax.typeset();
+  } catch (e) { /* optional */ }
+  setupPanZoom('plot1-canvas', plot1View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot2-canvas', plot2View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot3-canvas', plot3View, PLOT_PAD, redrawAll);
+
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  resize(); readParams(); redrawAll();
+
+  function syncThemeFromCheckbox() {
+    document.body.classList.toggle('theme-day', document.getElementById('theme-day').checked);
+  }
+  document.getElementById('theme-day').addEventListener('change', () => {
+    syncThemeFromCheckbox();
+    redrawAll();
+  });
+  syncThemeFromCheckbox();
+
+  const eqOv = document.getElementById('eq-overlay');
+  document.getElementById('eq-close').addEventListener('click', () => eqOv.classList.add('hidden'));
+  eqOv.addEventListener('click', e => { if (e.target === eqOv) eqOv.classList.add('hidden'); });
+  document.getElementById('btn-show-equations').addEventListener('click', () => {
+    eqOv.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]).catch(() => {});
+  });
+}
+
+resize();
+redrawAll();
+setTimeout(() => { if (!window.__templateSimInit) initApp(); }, 2500);
+
+window.addEventListener('resize', () => { resize(); redrawAll(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T-rod with imposed displacement</title>
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['$','$']], displayMath: [['$$','$$'], ['\\[','\\]']],
+    packages: { '[+]': ['ams'] },
+  },
+  loader: { load: ['input/tex', 'output/svg', '[tex]/ams'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() {
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(initApp).catch(() => initApp());
+    }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.3);
+  --info-bg:rgba(0,0,0,.3); --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92);
+  --info-bg:rgba(0,0,0,.06); --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; transition:background .25s,color .25s; }
+.theme-switch-row {
+  display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px;
+  font-size:.78em; user-select:none;
+}
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .sec-toggle { color:#6e7781; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+body.theme-day button.secondary { border-color:#aab; }
+body.theme-day input[type="number"].compact { border-color:#c5cad3; color:#24292f; }
+body.theme-day button { color:#1a1f2e; }
+body.theme-day button.secondary { color:#1a1f2e; background:#c8d4e8; border-color:#9aa8bc; }
+body.theme-day button.secondary:hover { background:#b8c6dc; color:#1a1f2e; }
+body.theme-day #help-close,
+body.theme-day #eq-close { color:#1a1f2e; background:#e8b4bf; }
+body.theme-day #help-close:hover,
+body.theme-day #eq-close:hover { color:#1a1f2e; background:#dfa0ae; }
+body.theme-day #info-box { color:#24292f; border:1px solid #d8dee4; }
+body.theme-day .section > .section-title { color:#57606a; }
+body.theme-day .theme-switch-row,
+body.theme-day .theme-switch-row label { color:#24292f; }
+body.theme-day #credits-block,
+body.theme-day #credits-block .credits-muted { color:#5a6570 !important; }
+body.theme-day .panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.22); }
+body.theme-day .panel::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,0.35); }
+body.theme-day .panel { scrollbar-color:rgba(0,0,0,0.22) transparent; }
+body.theme-day .collapse-btn:hover { color:#fff; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1001;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
+#btn-show-equations {
+  flex:1; min-width:0;
+  font-size:.8em; font-weight:600; padding:6px 12px;
+}
+#eq-content .eq-section-title {
+  font-size:.78em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d;
+}
+#eq-content .eq-section-title:first-child { margin-top:0; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.85em 0 !important; width:100%; text-align:center; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:300px; min-width:200px; max-width:45vw; flex:0 0 auto; }
+#right-panel { width:540px; min-width:240px; max-width:58vw; flex:0 0 auto; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; z-index:10; padding:0; line-height:1;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:500px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 88px; font-size:.8em; text-align:right; }
+button.btn-ic-zero { padding:3px 10px; font-size:.72em; font-weight:600; flex-shrink:0; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 46px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button.secondary { background:var(--accent); border:1px solid #555; transition:border-color .2s; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+#canvas-container canvas { max-width:100%; }
+canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; }
+canvas#canvas:active { cursor:grabbing; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; border:1px solid transparent; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+body.theme-day .plot-hint { color:rgba(0,0,0,.32); }
+body.theme-day #eq-content > p:first-child { color:#57606a !important; }
+mjx-container { display:inline !important; }
+</style>
+</head>
+<body class="theme-night">
+
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — adjust system parameters and initial conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
+      <li><strong>Main view</strong> — scroll to zoom, drag to pan, double-click to reset framing</li>
+      <li><strong>Plots</strong> — scroll to zoom, drag to pan, double-click to reset</li>
+      <li><strong>Scroll the right panel</strong> to explore all widgets</li>
+      <li><strong>Day mode</strong> — light theme for panels, main view, and plots</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.93em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      <div class="eq-section-title">Geometry</div>
+      <p style="color:#aeb8c3;font-size:0.9em;margin:0 0 8px 0;">$\lambda = r/b$, &nbsp; $b = r/\lambda$.</p>
+      <div class="eq-section-title">Kinematics</div>
+      \[ \alpha = \dot\alpha\, t \]
+      \[ s(t) = r + b - r\cos\alpha - b\sqrt{\,1 - \lambda^2\sin^2\alpha\,} \]
+      \[ s'(t) = \dot\alpha \left( r\sin\alpha + \frac{b\lambda^2\sin 2\alpha}{2\sqrt{1-\lambda^2\sin^2\alpha}} \right) \]
+      \[ s''(t) = \dot\alpha^2 \left( r\cos\alpha + \frac{b\lambda^2}{2}\left[ \frac{2\cos 2\alpha}{\sqrt{1-\lambda^2\sin^2\alpha}} + \frac{\lambda^2\sin^2 2\alpha}{2\bigl(1-\lambda^2\sin^2\alpha\bigr)^{3/2}} \right] \right) \]
+      <div class="eq-section-title">Reference times</div>
+      \[ z = \frac{-1 + \sqrt{1+8\lambda^2}}{4\lambda}, \qquad \alpha_1 = \arccos z, \quad \alpha_2 = 2\pi - \alpha_1 \]
+      \[ t_\pi = \frac{\pi}{\dot\alpha}, \quad t_1 = \frac{\alpha_1}{\dot\alpha}, \quad t_2 = \frac{\alpha_2}{\dot\alpha}, \quad T = \frac{2\pi}{\dot\alpha} \]
+      <div class="eq-section-title">Force</div>
+      \[ F = m\, s'' + 2 m\,\frac{h}{a}\, f\, \mathrm{sign}(s')\, |s''| \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>T-rod with imposed displacement</h1>
+
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Parameters</div>
+    <div class="param-row"><label>$r$ (m):</label>
+      <input type="range" id="r-slider" min="0.02" max="0.2" value="0.1" step="0.001">
+      <span class="val" id="r-val">0.100</span></div>
+    <div class="param-row"><label>$\lambda$:</label>
+      <input type="range" id="lambda-slider" min="0.02" max="0.5" value="0.3" step="0.001">
+      <span class="val" id="lambda-val">0.300</span></div>
+    <div class="param-row"><label>$\dot\alpha$ (rad/s):</label>
+      <input type="range" id="ad-slider" min="0.1" max="3" value="0.5" step="0.01">
+      <span class="val" id="ad-val">0.50</span></div>
+    <div class="param-row"><label>$m$ (kg):</label>
+      <input type="range" id="m-slider" min="1" max="40" value="20" step="0.5">
+      <span class="val" id="m-val">20.0</span></div>
+    <div class="param-row"><label>$f$:</label>
+      <input type="range" id="f-slider" min="0.1" max="2" value="0.6" step="0.01">
+      <span class="val" id="f-val">0.60</span></div>
+    <div class="param-row"><label>$h$ (m):</label>
+      <input type="range" id="h-slider" min="0.01" max="0.8" value="0.1" step="0.001">
+      <span class="val" id="h-val">0.100</span></div>
+    <div class="param-row"><label>$a$ (m):</label>
+      <input type="range" id="a-slider" min="0.2" max="0.8" value="0.4" step="0.001">
+      <span class="val" id="a-val">0.400</span></div>
+    <div class="param-row">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.8em;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="chk-point-names" style="accent-color:var(--highlight);"> Point names</label>
+    </div>
+    <div class="param-row">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.8em;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="chk-hide-slider-crank" style="accent-color:var(--highlight);"> Hide slider-crank</label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="btn-row">
+      <button id="btn-simulate">▶ Play</button>
+      <button id="btn-stop" class="secondary">■ Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+    <div class="param-row" style="margin-top:6px;"><label>$\alpha$ (°):</label>
+      <input type="range" id="alpha-slider" min="0" max="360" value="0" step="0.1">
+      <span class="val" id="alpha-val">0.0</span></div>
+    <div class="param-row" style="font-size:.72em;color:#888;line-height:1.35;margin-top:2px;">
+      <span style="flex:1;text-align:left;">Play advances the simulation; drag $\alpha$ to set the crank angle.</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">State</div>
+    <div id="info-box">Adjust parameters and press Play.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
+</div>
+<div id="canvas-container">
+  <canvas id="canvas"></canvas>
+</div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot1">
+      <span>$s\,[\text{m}]$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot1">
+      <canvas id="plot1-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot2">
+      <span>$s'\,[\text{m/s}]$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot2">
+      <canvas id="plot2-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot3">
+      <span>$s''\,[\text{m/s}^{2}]$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot3">
+      <canvas id="plot3-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot4">
+      <span>$F\,[\text{N}]$</span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot4">
+      <canvas id="plot4-canvas" class="plot-view" width="340" height="130" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+{
+  const helpOv = document.getElementById('help-overlay');
+  const helpBtn = document.getElementById('help-close');
+  if (helpOv && helpBtn) {
+    helpBtn.addEventListener('click', () => helpOv.classList.add('hidden'));
+    helpOv.addEventListener('click', e => { if (e.target === helpOv) helpOv.classList.add('hidden'); });
+  }
+}
+let simRunning = false;
+let animId = null;
+let lastFrameMs = 0;
+let currentT = 0;
+
+const MAIN_VIEW_ZOOM_DEFAULT = 1;
+const MAIN_VIEW_OFFX_DEFAULT = 0;
+const MAIN_VIEW_OFFY_DEFAULT = 0;
+/** World $x$ window $[x_{\min},x_{\max}]$ (m); scale fills ~72% of canvas width (times zoom). */
+const mainView = {
+  offX: MAIN_VIEW_OFFX_DEFAULT,
+  offY: MAIN_VIEW_OFFY_DEFAULT,
+  zoom: MAIN_VIEW_ZOOM_DEFAULT,
+  xMin: -0.15,
+  xMax: 0.35,
+  /** When true, horizontal bounds are not auto-updated from geometry (user panned/zoomed). */
+  userAdjusted: false
+};
+
+function mainWinCrank(me) {
+  const xQ1 = me.r + me.b + me.r;
+  const xQ2 = xQ1 + me.a;
+  const pad = Math.max(0.06 * me.r, 0.02);
+  return { xMin: -1.5 * me.r, xMax: xQ2 + pad };
+}
+
+/** Sets $x_{\min},x_{\max}$ from slider-crank geometry when the user has not customized pan/zoom. */
+function syncMainWinBounds() {
+  if (mainView.userAdjusted) return;
+  const me = readMechanism();
+  const w = mainWinCrank(me);
+  mainView.xMin = w.xMin;
+  mainView.xMax = w.xMax;
+}
+
+function resetMainViewFrame() {
+  mainView.userAdjusted = false;
+  mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+  mainView.offY = MAIN_VIEW_OFFY_DEFAULT;
+  mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+  const me = readMechanism();
+  const w = mainWinCrank(me);
+  mainView.xMin = w.xMin;
+  mainView.xMax = w.xMax;
+}
+
+/** MathJax SVG for main-canvas axis label $s$ (night / day colors). */
+const MI = {};
+async function preloadMainCanvasLabels() {
+  if (!window.MathJax || !MathJax.tex2svg) return;
+  async function mk(key, tex, color, h) {
+    const wrapper = MathJax.tex2svg(tex, { display: false });
+    const svg = wrapper.querySelector('svg');
+    const hEx = parseFloat(svg.getAttribute('height')) || 1;
+    const wEx = parseFloat(svg.getAttribute('width')) || 1;
+    const wPx = Math.ceil(wEx / hEx * h) + 2;
+    svg.setAttribute('height', h);
+    svg.setAttribute('width', wPx);
+    let str = new XMLSerializer().serializeToString(svg);
+    str = str.replace(/currentColor/g, color);
+    const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml;charset=utf-8' }));
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    URL.revokeObjectURL(url);
+    MI[key] = img;
+  }
+  await mk('s_tex', 's', '#f3f4f6', 8);
+  await mk('s_tex_day', 's', '#111827', 8);
+  await mk('alpha_tex', '\\alpha', '#f3f4f6', 10);
+  await mk('alpha_tex_day', '\\alpha', '#111827', 10);
+  await mk('beta_tex', '\\beta', '#f3f4f6', 17);
+  await mk('beta_tex_day', '\\beta', '#111827', 17);
+  await mk('betaNeg_tex', '\\beta<0', '#f3f4f6', 16);
+  await mk('betaNeg_tex_day', '\\beta<0', '#111827', 16);
+  await mk('G_tex', '\\mathrm{G}', '#ffffff', 10);
+  await mk('G_tex_day', '\\mathrm{G}', '#111827', 10);
+}
+
+/** Optional tailCrossHalf: half-length in px of transverse bar at tail (perpendicular to shaft). */
+function drawArrowCanvas(x0, y0, x1, y1, color, lw, tailCrossHalfPx) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 0.5) return;
+  const ux = dx / len, uy = dy / len;
+  const px = -uy, py = ux;
+  if (tailCrossHalfPx > 0) {
+    ctx.beginPath();
+    ctx.moveTo(x0 - px * tailCrossHalfPx, y0 - py * tailCrossHalfPx);
+    ctx.lineTo(x0 + px * tailCrossHalfPx, y0 + py * tailCrossHalfPx);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+  const ah = Math.min(11, len * 0.24);
+  const x1s = x1 - ux * ah * 0.2;
+  const y1s = y1 - uy * ah * 0.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1s, y1s);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  const bx = x1 - ux * ah, by = y1 - uy * ah;
+  const perp = 0.42 * ah;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(bx - uy * perp, by + ux * perp);
+  ctx.lineTo(bx + uy * perp, by - ux * perp);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0 = x0; this._x1 = x1; this._y0 = y0; this._y1 = y1;
+    this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; this.active = false;
+  }
+  toX(v, pad, W) { return pad.l + (v - this.xMin) / (this.xMax - this.xMin) * (W - pad.l - pad.r); }
+  toY(v, pad, H) { return pad.t + (H - pad.t - pad.b) * (1 - (v - this.yMin) / (this.yMax - this.yMin)); }
+  px2data(px, py, pad, W, H) {
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    return [this.xMin + (px - pad.l) / pw * (this.xMax - this.xMin),
+      this.yMin + (1 - (py - pad.t) / ph) * (this.yMax - this.yMin)];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active = true;
+    this.xMin = xd + (this.xMin - xd) * factor;
+    this.xMax = xd + (this.xMax - xd) * factor;
+    this.yMin = yd + (this.yMin - yd) * factor;
+    this.yMax = yd + (this.yMax - yd) * factor;
+  }
+  pan(dxd, dyd) {
+    this.active = true;
+    this.xMin -= dxd; this.xMax -= dxd;
+    this.yMin -= dyd; this.yMax -= dyd;
+  }
+  reset() {
+    this.active = false;
+    this.xMin = this._x0; this.xMax = this._x1; this.yMin = this._y0; this.yMax = this._y1;
+  }
+}
+
+const PLOT_PAD = { l: 44, r: 28, t: 12, b: 26 };
+const plot1View = new PanZoomView(0, 360, 0, 1);
+const plot2View = new PanZoomView(0, 360, -1, 1);
+const plot3View = new PanZoomView(0, 360, -1, 1);
+const plot4View = new PanZoomView(0, 360, -1e4, 1e4);
+
+const PLOT_LINE_COLORS = ['#00b4d8', '#22c55e', '#c084fc', '#fb923c'];
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const [xd, yd] = view.px2data(px, py, pad, cv.width, cv.height);
+    view.zoomAt(e.deltaY > 0 ? 1.15 : 1 / 1.15, xd, yd);
+    redrawFn();
+  }, { passive: false });
+  let drag = false, lx, ly;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const rect = cv.getBoundingClientRect();
+    lx = (e.clientX - rect.left) * (cv.width / rect.width);
+    ly = (e.clientY - rect.top) * (cv.height / rect.height);
+    cv.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const pw = cv.width - pad.l - pad.r, ph = cv.height - pad.t - pad.b;
+    view.pan((px - lx) / pw * (view.xMax - view.xMin), -(py - ly) / ph * (view.yMax - view.yMin));
+    lx = px; ly = py; redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag = false; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function niceTicks(lo, hi, target = 5) {
+  if (hi <= lo) return [];
+  const range = hi - lo;
+  const rough = range / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(Math.abs(rough) || 1)));
+  const step = [1, 2, 2.5, 5, 10].find(f => f * pow >= rough - 1e-10) * pow;
+  const start = Math.ceil(lo / step - 1e-9) * step;
+  const ticks = [];
+  for (let v = start; v <= hi + step * 1e-9; v += step)
+    ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function plotPlotTheme() {
+  const d = document.body.classList.contains('theme-day');
+  return {
+    grid: d ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
+    grid0: d ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
+    axis: d ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.2)',
+    tick: d ? '#3d4554' : '#888',
+    zoom: d ? 'rgba(199,62,84,0.78)' : 'rgba(233,69,96,0.6)',
+    line: d ? '#0a4f5c' : '#00b4d8',
+    vlineRef: d ? '#111827' : '#f5f5f5',
+    dashAux: d ? 'rgba(17,24,39,0.5)' : 'rgba(245,245,245,0.55)',
+    marker: '#ffdd57',
+    markerStroke: d ? '#a67c00' : '#aa8800',
+    zeroLine: d ? '#000000' : '#ffffff',
+  };
+}
+
+function zOfLambda(lambda) {
+  return (-1 + Math.sqrt(1 + 8 * lambda * lambda)) / (4 * lambda);
+}
+
+/** Crank angle $\alpha\in[0,2\pi)$ from $t$ (unbounded $t$ ok). */
+function crankAlphaRad(alphaDot, t) {
+  const twoPi = 2 * Math.PI;
+  const x = alphaDot * t;
+  let a = x % twoPi;
+  if (a < 0) a += twoPi;
+  return a;
+}
+
+/** Kinematic quantities at time t [s]. r [m], lambda = r/b, alphaDot [rad/s]. */
+function evalKin(r, lambda, alphaDot, t) {
+  const b = r / lambda;
+  const alpha = crankAlphaRad(alphaDot, t);
+  const sa = Math.sin(alpha);
+  const ca = Math.cos(alpha);
+  const u = Math.max(1e-18, 1 - lambda * lambda * sa * sa);
+  const su = Math.sqrt(u);
+  const s = r + b - r * ca - b * su;
+  const dsda = r * sa + (b * lambda * lambda * Math.sin(2 * alpha)) / (2 * su);
+  const sp = dsda * alphaDot;
+  const d2sda2 = r * ca + (b * lambda * lambda / 2) * (
+    (2 * Math.cos(2 * alpha)) / su + (lambda * lambda * Math.sin(2 * alpha) * Math.sin(2 * alpha)) / (2 * Math.pow(su, 3))
+  );
+  const spp = d2sda2 * alphaDot * alphaDot;
+  return { b, s, sp, spp };
+}
+
+/** Dashed verticals at α = 180°, α1, α2 (degrees). */
+function alphaDegRefLines(lambda) {
+  const z = zOfLambda(lambda);
+  const zc = Math.max(-1, Math.min(1, z));
+  const a1 = Math.acos(zc);
+  const a2 = 2 * Math.PI - a1;
+  return [180, a1 * 180 / Math.PI, a2 * 180 / Math.PI];
+}
+
+function forceF(m, f, h, a, spp, sp) {
+  return m * spp + 2 * m * (h / a) * f * Math.sign(sp) * Math.abs(spp);
+}
+
+function tFromAlphaDeg(alphaDeg, alphaDot) {
+  return (alphaDeg * Math.PI / 180) / alphaDot;
+}
+
+function sampleRangeOverAlpha(yFn, degMax, n) {
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i <= n; i++) {
+    const deg = (degMax * i) / n;
+    const y = yFn(deg);
+    if (y < lo) lo = y;
+    if (y > hi) hi = y;
+  }
+  if (!isFinite(lo) || !isFinite(hi)) return [-1, 1];
+  if (hi - lo < 1e-12) { const e = Math.max(1e-6, Math.abs(hi) * 0.05); return [hi - e, hi + e]; }
+  const pad = (hi - lo) * 0.08;
+  return [lo - pad, hi + pad];
+}
+
+function syncPlotDomains(r, lambda, alphaDot, m, f, h, a) {
+  const n = 400;
+  const degMax = 360;
+  const kinT = t => evalKin(r, lambda, alphaDot, t);
+  const y1 = deg => kinT(tFromAlphaDeg(deg, alphaDot)).s;
+  const y2 = deg => kinT(tFromAlphaDeg(deg, alphaDot)).sp;
+  const y3 = deg => kinT(tFromAlphaDeg(deg, alphaDot)).spp;
+  const y4 = deg => {
+    const k = kinT(tFromAlphaDeg(deg, alphaDot));
+    return forceF(m, f, h, a, k.spp, k.sp);
+  };
+  const y4mspp = deg => m * kinT(tFromAlphaDeg(deg, alphaDot)).spp;
+  if (!plot1View.active) { plot1View.xMin = 0; plot1View.xMax = degMax; }
+  if (!plot2View.active) { plot2View.xMin = 0; plot2View.xMax = degMax; }
+  if (!plot3View.active) { plot3View.xMin = 0; plot3View.xMax = degMax; }
+  if (!plot4View.active) { plot4View.xMin = 0; plot4View.xMax = degMax; }
+  const r1 = sampleRangeOverAlpha(y1, degMax, n);
+  const r2 = sampleRangeOverAlpha(y2, degMax, n);
+  const r3 = sampleRangeOverAlpha(y3, degMax, n);
+  const r4f = sampleRangeOverAlpha(y4, degMax, n);
+  const r4m = sampleRangeOverAlpha(y4mspp, degMax, n);
+  const r4 = [Math.min(r4f[0], r4m[0]), Math.max(r4f[1], r4m[1])];
+  if (!plot1View.active) { plot1View.yMin = r1[0]; plot1View.yMax = r1[1]; }
+  if (!plot2View.active) { plot2View.yMin = r2[0]; plot2View.yMax = r2[1]; }
+  if (!plot3View.active) { plot3View.yMin = r3[0]; plot3View.yMax = r3[1]; }
+  if (!plot4View.active) { plot4View.yMin = r4[0]; plot4View.yMax = r4[1]; }
+}
+
+function drawAxesAndGrid(c, view, pad, W, H, xLbl, yLbl) {
+  const pt = plotPlotTheme();
+  const toX = v => view.toX(v, pad, W);
+  const toY = v => view.toY(v, pad, H);
+  const xTicks = niceTicks(view.xMin, view.xMax, 5);
+  const yTicks = niceTicks(view.yMin, view.yMax, 5);
+  const xFmt = (vx) => (view.xMax <= 400 && view.xMin >= -20) ? String(Math.round(vx)) : vx.toFixed(2);
+  c.font = '9px sans-serif';
+  for (const vx of xTicks) {
+    const px = toX(vx);
+    if (px < pad.l || px > W - pad.r) continue;
+    c.beginPath(); c.moveTo(px, pad.t); c.lineTo(px, H - pad.b);
+    c.strokeStyle = pt.grid; c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'center';
+    c.fillText(xFmt(vx), px, H - 4);
+  }
+  const ySpan = Math.max(1e-12, Math.abs(view.yMax - view.yMin));
+  for (const vy of yTicks) {
+    const py = toY(vy);
+    if (py < pad.t || py > H - pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W - pad.r, py);
+    c.strokeStyle = Math.abs(vy) < 1e-9 * ySpan ? pt.grid0 : pt.grid;
+    c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'right';
+    c.fillText(Number(vy.toPrecision(4)), pad.l - 3, py + 3);
+  }
+  if (view.yMin <= 0 && view.yMax >= 0) {
+    const py0 = toY(0);
+    if (py0 >= pad.t && py0 <= H - pad.b) {
+      c.save();
+      c.beginPath();
+      c.moveTo(pad.l, py0);
+      c.lineTo(W - pad.r, py0);
+      c.strokeStyle = pt.zeroLine;
+      c.lineWidth = 1.5;
+      c.setLineDash([]);
+      c.stroke();
+      c.restore();
+    }
+  }
+  c.strokeStyle = pt.axis; c.beginPath();
+  c.moveTo(pad.l, pad.t); c.lineTo(pad.l, H - pad.b); c.lineTo(W - pad.r, H - pad.b); c.stroke();
+  c.fillStyle = pt.tick; c.textAlign = 'center';
+  c.font = '10px sans-serif';
+  c.fillText(xLbl, (pad.l + W - pad.r) / 2, H - 2);
+  if (yLbl) {
+    c.save();
+    c.translate(12, (pad.t + H - pad.b) / 2);
+    c.rotate(-Math.PI / 2);
+    c.textAlign = 'center';
+    c.fillText(yLbl, 0, 0);
+    c.restore();
+  }
+  if (view.active) {
+    c.fillStyle = pt.zoom; c.font = 'bold 9px sans-serif';
+    c.textAlign = 'right';
+    c.fillText('zoom', W - pad.r - 4, pad.t + 10);
+  }
+}
+
+function drawVerticalMarkersDeg(c, view, pad, W, H, alphaDegLines) {
+  const pt = plotPlotTheme();
+  const toX = v => view.toX(v, pad, W);
+  const labels = ['180°', 'α1', 'α2'];
+  c.setLineDash([4, 4]);
+  c.lineWidth = 0.9;
+  for (let k = 0; k < 3; k++) {
+    const deg = alphaDegLines[k];
+    if (deg < 0 || deg > 360 + 1e-9) continue;
+    const px = toX(deg);
+    if (px < pad.l || px > W - pad.r) continue;
+    c.beginPath();
+    c.moveTo(px, pad.t);
+    c.lineTo(px, H - pad.b);
+    c.strokeStyle = pt.vlineRef;
+    c.stroke();
+    c.fillStyle = pt.vlineRef;
+    c.font = '8px sans-serif';
+    c.textAlign = 'center';
+    c.fillText(labels[k], px, Math.max(10, pad.t + 2));
+  }
+  c.setLineDash([]);
+}
+
+function drawAlphaPlot(cvId, view, yFnT, lineColor, alphaDot, currentT, alphaDegLines, showMarker, dashedOverlayFn) {
+  const cv = document.getElementById(cvId);
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const pad = PLOT_PAD;
+  const pt = plotPlotTheme();
+  const toX = v => view.toX(v, pad, W);
+  const toY = v => view.toY(v, pad, H);
+  c.clearRect(0, 0, W, H);
+  drawAxesAndGrid(c, view, pad, W, H, 'α (deg)', '');
+  drawVerticalMarkersDeg(c, view, pad, W, H, alphaDegLines);
+  const n = 500;
+  if (typeof dashedOverlayFn === 'function') {
+    c.beginPath();
+    c.strokeStyle = pt.dashAux;
+    c.lineWidth = 1.05;
+    c.setLineDash([5, 4]);
+    let st = false;
+    for (let i = 0; i <= n; i++) {
+      const deg = (360 * i) / n;
+      const t = tFromAlphaDeg(deg, alphaDot);
+      const y = dashedOverlayFn(t);
+      if (!isFinite(y)) continue;
+      const px = toX(deg), py = toY(y);
+      if (!st) { c.moveTo(px, py); st = true; }
+      else c.lineTo(px, py);
+    }
+    c.stroke();
+    c.setLineDash([]);
+  }
+  c.beginPath();
+  c.strokeStyle = lineColor;
+  c.lineWidth = 1.85;
+  let started = false;
+  for (let i = 0; i <= n; i++) {
+    const deg = (360 * i) / n;
+    const t = tFromAlphaDeg(deg, alphaDot);
+    const y = yFnT(t);
+    if (!isFinite(y)) continue;
+    const px = toX(deg), py = toY(y);
+    if (!started) { c.moveTo(px, py); started = true; }
+    else c.lineTo(px, py);
+  }
+  c.stroke();
+  if (showMarker) {
+    let degM = alphaDot * currentT * 180 / Math.PI;
+    degM = ((degM % 360) + 360) % 360;
+    const yc = yFnT(currentT);
+    if (isFinite(yc)) {
+      const px = toX(degM), py = toY(yc);
+      if (px >= pad.l && px <= W - pad.r && py >= pad.t && py <= H - pad.b) {
+        c.beginPath();
+        c.arc(px, py, 3, 0, 2 * Math.PI);
+        c.fillStyle = pt.marker;
+        c.fill();
+        c.strokeStyle = pt.markerStroke;
+        c.lineWidth = 1;
+        c.stroke();
+      }
+    }
+  }
+}
+
+function readMechanism() {
+  const r = parseFloat(document.getElementById('r-slider').value);
+  const lambda = parseFloat(document.getElementById('lambda-slider').value);
+  const alphaDot = parseFloat(document.getElementById('ad-slider').value);
+  const m = parseFloat(document.getElementById('m-slider').value);
+  const f = parseFloat(document.getElementById('f-slider').value);
+  const h = parseFloat(document.getElementById('h-slider').value);
+  const a = parseFloat(document.getElementById('a-slider').value);
+  return { r, lambda, alphaDot, m, f, h, a, b: r / lambda };
+}
+
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  const sz = Math.min(cont.clientWidth - 12, cont.clientHeight - 12);
+  canvas.width = sz;
+  canvas.height = sz;
+}
+
+/** World frame: $x$ right, $y$ up. Canvas: $y$ down → flip $y$. */
+function worldToCanvas(cx0, cy0, sc, xw, yw) {
+  return [cx0 + sc * xw, cy0 - sc * yw];
+}
+
+function drawMain() {
+  const me = readMechanism();
+  const { r, lambda, alphaDot, b, m, h, a, f } = me;
+  const t = currentT;
+  const k = evalKin(r, lambda, alphaDot, t);
+  const s = k.s;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = cssVar('--canvas-bg', '#0d1117');
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const day = document.body.classList.contains('theme-day');
+  const alpha = crankAlphaRad(alphaDot, t);
+  const x2 = r * Math.cos(alpha);
+  const y2 = r * Math.sin(alpha);
+  const x3 = r + b - s;
+  const y3 = 0;
+  const hideSliderCrank = document.getElementById('chk-hide-slider-crank').checked;
+
+  const plotW = canvas.width * 0.72 * mainView.zoom;
+  const xWin = Math.max(mainView.xMax - mainView.xMin, 1e-12);
+  const sc = plotW / xWin;
+  const cx0 = canvas.width * 0.18 + mainView.offX - sc * mainView.xMin;
+  const cy0 = canvas.height * 0.55 + mainView.offY;
+
+  {
+    const wLeft = (0 - cx0) / sc;
+    const wRight = (canvas.width - cx0) / sc;
+    const xg0 = Math.min(wLeft, wRight) - 0.02;
+    const xg1 = Math.max(wLeft, wRight) + 0.02;
+    const yTop = (cy0 - 0) / sc;
+    const yBot = (cy0 - canvas.height) / sc;
+    const yg0 = Math.min(yTop, yBot) - 0.02;
+    const yg1 = Math.max(yTop, yBot) + 0.02;
+    const rawStep = 44 / sc;
+    const pow10 = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 1e-9))));
+    let gStep = pow10;
+    for (const f of [1, 2, 5, 10]) {
+      if (f * pow10 >= rawStep * 0.55) {
+        gStep = f * pow10;
+        break;
+      }
+      gStep = 10 * pow10;
+    }
+    ctx.save();
+    ctx.strokeStyle = day ? 'rgba(15,23,42,0.11)' : 'rgba(148,163,184,0.07)';
+    ctx.lineWidth = 0.35;
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    for (let xw = Math.floor(xg0 / gStep) * gStep; xw <= xg1 + 1e-9; xw += gStep) {
+      const px = cx0 + sc * xw;
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, canvas.height);
+    }
+    for (let yw = Math.floor(yg0 / gStep) * gStep; yw <= yg1 + 1e-9; yw += gStep) {
+      const py = cy0 - sc * yw;
+      ctx.moveTo(0, py);
+      ctx.lineTo(canvas.width, py);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const [ox, oy] = worldToCanvas(cx0, cy0, sc, 0, 0);
+  const [p2x, p2y] = worldToCanvas(cx0, cy0, sc, x2, y2);
+  const [p3x, p3y] = worldToCanvas(cx0, cy0, sc, x3, y3);
+
+  function hingeRing(x, y) {
+    const R = Math.max(2.8, 2.9 * mainView.zoom);
+    const rHole = R * 0.42;
+    const bg = cssVar('--canvas-bg', '#0d1117');
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, 2 * Math.PI);
+    ctx.fillStyle = day ? '#9ca3af' : '#6b7280';
+    ctx.fill();
+    ctx.strokeStyle = day ? '#1f2937' : '#e5e7eb';
+    ctx.lineWidth = 1.25;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, rHole, 0, 2 * Math.PI);
+    ctx.fillStyle = bg;
+    ctx.fill();
+    ctx.strokeStyle = day ? '#374151' : '#9ca3af';
+    ctx.lineWidth = 0.85;
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = day ? '#8899aa' : '#556677';
+  ctx.lineWidth = 2;
+  {
+    const [gx0] = worldToCanvas(cx0, cy0, sc, mainView.xMin - 0.02, 0);
+    const [gx1] = worldToCanvas(cx0, cy0, sc, mainView.xMax + 0.02, 0);
+    const padPx = 10 * mainView.zoom;
+    ctx.beginPath();
+    ctx.moveTo(Math.min(gx0, gx1) - padPx, oy);
+    ctx.lineTo(Math.max(gx0, gx1) + padPx, oy);
+    ctx.stroke();
+  }
+
+  if (!hideSliderCrank) {
+    const Rarc = 0.5 * r;
+    if (Math.abs(alpha) > 1e-6) {
+      const colArc = '#2563eb';
+      const nSeg = Math.max(16, Math.ceil((Math.abs(alpha) * 180) / Math.PI / 4));
+      let endX = ox;
+      let endY = oy;
+      ctx.beginPath();
+      for (let i = 0; i <= nSeg; i++) {
+        const phi = (alpha * i) / nSeg;
+        const [ax, ay] = worldToCanvas(cx0, cy0, sc, Rarc * Math.cos(phi), Rarc * Math.sin(phi));
+        if (i === 0) ctx.moveTo(ax, ay);
+        else ctx.lineTo(ax, ay);
+        if (i === nSeg) {
+          endX = ax;
+          endY = ay;
+        }
+      }
+      ctx.strokeStyle = colArc;
+      ctx.lineWidth = 2.1;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      const tx = -Math.sin(alpha);
+      const ty = -Math.cos(alpha);
+      const tlen = Math.hypot(tx, ty) || 1;
+      const ux = tx / tlen;
+      const uy = ty / tlen;
+      const px = -uy;
+      const py = ux;
+      const headLen = Math.max(6, 7.5 * mainView.zoom);
+      const headW = headLen * 0.48;
+      const bx = endX - ux * headLen * 0.55;
+      const by = endY - uy * headLen * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(bx + px * headW, by + py * headW);
+      ctx.lineTo(bx - px * headW, by - py * headW);
+      ctx.closePath();
+      ctx.fillStyle = colArc;
+      ctx.fill();
+      const labR = Rarc * 1.32;
+      const [alx, aly] = worldToCanvas(cx0, cy0, sc, labR * Math.cos(alpha / 2), labR * Math.sin(alpha / 2));
+      const colA = day ? '#111827' : '#f3f4f6';
+      const imgA = day ? MI.alpha_tex_day : MI.alpha_tex;
+      if (imgA && imgA.complete && imgA.naturalWidth) {
+        ctx.drawImage(imgA, alx - imgA.width / 2, aly - imgA.height * 0.55);
+      } else {
+        ctx.font = 'italic 11px "Times New Roman", Times, serif';
+        ctx.fillStyle = colA;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('α', alx, aly);
+      }
+    }
+  }
+
+  {
+    const xQ1 = r + b + r;
+    const xQ2 = xQ1 + a;
+    const dx = 0.05 / 4;
+    const supFill = day ? 'rgba(100, 116, 139, 0.26)' : 'rgba(148, 163, 184, 0.28)';
+    function fillWorldRect(xmin, xmax, ymin, ymax) {
+      const [c1x, c1y] = worldToCanvas(cx0, cy0, sc, xmin, ymin);
+      const [c2x, c2y] = worldToCanvas(cx0, cy0, sc, xmax, ymin);
+      const [c3x, c3y] = worldToCanvas(cx0, cy0, sc, xmax, ymax);
+      const [c4x, c4y] = worldToCanvas(cx0, cy0, sc, xmin, ymax);
+      ctx.beginPath();
+      ctx.moveTo(c1x, c1y);
+      ctx.lineTo(c2x, c2y);
+      ctx.lineTo(c3x, c3y);
+      ctx.lineTo(c4x, c4y);
+      ctx.closePath();
+      ctx.fillStyle = supFill;
+      ctx.fill();
+    }
+    for (const xQ of [xQ1, xQ2]) {
+      fillWorldRect(xQ - dx, xQ + dx, 0.01, 0.06);
+      fillWorldRect(xQ - dx, xQ + dx, -0.06, -0.01);
+    }
+  }
+
+  if (!hideSliderCrank) {
+    const colManovella = '#2563eb';
+    ctx.strokeStyle = colManovella;
+    ctx.lineWidth = 3.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(p2x, p2y);
+    ctx.stroke();
+
+    hingeRing(ox, oy);
+    hingeRing(p2x, p2y);
+  }
+
+  const rw = 0.3 * r * sc;
+  const rh = 0.15 * r * sc;
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(p3x - rw / 2, p3y - rh / 2, rw, rh);
+  ctx.strokeStyle = '#c73e54';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(p3x - rw / 2, p3y - rh / 2, rw, rh);
+
+  const colBiella = '#38bdf8';
+  if (!hideSliderCrank) {
+    ctx.strokeStyle = colBiella;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(p2x, p2y);
+    ctx.lineTo(p3x, p3y);
+    ctx.stroke();
+  }
+
+  hingeRing(p3x, p3y);
+
+  if (!hideSliderCrank) {
+    const sinBeta = lambda * Math.sin(alpha);
+    const cosBeta = Math.sqrt(Math.max(0, 1 - lambda * lambda * Math.sin(alpha) * Math.sin(alpha)));
+    const Rb = 0.5 * r;
+    const phiStart = Math.PI;
+    const phiEnd = Math.atan2(sinBeta, -cosBeta);
+    let sweepB = phiEnd - phiStart;
+    while (sweepB > Math.PI) sweepB -= 2 * Math.PI;
+    while (sweepB < -Math.PI) sweepB += 2 * Math.PI;
+    if (Math.abs(sweepB) > 1e-8) {
+      const colBetaArc = colBiella;
+      const nSegB = Math.max(16, Math.ceil((Math.abs(sweepB) * 180) / Math.PI / 4));
+      let endBx = p3x;
+      let endBy = p3y;
+      ctx.beginPath();
+      for (let i = 0; i <= nSegB; i++) {
+        const phi = phiStart + (sweepB * i) / nSegB;
+        const [bx, by] = worldToCanvas(cx0, cy0, sc, x3 + Rb * Math.cos(phi), y3 + Rb * Math.sin(phi));
+        if (i === 0) ctx.moveTo(bx, by);
+        else ctx.lineTo(bx, by);
+        if (i === nSegB) {
+          endBx = bx;
+          endBy = by;
+        }
+      }
+      ctx.strokeStyle = colBetaArc;
+      ctx.lineWidth = 2.1;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      /* Tangential arrow at end of arc (not along biella); sense matches traversal along this short arc. */
+      const twx = sweepB >= 0 ? -Math.sin(phiEnd) : Math.sin(phiEnd);
+      const twy = sweepB >= 0 ? Math.cos(phiEnd) : -Math.cos(phiEnd);
+      const tcx = twx;
+      const tcy = -twy;
+      const tn = Math.hypot(tcx, tcy) || 1;
+      const headLenB = Math.max(6, 7.5 * mainView.zoom);
+      const pbx = -tcy / tn;
+      const pby = tcx / tn;
+      const bxb = endBx - (tcx / tn) * headLenB * 0.55;
+      const byb = endBy - (tcy / tn) * headLenB * 0.55;
+      const headWB = headLenB * 0.48;
+      ctx.beginPath();
+      ctx.moveTo(endBx, endBy);
+      ctx.lineTo(bxb + pbx * headWB, byb + pby * headWB);
+      ctx.lineTo(bxb - pbx * headWB, byb - pby * headWB);
+      ctx.closePath();
+      ctx.fillStyle = colBetaArc;
+      ctx.fill();
+      const phiMid = phiStart + 0.5 * sweepB;
+      const labRB = Rb * 1.32;
+      const [blx, bly] = worldToCanvas(cx0, cy0, sc, x3 + labRB * Math.cos(phiMid), y3 + labRB * Math.sin(phiMid));
+      const colB = day ? '#111827' : '#f3f4f6';
+      const useNeg = sinBeta < 0;
+      const imgB = useNeg
+        ? (day ? MI.betaNeg_tex_day : MI.betaNeg_tex)
+        : (day ? MI.beta_tex_day : MI.beta_tex);
+      if (imgB && imgB.complete && imgB.naturalWidth) {
+        ctx.drawImage(imgB, blx - imgB.width / 2, bly - imgB.height * 0.55);
+      } else {
+        ctx.font = 'italic 16px "Times New Roman", Times, serif';
+        ctx.fillStyle = colB;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(useNeg ? 'β < 0' : 'β', blx, bly);
+      }
+    }
+  }
+
+  {
+    const x4 = x3 + 0.7 * r;
+    const x5 = x4 + 0.75;
+    const x6 = x4 + 0.375;
+    const [p4x, p4y] = worldToCanvas(cx0, cy0, sc, x4, 0);
+    const [p5x, p5y] = worldToCanvas(cx0, cy0, sc, x5, 0);
+    const [p6x, p6y] = worldToCanvas(cx0, cy0, sc, x6, 0);
+    const [p7x, p7y] = worldToCanvas(cx0, cy0, sc, x6, h);
+    const colLinkLight = day ? '#94a3af' : '#d1d5db';
+    ctx.strokeStyle = colLinkLight;
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(p3x, p3y);
+    ctx.lineTo(p4x, p4y);
+    ctx.stroke();
+    const colSegThick = day ? '#94a3b8' : '#cbd5e1';
+    ctx.strokeStyle = colSegThick;
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(p4x, p4y);
+    ctx.lineTo(p5x, p5y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p6x, p6y);
+    ctx.lineTo(p7x, p7y);
+    ctx.stroke();
+    const rWorld = 0.012 * Math.cbrt(m);
+    const rPix = Math.max(1.2, rWorld * sc);
+    ctx.beginPath();
+    ctx.arc(p7x, p7y, rPix, 0, 2 * Math.PI);
+    ctx.fillStyle = '#e94560';
+    ctx.fill();
+    ctx.strokeStyle = '#b91c1c';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    const prIn = Math.min(Math.max(0.75, 0.95 * mainView.zoom), Math.max(0.5, rPix * 0.14));
+    ctx.beginPath();
+    ctx.arc(p7x, p7y, prIn, 0, 2 * Math.PI);
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fill();
+  }
+
+  {
+    const dWorld = 0.1 * Math.min(r + b, 0.45);
+    const Larr = 0.17 * (r + b);
+    const [tailX, tailY] = worldToCanvas(cx0, cy0, sc, r + b, -dWorld);
+    const [headX, headY] = worldToCanvas(cx0, cy0, sc, r + b - Larr, -dWorld);
+    const colS = day ? '#111827' : '#f3f4f6';
+    const tailBar = Math.max(3.5, 4.2 * mainView.zoom);
+    drawArrowCanvas(tailX, tailY, headX, headY, colS, 2.1, tailBar);
+    const midX = (tailX + headX) / 2;
+    const midY = (tailY + headY) / 2;
+    const img = day ? MI.s_tex_day : MI.s_tex;
+    const offY = 22 * mainView.zoom;
+    if (img && img.complete && img.naturalWidth) {
+      const iy = midY + offY;
+      ctx.drawImage(img, midX - img.width / 2, iy - img.height * 0.82);
+    } else {
+      ctx.font = 'italic 9px "Times New Roman", Times, serif';
+      ctx.fillStyle = colS;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('s', midX, midY + offY + 3);
+    }
+  }
+
+  if (document.getElementById('chk-point-names').checked) {
+    const fs = Math.max(9, Math.round(10 * mainView.zoom));
+    const fill = day ? '#4b5563' : '#e5e7eb';
+    ctx.font = `600 ${fs}px Segoe UI, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const d = 14 * mainView.zoom;
+    const tag = (txt, x, y) => {
+      ctx.fillStyle = fill;
+      ctx.fillText(txt, x, y);
+    };
+    const x4n = x3 + 0.7 * r;
+    const x5n = x4n + 0.75;
+    const x6n = x4n + 0.375;
+    const [p4nx, p4ny] = worldToCanvas(cx0, cy0, sc, x4n, 0);
+    const [p5nx, p5ny] = worldToCanvas(cx0, cy0, sc, x5n, 0);
+    const [p6nx, p6ny] = worldToCanvas(cx0, cy0, sc, x6n, 0);
+    const xQ1n = r + b + r;
+    const xQ2n = xQ1n + a;
+    const [q1nx, q1ny] = worldToCanvas(cx0, cy0, sc, xQ1n, 0);
+    const [q2nx, q2ny] = worldToCanvas(cx0, cy0, sc, xQ2n, 0);
+    const mSppHa = m * h * k.spp / a;
+    const yQ3 = -mSppHa;
+    const yQ4 = mSppHa;
+    const [q3nx, q3ny] = worldToCanvas(cx0, cy0, sc, xQ1n, yQ3);
+    const [q4nx, q4ny] = worldToCanvas(cx0, cy0, sc, xQ2n, yQ4);
+    const xQ5n = xQ1n - (-f * Math.sign(k.sp) * Math.abs(k.spp) * m * h / a);
+    const [q5nx, q5ny] = worldToCanvas(cx0, cy0, sc, xQ5n, 0);
+    const xQ8n = xQ2n - (-f * Math.sign(k.sp) * Math.abs(k.spp) * m * h / a);
+    const [q8nx, q8ny] = worldToCanvas(cx0, cy0, sc, xQ8n, 0);
+    tag('O', ox, oy + d);
+    tag('P2', p2x, p2y - d);
+    tag('P3', p3x, p3y - d);
+    tag('P4', p4nx, p4ny - d);
+    tag('P5', p5nx, p5ny - d);
+    tag('P6', p6nx, p6ny - d);
+    tag('Q1', q1nx, q1ny - d);
+    tag('Q2', q2nx, q2ny - d);
+    tag('Q3', q3nx, q3ny - d);
+    tag('Q4', q4nx, q4ny - d);
+    tag('Q5', q5nx, q5ny - d);
+    tag('Q8', q8nx, q8ny - d);
+  }
+
+  {
+    const xQ1 = r + b + r;
+    const xQ2 = xQ1 + a;
+    const mSppHa = m * h * k.spp / a;
+    const yQ3 = -mSppHa;
+    const yQ4 = mSppHa;
+    const colA = day ? '#15803d' : '#4ade80';
+    const colB = day ? '#0d9488' : '#34d399';
+    const [q1x, q1y] = worldToCanvas(cx0, cy0, sc, xQ1, 0);
+    const [q3x, q3y] = worldToCanvas(cx0, cy0, sc, xQ1, yQ3);
+    drawArrowCanvas(q1x, q1y, q3x, q3y, colA, 2.8, 0);
+    const [q2x, q2y] = worldToCanvas(cx0, cy0, sc, xQ2, 0);
+    const [q4x, q4y] = worldToCanvas(cx0, cy0, sc, xQ2, yQ4);
+    drawArrowCanvas(q2x, q2y, q4x, q4y, colB, 2.8, 0);
+    const xQ5 = xQ1 - (-f * Math.sign(k.sp) * Math.abs(k.spp) * m * h / a);
+    const [q5x, q5y] = worldToCanvas(cx0, cy0, sc, xQ5, 0);
+    drawArrowCanvas(q1x, q1y, q5x, q5y, colA, 2.8, 0);
+    const xQ8 = xQ2 - (-f * Math.sign(k.sp) * Math.abs(k.spp) * m * h / a);
+    const [q8x, q8y] = worldToCanvas(cx0, cy0, sc, xQ8, 0);
+    drawArrowCanvas(q2x, q2y, q8x, q8y, colA, 2.8, 0);
+  }
+
+  if (hideSliderCrank) {
+    const Fnm = forceF(m, f, h, a, k.spp, k.sp);
+    const x4f = x3 + 0.7 * r;
+    const [p4fx, p4fy] = worldToCanvas(cx0, cy0, sc, x4f, 0);
+    const [p7fx, p7fy] = worldToCanvas(cx0, cy0, sc, x4f - Fnm, 0);
+    const colF = day ? '#2563eb' : '#60a5fa';
+    drawArrowCanvas(p4fx, p4fy, p7fx, p7fy, colF, 3.2, 0);
+  }
+
+  ctx.fillStyle = day ? '#1a1f2e' : '#c9d1d9';
+  ctx.font = `600 ${Math.round(12 * mainView.zoom)}px Segoe UI, sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`α = ${(alpha * 180 / Math.PI).toFixed(1)}°   s = ${s.toFixed(4)} m`, 10, 22);
+
+  {
+    const x6g = x3 + 0.7 * r + 0.375;
+    const [gpx, gpy] = worldToCanvas(cx0, cy0, sc, x6g, h);
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    const imgG = day ? MI.G_tex_day : MI.G_tex;
+    const gOff = 4 * mainView.zoom;
+    if (imgG && imgG.complete && imgG.naturalWidth) {
+      ctx.drawImage(imgG, gpx - imgG.width / 2, gpy - imgG.height / 2 - gOff);
+    } else {
+      ctx.font = 'italic 600 11px "Times New Roman", Times, serif';
+      ctx.fillStyle = day ? '#1a1f2e' : '#f8fafc';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('G', gpx, gpy - gOff);
+    }
+    ctx.restore();
+  }
+}
+
+function redrawAll() {
+  const me = readMechanism();
+  const { r, lambda, alphaDot, m, f, h, a } = me;
+  syncPlotDomains(r, lambda, alphaDot, m, f, h, a);
+  const alphaDegLines = alphaDegRefLines(lambda);
+  const kin = t => evalKin(r, lambda, alphaDot, t);
+  drawAlphaPlot('plot1-canvas', plot1View, t => kin(t).s, PLOT_LINE_COLORS[0], alphaDot, currentT, alphaDegLines, true);
+  drawAlphaPlot('plot2-canvas', plot2View, t => kin(t).sp, PLOT_LINE_COLORS[1], alphaDot, currentT, alphaDegLines, true);
+  drawAlphaPlot('plot3-canvas', plot3View, t => kin(t).spp, PLOT_LINE_COLORS[2], alphaDot, currentT, alphaDegLines, true);
+  drawAlphaPlot('plot4-canvas', plot4View, t => {
+    const k = kin(t);
+    return forceF(m, f, h, a, k.spp, k.sp);
+  }, PLOT_LINE_COLORS[3], alphaDot, currentT, alphaDegLines, true, t => m * kin(t).spp);
+  updateInfo();
+  drawMain();
+}
+
+function updateInfo() {
+  const me = readMechanism();
+  const { r, lambda, alphaDot, m, f, h, a, b } = me;
+  const k = evalKin(r, lambda, alphaDot, currentT);
+  const F = forceF(m, f, h, a, k.spp, k.sp);
+  const mSppHa = m * k.spp * h / a;
+  const dQ5x = -(-f * Math.sign(k.sp) * Math.abs(k.spp) * m * h / a);
+  const dQ8x = -(-f * Math.sign(k.sp) * Math.abs(k.spp) * m * h / a);
+  document.getElementById('info-box').textContent =
+    `r = ${r.toFixed(4)} m   λ = ${lambda.toFixed(4)}   b = ${b.toFixed(4)} m\n` +
+    `α̇ = ${alphaDot.toFixed(4)} rad/s   α = ${(crankAlphaRad(alphaDot, currentT) * 180 / Math.PI).toFixed(2)}°\n` +
+    `s = ${k.s.toFixed(6)} m\n` +
+    `s′ = ${k.sp.toFixed(6)} m/s\n` +
+    `s″ = ${k.spp.toFixed(6)} m/s²\n` +
+    `−m s″ h / a = ${(-mSppHa).toFixed(6)} N   +m s″ h / a = ${mSppHa.toFixed(6)} N\n` +
+    `Q5 − Q1 (x) = ${dQ5x.toFixed(6)} m   ( − (−f sign(s′) |s″| m h/a) )\n` +
+    `Q8 − Q2 (x) = ${dQ8x.toFixed(6)} m   ( − (−f sign(s′) |s″| m h/a) )\n` +
+    `F = ${F.toFixed(4)} N`;
+}
+
+function syncAlphaSliderFromT() {
+  const me = readMechanism();
+  const deg = crankAlphaRad(me.alphaDot, currentT) * 180 / Math.PI;
+  const sl = document.getElementById('alpha-slider');
+  const vl = document.getElementById('alpha-val');
+  sl.value = String(deg);
+  vl.textContent = deg.toFixed(1);
+}
+
+function setTFromAlphaDeg(deg) {
+  const me = readMechanism();
+  const ad = me.alphaDot;
+  if (Math.abs(ad) < 1e-15) return;
+  let a = (deg * Math.PI / 180) % (2 * Math.PI);
+  if (a < 0) a += 2 * Math.PI;
+  currentT = a / ad;
+}
+
+function simStep(now) {
+  if (!simRunning) return;
+  if (lastFrameMs === 0) {
+    lastFrameMs = now;
+    animId = requestAnimationFrame(simStep);
+    redrawAll();
+    return;
+  }
+  const dt = Math.min(0.05, (now - lastFrameMs) / 1000);
+  lastFrameMs = now;
+  currentT += dt;
+  syncAlphaSliderFromT();
+  animId = requestAnimationFrame(simStep);
+  redrawAll();
+}
+
+function startSim() {
+  if (animId) cancelAnimationFrame(animId);
+  simRunning = true;
+  lastFrameMs = 0;
+  animId = requestAnimationFrame(simStep);
+}
+
+function stopSim() {
+  simRunning = false;
+  lastFrameMs = 0;
+  if (animId) cancelAnimationFrame(animId);
+  animId = null;
+  redrawAll();
+}
+
+function resetSim() {
+  stopSim();
+  currentT = 0;
+  document.getElementById('alpha-slider').value = '0';
+  document.getElementById('alpha-val').textContent = '0.0';
+  resetMainViewFrame();
+  plot1View.reset(); plot2View.reset(); plot3View.reset(); plot4View.reset();
+  redrawAll();
+}
+
+document.getElementById('btn-simulate').addEventListener('click', () => { startSim(); });
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+document.getElementById('chk-point-names').addEventListener('change', redrawAll);
+document.getElementById('chk-hide-slider-crank').addEventListener('change', redrawAll);
+
+function onMechanismInput() {
+  syncAlphaSliderFromT();
+  syncMainWinBounds();
+  redrawAll();
+}
+
+resize();
+
+function wireSlider(id, valId, fmt, onExtra) {
+  const sl = document.getElementById(id), vl = document.getElementById(valId);
+  const upd = () => {
+    vl.textContent = fmt(parseFloat(sl.value));
+    if (onExtra) onExtra();
+    else onMechanismInput();
+  };
+  sl.addEventListener('input', upd);
+  upd();
+}
+wireSlider('r-slider', 'r-val', v => v.toFixed(3));
+wireSlider('lambda-slider', 'lambda-val', v => v.toFixed(3));
+wireSlider('ad-slider', 'ad-val', v => v.toFixed(2));
+wireSlider('m-slider', 'm-val', v => v.toFixed(1), onMechanismInput);
+wireSlider('f-slider', 'f-val', v => v.toFixed(2), onMechanismInput);
+wireSlider('h-slider', 'h-val', v => v.toFixed(3), onMechanismInput);
+wireSlider('a-slider', 'a-val', v => v.toFixed(3), onMechanismInput);
+
+document.getElementById('alpha-slider').addEventListener('input', () => {
+  const deg = parseFloat(document.getElementById('alpha-slider').value);
+  setTFromAlphaDeg(deg);
+  document.getElementById('alpha-val').textContent = deg.toFixed(1);
+  redrawAll();
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  mainView.userAdjusted = true;
+  const factor = e.deltaY > 0 ? 1 / 1.13 : 1.13;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const sz = canvas.width;
+  mainView.offX = (mx - sz * 0.5) * (1 - factor) + mainView.offX * factor;
+  mainView.offY = (my - sz * 0.5) * (1 - factor) + mainView.offY * factor;
+  mainView.zoom *= factor;
+  redrawAll();
+}, { passive: false });
+
+{
+  let mainDrag = false, mlx = 0, mly = 0;
+  canvas.addEventListener('mousedown', e => { mainDrag = true; mlx = e.clientX; mly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!mainDrag) return;
+    mainView.userAdjusted = true;
+    const rect = canvas.getBoundingClientRect();
+    const scX = canvas.width / rect.width, scY = canvas.height / rect.height;
+    mainView.offX += (e.clientX - mlx) * scX;
+    mainView.offY += (e.clientY - mly) * scY;
+    mlx = e.clientX; mly = e.clientY;
+    redrawAll();
+  });
+  window.addEventListener('mouseup', () => { mainDrag = false; });
+  canvas.addEventListener('dblclick', () => {
+    resetMainViewFrame();
+    redrawAll();
+  });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); redrawAll(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side, maxVwFrac = 0.45) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * maxVwFrac));
+    panel.style.width = w + 'px'; resize(); redrawAll();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+setupResizer('left-resizer', 'left-panel', 'left');
+setupResizer('right-resizer', 'right-panel', 'right', 0.56);
+
+async function initApp() {
+  if (window.__esercizioSurpriseInit) return;
+  window.__esercizioSurpriseInit = true;
+  try {
+    if (window.MathJax && MathJax.typeset) MathJax.typeset();
+    await preloadMainCanvasLabels();
+  } catch (e) { /* MathJax / label images optional */ }
+  setupPanZoom('plot1-canvas', plot1View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot2-canvas', plot2View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot3-canvas', plot3View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot4-canvas', plot4View, PLOT_PAD, redrawAll);
+
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  syncAlphaSliderFromT();
+  syncMainWinBounds();
+  resize();
+  redrawAll();
+
+  function syncThemeFromCheckbox() {
+    document.body.classList.toggle('theme-day', document.getElementById('theme-day').checked);
+  }
+  document.getElementById('theme-day').addEventListener('change', () => {
+    syncThemeFromCheckbox();
+    redrawAll();
+  });
+  syncThemeFromCheckbox();
+
+  const eqOv = document.getElementById('eq-overlay');
+  document.getElementById('eq-close').addEventListener('click', () => eqOv.classList.add('hidden'));
+  eqOv.addEventListener('click', e => { if (e.target === eqOv) eqOv.classList.add('hidden'); });
+  document.getElementById('btn-show-equations').addEventListener('click', () => {
+    eqOv.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]).catch(() => {});
+  });
+}
+
+setTimeout(() => { if (!window.__esercizioSurpriseInit) initApp(); }, 2500);
+
+window.addEventListener('resize', () => { resize(); redrawAll(); });
+</script>
+</body>
+</html>
