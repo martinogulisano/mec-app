@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring with friction</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  /* 'local' font cache uses a separate document; on file:// that triggers a security warning */
+  svg: { fontCache: 'none' },
+};
+</script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.3);
+  --info-bg:rgba(0,0,0,.3); --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92);
+  --info-bg:rgba(0,0,0,.06); --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; transition:background .25s,color .25s; }
+.theme-switch-row {
+  display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px;
+  font-size:.78em; user-select:none;
+}
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .sec-toggle { color:#6e7781; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+body.theme-day button.secondary { border-color:#aab; }
+body.theme-day input[type="number"].compact { border-color:#c5cad3; color:#24292f; }
+body.theme-day button { color:#1a1f2e; }
+body.theme-day button.secondary { color:#1a1f2e; background:#c8d4e8; border-color:#9aa8bc; }
+body.theme-day button.secondary:hover { background:#b8c6dc; color:#1a1f2e; }
+body.theme-day #help-close,
+body.theme-day #eq-close { color:#1a1f2e; background:#e8b4bf; }
+body.theme-day #help-close:hover,
+body.theme-day #eq-close:hover { color:#1a1f2e; background:#dfa0ae; }
+body.theme-day #info-box { color:#24292f; border:1px solid #d8dee4; }
+body.theme-day .section > .section-title { color:#57606a; }
+body.theme-day .theme-switch-row,
+body.theme-day .theme-switch-row label { color:#24292f; }
+body.theme-day #credits-block,
+body.theme-day #credits-block .credits-muted { color:#5a6570 !important; }
+body.theme-day .panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.22); }
+body.theme-day .panel::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,0.35); }
+body.theme-day .panel { scrollbar-color:rgba(0,0,0,0.22) transparent; }
+body.theme-day .collapse-btn:hover { color:#fff; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1001;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
+#btn-show-equations {
+  flex:1; min-width:0;
+  font-size:.8em; font-weight:600; padding:6px 12px;
+}
+#eq-content .eq-section-title {
+  font-size:.78em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d;
+}
+#eq-content .eq-section-title:first-child { margin-top:0; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.85em 0 !important; width:100%; text-align:center; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:320px; min-width:220px; max-width:45vw; flex:0 0 auto; }
+#right-panel { width:540px; min-width:240px; max-width:58vw; flex:0 0 auto; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; z-index:10; padding:0; line-height:1;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:500px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+#left-panel .param-row label { flex:0 0 104px; font-size:.74em; text-align:right; line-height:1.15; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 50px; font-size:.74em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button.secondary { background:var(--accent); border:1px solid #555; transition:border-color .2s; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container {
+  flex:1 1 auto; min-width:0; min-height:0; display:flex; align-items:center; justify-content:center;
+  position:relative; padding:6px; box-sizing:border-box;
+}
+canvas#canvas {
+  background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s;
+  display:block; aspect-ratio:1 / 1; width:auto; height:auto;
+  max-width:min(78vmin, 100%); max-height:min(78vmin, calc(100vh - 24px));
+}
+canvas#canvas:active { cursor:grabbing; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; border:1px solid transparent; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+body.theme-day .plot-hint { color:rgba(0,0,0,.32); }
+mjx-container { display:inline !important; }
+</style>
+</head>
+<body class="theme-night">
+
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — adjust system parameters and initial conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot</li>
+      <li><strong>Double-click</strong> a plot to reset the view</li>
+      <li><strong>Scroll the right panel</strong> to explore all widgets</li>
+      <li><strong>Day mode</strong> — light theme for panels, main view, and plots</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.93em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      \[ \overrightarrow{OA}(\alpha)=r\cos(\alpha+\theta)\,\mathbf{i}+r\sin(\alpha+\theta)\,\mathbf{j} \]
+      \[ \mathbf{v}_A(\alpha)=-\dot\theta\, r\sin(\alpha+\theta)\,\mathbf{i}+\bigl(\dot x+\dot\theta\, r\cos(\alpha+\theta)\bigr)\mathbf{j} \]
+      \[ \mathbf{t}(\alpha)=-\frac{f\,m g}{2\pi r}\,\frac{\mathbf{v}_A}{|\mathbf{v}_A|} \]
+      \[ m\ddot x=\int_0^{2\pi}(\mathbf{t}\cdot\mathbf{j})\,r\,\mathrm{d}\alpha,\qquad m r^2\ddot\theta=\int_0^{2\pi}\bigl(\overrightarrow{OA}\times\mathbf{t}\bigr)\cdot\mathbf{k}\,r\,\mathrm{d}\alpha \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>Ring with friction</h1>
+  <h2>Distributed friction on the rim</h2>
+  <div id="credits-block" style="text-align:center;font-size:.68em;color:#888;line-height:1.4;margin-bottom:2px;">
+    Prof. Marco Gabiccini &amp; Martino Gulisano<br>Applied mechanics<br>
+    <span class="credits-muted" style="font-size:.9em;color:#666;">All rights reserved</span>
+  </div>
+
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+    <button type="button" id="help-open" class="secondary" style="font-size:.72em;padding:4px 10px;">Quick guide</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Parameters</div>
+    <div class="param-row"><label>$f$:</label>
+      <input type="range" id="f-slider" min="0" max="200" value="100" step="1">
+      <span class="val" id="f-val">1.00</span></div>
+    <div class="param-row"><label>$r$ (m):</label>
+      <input type="range" id="r-slider" min="5" max="200" value="50" step="1">
+      <span class="val" id="r-val">0.50</span></div>
+    <div class="param-row"><label>$m$ (kg):</label>
+      <input type="range" id="m-slider" min="5" max="500" value="10" step="1">
+      <span class="val" id="m-val">1.0</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Initial conditions</div>
+    <div class="param-row"><label>$\dot x(0)$ (m/s):</label>
+      <input type="range" id="v0-slider" min="0" max="200" value="60" step="1">
+      <span class="val" id="v0-val">6.0</span></div>
+    <div class="param-row"><label>$\dot\theta(0)$ (rad/s):</label>
+      <input type="range" id="w0-slider" min="0" max="200" value="60" step="1">
+      <span class="val" id="w0-val">6.0</span></div>
+    <div class="param-row">
+      <label style="flex:1;text-align:left;"><input type="checkbox" id="show-friction-vectors"> Show friction vectors</label>
+      <span class="val"></span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="param-row" style="margin-bottom:4px;">
+      <label>$T_{\max}$ (s):</label>
+      <input type="number" id="tmax-input" class="compact" value="3" min="1" max="600" step="1">
+      <span class="val"></span>
+    </div>
+    <div class="btn-row">
+      <button id="btn-simulate">▶ Play</button>
+      <button id="btn-stop" class="secondary">■ Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="param-row" style="margin-top:8px;">
+      <label style="flex:0 0 104px;">Playback speed:</label>
+      <input type="range" id="speed-slider" min="2" max="100" value="2" step="2">
+      <span class="val" id="speed-val">2%</span>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">State</div>
+    <div id="info-box">Adjust parameters and press Play.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Toggle panel">◀</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Toggle panel">▶</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot1">
+      <span>$x(t)$ <span style="color:#2563eb;font-size:1.1em;line-height:0">●</span></span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot1">
+      <canvas id="plot1-canvas" class="plot-view" width="340" height="112" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot2">
+      <span>$\theta(t)$ <span style="color:#dc2626;font-size:1.1em;line-height:0">●</span></span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot2">
+      <canvas id="plot2-canvas" class="plot-view" width="340" height="112" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot3">
+      <span>$\dot x(t)$ <span style="color:#2563eb;font-size:1.1em;line-height:0">●</span> &nbsp; $\dot\theta(t)$ <span style="color:#dc2626;font-size:1.1em;line-height:0">●</span></span><span class="sec-toggle">▼</span>
+    </div>
+    <div class="section-body" id="body-plot3">
+      <canvas id="plot3-canvas" class="plot-view" width="340" height="124" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom · drag: pan · dbl-click: reset · <span style="color:#2563eb">ẋ</span> · <span style="color:#dc2626">θ̇</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+{
+  const helpOv = document.getElementById('help-overlay');
+  const helpBtn = document.getElementById('help-close');
+  if (helpOv && helpBtn) {
+    helpBtn.addEventListener('click', () => helpOv.classList.add('hidden'));
+    helpOv.addEventListener('click', e => { if (e.target === helpOv) helpOv.classList.add('hidden'); });
+  }
+}
+const G_MS2 = 9.81;
+
+function lineLoadP(m, r) {
+  return (m * G_MS2) / (2 * Math.PI * r);
+}
+
+/** ~10 horizontal rules across `span` (m), snapped to a readable step */
+function worldGridStep(span) {
+  const raw = span / 10;
+  if (!(raw > 0)) return 1;
+  const p10 = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / p10;
+  let m = 10;
+  if (n <= 1) m = 1;
+  else if (n <= 2) m = 2;
+  else if (n <= 5) m = 5;
+  return m * p10;
+}
+
+let params = { p: lineLoadP(1, 0.5), f: 1, r: 0.5, m: 1, v0: 6, w0: 6 };
+let simRunning = false;
+let animId = null;
+let stateY = null;
+let simTime = 0;
+let plotFitPhase = 0;
+
+const MAIN_VIEW_ZOOM_DEFAULT = 1;
+const MAIN_VIEW_OFFX_DEFAULT = 0;
+const MAIN_VIEW_OFFY_DEFAULT = 0;
+const mainView = { offX: MAIN_VIEW_OFFX_DEFAULT, offY: MAIN_VIEW_OFFY_DEFAULT, zoom: MAIN_VIEW_ZOOM_DEFAULT };
+
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0 = x0; this._x1 = x1; this._y0 = y0; this._y1 = y1;
+    this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; this.active = false;
+  }
+  toX(v, pad, W) {
+    const dx = this.xMax - this.xMin || 1e-12;
+    return pad.l + (v - this.xMin) / dx * (W - pad.l - pad.r);
+  }
+  toY(v, pad, H) {
+    const dy = this.yMax - this.yMin || 1e-12;
+    return pad.t + (H - pad.t - pad.b) * (1 - (v - this.yMin) / dy);
+  }
+  px2data(px, py, pad, W, H) {
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    const dx = this.xMax - this.xMin || 1e-12;
+    const dy = this.yMax - this.yMin || 1e-12;
+    return [this.xMin + (px - pad.l) / Math.max(pw, 1e-12) * dx,
+      this.yMin + (1 - (py - pad.t) / Math.max(ph, 1e-12)) * dy];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active = true;
+    this.xMin = xd + (this.xMin - xd) * factor;
+    this.xMax = xd + (this.xMax - xd) * factor;
+    this.yMin = yd + (this.yMin - yd) * factor;
+    this.yMax = yd + (this.yMax - yd) * factor;
+  }
+  pan(dxd, dyd) {
+    this.active = true;
+    this.xMin -= dxd; this.xMax -= dxd;
+    this.yMin -= dyd; this.yMax -= dyd;
+  }
+  reset() {
+    this.active = false;
+    this.xMin = this._x0; this.xMax = this._x1; this.yMin = this._y0; this.yMax = this._y1;
+  }
+  setExtents(x0, x1, y0, y1) {
+    this._x0 = x0; this._x1 = x1; this._y0 = y0; this._y1 = y1;
+    this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1;
+    this.active = false;
+  }
+}
+
+const PLOT_PAD = { l: 42, r: 32, t: 12, b: 26 };
+const PLOT_BLUE = '#2563eb';
+const PLOT_RED = '#dc2626';
+
+const plot1View = new PanZoomView(0, 10, -1, 1);
+const plot2View = new PanZoomView(0, 10, -6, 6);
+const plot3View = new PanZoomView(0, 10, -10, 10);
+
+const INTEGRATION_STEPS = 480;
+const V_EPS = 1e-14;
+/** Only for arrow overlay: keep kinetic direction visible when slip is tiny but non-zero */
+const V_SLIP_FLOOR_DRAW = 1e-30;
+/** Hide only kinetic friction arrows **t** when both |ẋ| and |θ̇| are below this (m/s, rad/s) */
+const REST_HIDE_T_ARROWS = 0.01;
+const DT = 0.0005;
+const SUBSTEPS_PER_FRAME = 40;
+
+let simHist = [];
+
+/** Lab (i right, j up): rim parameter α, ring attitude θ → φ = α + θ for OA and v_slip at A. */
+function frictionTAtAlpha(xd, om, alpha, theta, par) {
+  const r = par.r, f = par.f, pressure = par.p;
+  const phi = alpha + theta;
+  const sa = Math.sin(phi), ca = Math.cos(phi);
+  const vx = -om * r * sa;
+  const vy = xd + om * r * ca;
+  const vmag = Math.hypot(vx, vy);
+  let tx = 0, ty = 0;
+  if (vmag > V_EPS) {
+    const sc = (-f * pressure) / vmag;
+    tx = sc * vx;
+    ty = sc * vy;
+  }
+  return { tx, ty, vx, vy, vmag };
+}
+
+/** Same friction law as physics, but scale for display when |v_slip| is below V_EPS (arrows stay at near-rest). */
+function frictionTAtAlphaDisplay(xd, om, alpha, theta, par) {
+  const r = par.r, f = par.f, pressure = par.p;
+  const phi = alpha + theta;
+  const sa = Math.sin(phi), ca = Math.cos(phi);
+  const vx = -om * r * sa;
+  const vy = xd + om * r * ca;
+  const vmag = Math.hypot(vx, vy);
+  if (!(vmag > 0)) return { tx: 0, ty: 0 };
+  const vmDen = Math.max(vmag, V_SLIP_FLOOR_DRAW);
+  const sc = (-f * pressure) / vmDen;
+  return { tx: sc * vx, ty: sc * vy };
+}
+
+function accelFromFrictionIntegrals(xd, om, theta, par) {
+  const r = par.r, f = par.f, pressure = par.p;
+  let sumTy = 0;
+  let sumTauZ = 0;
+  const n = INTEGRATION_STEPS;
+  const dalpha = (2 * Math.PI) / n;
+  const ds = r * dalpha;
+  for (let i = 0; i < n; i++) {
+    const alpha = (i + 0.5) * dalpha;
+    const phi = alpha + theta;
+    const { tx, ty } = frictionTAtAlpha(xd, om, alpha, theta, par);
+    const oax = r * Math.cos(phi), oay = r * Math.sin(phi);
+    const crossZ = oax * ty - oay * tx;
+    sumTy += ty * ds;
+    sumTauZ += crossZ * ds;
+  }
+  const xdd = sumTy / par.m;
+  const omdd = sumTauZ / (par.m * r * r);
+  return { xdd, omdd };
+}
+
+function derivState(y, par) {
+  const xd = y[1], om = y[3], theta = y[2];
+  const { xdd, omdd } = accelFromFrictionIntegrals(xd, om, theta, par);
+  return Float64Array.of(xd, xdd, om, omdd);
+}
+
+function rk4Step(y, dt, par) {
+  const k1 = derivState(y, par);
+  const y2 = Float64Array.from(y, (v, i) => v + 0.5 * dt * k1[i]);
+  const k2 = derivState(y2, par);
+  const y3 = Float64Array.from(y, (v, i) => v + 0.5 * dt * k2[i]);
+  const k3 = derivState(y3, par);
+  const y4 = Float64Array.from(y, (v, i) => v + dt * k3[i]);
+  const k4 = derivState(y4, par);
+  for (let i = 0; i < 4; i++)
+    y[i] += (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+}
+
+function drawPlotSeries(cvId, view, pad, rows, xKey, yKey, strokeColor) {
+  if (!rows.length) return;
+  const cv = document.getElementById(cvId);
+  if (!cv) return;
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const pt = plotPlotTheme();
+  const toX = v => view.toX(v, pad, W);
+  const toY = v => view.toY(v, pad, H);
+  c.beginPath();
+  let first = true;
+  for (const row of rows) {
+    const px = toX(row[xKey]), py = toY(row[yKey]);
+    if (px < pad.l - 2 || px > W - pad.r + 2 || py < pad.t - 2 || py > H - pad.b + 2) {
+      first = true;
+      continue;
+    }
+    if (first) { c.moveTo(px, py); first = false; }
+    else c.lineTo(px, py);
+  }
+  c.strokeStyle = strokeColor || pt.curve;
+  c.lineWidth = 1.75;
+  c.stroke();
+}
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  if (!cv) return;
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const [xd, yd] = view.px2data(px, py, pad, cv.width, cv.height);
+    view.zoomAt(e.deltaY > 0 ? 1.15 : 1 / 1.15, xd, yd);
+    redrawFn();
+  }, { passive: false });
+  let drag = false, lx, ly;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const rect = cv.getBoundingClientRect();
+    lx = (e.clientX - rect.left) * (cv.width / rect.width);
+    ly = (e.clientY - rect.top) * (cv.height / rect.height);
+    cv.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const pw = Math.max(cv.width - pad.l - pad.r, 1e-6), ph = Math.max(cv.height - pad.t - pad.b, 1e-6);
+    view.pan((px - lx) / pw * (view.xMax - view.xMin), -(py - ly) / ph * (view.yMax - view.yMin));
+    lx = px; ly = py; redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag = false; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function niceTicks(lo, hi, target = 5) {
+  if (hi <= lo) return [];
+  const range = hi - lo;
+  const rough = range / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(Math.abs(rough) || 1)));
+  const step = [1, 2, 2.5, 5, 10].find(f => f * pow >= rough - 1e-10) * pow;
+  const start = Math.ceil(lo / step - 1e-9) * step;
+  const ticks = [];
+  for (let v = start; v <= hi + step * 1e-9; v += step)
+    ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function plotPlotTheme() {
+  const d = document.body.classList.contains('theme-day');
+  return {
+    grid: d ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
+    grid0: d ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
+    axis: d ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.2)',
+    tick: d ? '#3d4554' : '#888',
+    zoom: d ? 'rgba(199,62,84,0.78)' : 'rgba(233,69,96,0.6)',
+    curve: d ? 'rgba(199,62,84,0.95)' : 'rgba(233,69,96,0.9)',
+  };
+}
+
+function drawPlotAxes(cvId, view, pad, xAxisLbl, yAxisLbl) {
+  const cv = document.getElementById(cvId);
+  if (!cv) return;
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const pt = plotPlotTheme();
+  const toX = v => view.toX(v, pad, W);
+  const toY = v => view.toY(v, pad, H);
+  c.clearRect(0, 0, W, H);
+  const xTicks = niceTicks(view.xMin, view.xMax, 5);
+  const yTicks = niceTicks(view.yMin, view.yMax, 5);
+  c.font = '9px sans-serif';
+  for (const vx of xTicks) {
+    const px = toX(vx);
+    if (px < pad.l || px > W - pad.r) continue;
+    c.beginPath(); c.moveTo(px, pad.t); c.lineTo(px, H - pad.b);
+    c.strokeStyle = pt.grid; c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'center';
+    c.fillText(vx.toFixed(2), px, H - 4);
+  }
+  for (const vy of yTicks) {
+    const py = toY(vy);
+    if (py < pad.t || py > H - pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W - pad.r, py);
+    c.strokeStyle = Math.abs(vy) < 1e-9 ? pt.grid0 : pt.grid; c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'right';
+    c.fillText(vy.toFixed(2), pad.l - 3, py + 3);
+  }
+  c.strokeStyle = pt.axis; c.beginPath();
+  c.moveTo(pad.l, pad.t); c.lineTo(pad.l, H - pad.b); c.lineTo(W - pad.r, H - pad.b); c.stroke();
+  c.fillStyle = pt.tick; c.textAlign = 'center';
+  c.font = '10px sans-serif';
+  c.fillText(xAxisLbl, (pad.l + W - pad.r) / 2, H - 2);
+  c.save();
+  c.translate(12, (pad.t + H - pad.b) / 2);
+  c.rotate(-Math.PI / 2);
+  c.textAlign = 'center';
+  c.fillText(yAxisLbl, 0, 0);
+  c.restore();
+  if (view.active) {
+    c.fillStyle = pt.zoom; c.font = 'bold 9px sans-serif';
+    c.textAlign = 'right';
+    c.fillText('zoom', W - pad.r - 4, pad.t + 10);
+  }
+}
+
+function readParams() {
+  const m = parseFloat(document.getElementById('m-slider').value) / 10;
+  const r = parseFloat(document.getElementById('r-slider').value) / 100;
+  params = {
+    f: parseFloat(document.getElementById('f-slider').value) / 100,
+    r,
+    m,
+    v0: parseFloat(document.getElementById('v0-slider').value) / 10,
+    w0: parseFloat(document.getElementById('w0-slider').value) / 10,
+    p: lineLoadP(m, r),
+  };
+}
+
+function wireSlider(id, valId, fmt) {
+  const sl = document.getElementById(id), vl = document.getElementById(valId);
+  const upd = () => {
+    vl.textContent = fmt(parseFloat(sl.value));
+    readParams();
+    if (!simRunning) {
+      simHist = [];
+      stateY = null;
+      simTime = 0;
+      fitPlotsFromHist();
+    }
+    redrawAll();
+  };
+  sl.addEventListener('input', upd); upd();
+}
+
+function fitPlotsFromHist() {
+  const tmax = parseFloat(document.getElementById('tmax-input').value) || 3;
+  const padSpan = (lo, hi) => {
+    const d = hi - lo;
+    const p = d < 1e-12 ? Math.max(Math.abs(lo) * 0.05, 0.05) : d * 0.06;
+    return [lo - p, hi + p];
+  };
+  if (!simHist.length) {
+    plot1View.setExtents(0, tmax, -1, 1);
+    plot2View.setExtents(0, tmax, -6, 6);
+    plot3View.setExtents(0, tmax, -10, 10);
+    return;
+  }
+  let minx = Infinity, maxx = -Infinity, mint = Infinity, maxt = -Infinity;
+  let minv = Infinity, maxv = -Infinity, minw = Infinity, maxw = -Infinity;
+  let tEnd = 0;
+  for (const r of simHist) {
+    minx = Math.min(minx, r.x); maxx = Math.max(maxx, r.x);
+    mint = Math.min(mint, r.th); maxt = Math.max(maxt, r.th);
+    minv = Math.min(minv, r.xd); maxv = Math.max(maxv, r.xd);
+    minw = Math.min(minw, r.om); maxw = Math.max(maxw, r.om);
+    tEnd = r.t;
+  }
+  const tx1 = Math.min(tmax, Math.max(tEnd, 1e-3));
+  const [y1a, y1b] = padSpan(minx, maxx);
+  const [y2a, y2b] = padSpan(mint, maxt);
+  const vminComb = Math.min(minv, minw);
+  const vmaxComb = Math.max(maxv, maxw);
+  const [y3a, y3b] = padSpan(vminComb, vmaxComb);
+  plot1View.setExtents(0, tx1, y1a, y1b);
+  plot2View.setExtents(0, tx1, y2a, y2b);
+  plot3View.setExtents(0, tx1, y3a, y3b);
+}
+
+const RING_SPOKE_COUNT = 8;
+
+resize();
+fitPlotsFromHist();
+
+wireSlider('f-slider', 'f-val', v => (v / 100).toFixed(2));
+wireSlider('r-slider', 'r-val', v => (v / 100).toFixed(2));
+wireSlider('m-slider', 'm-val', v => (v / 10).toFixed(1));
+wireSlider('v0-slider', 'v0-val', v => (v / 10).toFixed(1));
+wireSlider('w0-slider', 'w0-val', v => (v / 10).toFixed(1));
+
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  if (!cont) return;
+  let w = cont.clientWidth - 12;
+  let h = cont.clientHeight - 12;
+  let sz = Math.min(w, h);
+  if (!(sz > 40)) {
+    sz = Math.min(Math.max(window.innerWidth - 360, 140), Math.max(window.innerHeight - 36, 140));
+  }
+  sz = Math.max(120, Math.min(sz | 0, 1600));
+  canvas.width = sz;
+  canvas.height = sz;
+}
+
+function drawMain() {
+  readParams();
+  if (simRunning) {
+    mainView.offX = 0;
+    mainView.offY = 0;
+  }
+  const { r } = params;
+  const day = document.body.classList.contains('theme-day');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = cssVar('--canvas-bg', '#0d1117');
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const rr = Math.max(r, 1e-6);
+  const xCam = stateY ? stateY[0] : 0;
+  mainView.zoom = Math.min(14, Math.max(0.12, mainView.zoom));
+  const zm = mainView.zoom;
+  const baseSpan = 4 * rr;
+  const viewSpan = baseSpan / zm;
+  const pxPerM = H / viewSpan;
+
+  /** Vertical coordinate xi -> y in metres-frame (pan applied via ctx.translate). */
+  function xiToY(xi) {
+    return ((xCam + viewSpan * 0.5 - xi) / viewSpan) * H;
+  }
+
+  /** Horizontal world offset from track centre (m) -> x before pan translate */
+  function worldXToPx(xw) {
+    return W * 0.5 + xw * pxPerM;
+  }
+
+  ctx.save();
+  ctx.translate(mainView.offX, mainView.offY);
+
+  const cx0 = worldXToPx(0);
+  const s = 52 * zm;
+  ctx.strokeStyle = day ? 'rgba(71,85,105,0.26)' : 'rgba(148,163,184,0.22)';
+  ctx.lineWidth = 1;
+  for (let i = -5; i <= 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx0 + i * s, 0);
+    ctx.lineTo(cx0 + i * s, H);
+    ctx.stroke();
+  }
+  const xiMin = xCam - viewSpan * 0.5;
+  const xiMax = xCam + viewSpan * 0.5;
+  const gStep = worldGridStep(viewSpan);
+  let xiLine = Math.floor(xiMin / gStep - 1e-9) * gStep;
+  for (; xiLine <= xiMax + 1e-9; xiLine += gStep) {
+    const y = xiToY(xiLine);
+    const yScr = y + mainView.offY;
+    if (yScr < -2 || yScr > H + 2) continue;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = day ? 'rgba(100,116,139,0.45)' : 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx0, 0);
+  ctx.lineTo(cx0, H);
+  ctx.stroke();
+
+  const xiLo = xiMin;
+  const xiHi = xiMax;
+  if (0 >= xiLo - 1e-9 && 0 <= xiHi + 1e-9) {
+    ctx.strokeStyle = day ? 'rgba(100,116,139,0.35)' : 'rgba(255,255,255,0.14)';
+    ctx.setLineDash([5, 5]);
+    const y0 = xiToY(0);
+    ctx.beginPath();
+    ctx.moveTo(0, y0);
+    ctx.lineTo(W, y0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const xPhys = stateY ? stateY[0] : 0;
+  const thetaRing = stateY ? stateY[2] : 0;
+  const cxRing = worldXToPx(0);
+  const cyRing = xiToY(xPhys);
+  const R = Math.max(10, rr * pxPerM);
+
+  ctx.save();
+  ctx.translate(cxRing, cyRing);
+  /** Canvas Y-down ⇒ positive rotate() is clockwise; negate so θ matches usual CCW-positive convention */
+  ctx.rotate(-thetaRing);
+
+  ctx.strokeStyle = day ? '#64748b' : '#9ca3af';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  for (let k = 0; k < RING_SPOKE_COUNT; k++) {
+    const phi = (k * 2 * Math.PI) / RING_SPOKE_COUNT;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(R * Math.cos(phi), R * Math.sin(phi));
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = Math.max(8, Math.min(R * 0.18, 22));
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(0, 0, R, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+
+  const showFvEl = document.getElementById('show-friction-vectors');
+  if (showFvEl && showFvEl.checked && stateY) {
+    const xd = stateY[1], om = stateY[3];
+    const hideTArrows = Math.abs(xd) < REST_HIDE_T_ARROWS && Math.abs(om) < REST_HIDE_T_ARROWS;
+    const N = 20;
+    const fp = Math.max(params.f * params.p, 1e-12);
+    const tScale = (0.2 * rr) / fp;
+    if (Math.abs(om) > 1e-14) {
+      const xwIc = -xd / om;
+      const pxIc = worldXToPx(xwIc);
+      const pyIc = xiToY(xPhys);
+      ctx.strokeStyle = day ? 'rgba(202,138,4,0.55)' : 'rgba(253,224,71,0.45)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      for (let k = 0; k < N; k++) {
+        const alpha = (k + 0.5) * ((2 * Math.PI) / N);
+        const xwA = rr * Math.cos(alpha + thetaRing);
+        const xiA = xPhys + rr * Math.sin(alpha + thetaRing);
+        const pxA = worldXToPx(xwA);
+        const pyA = xiToY(xiA);
+        ctx.beginPath();
+        ctx.moveTo(pxIc, pyIc);
+        ctx.lineTo(pxA, pyA);
+        ctx.stroke();
+      }
+    }
+    if (!hideTArrows) {
+      ctx.strokeStyle = day ? '#000000' : '#f5f5f5';
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.lineWidth = Math.max(3.5, zm * 2.5);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (let k = 0; k < N; k++) {
+        const alpha = (k + 0.5) * ((2 * Math.PI) / N);
+        const xwA = rr * Math.cos(alpha + thetaRing);
+        const xiA = xPhys + rr * Math.sin(alpha + thetaRing);
+        const { tx, ty } = frictionTAtAlphaDisplay(xd, om, alpha, thetaRing, params);
+        if (Math.hypot(tx, ty) < 1e-300) continue;
+        const xwB = xwA + tx * tScale;
+        const xiB = xiA + ty * tScale;
+        const pxA = worldXToPx(xwA);
+        const pyA = xiToY(xiA);
+        const pxB = worldXToPx(xwB);
+        const pyB = xiToY(xiB);
+        ctx.beginPath();
+        ctx.moveTo(pxA, pyA);
+        ctx.lineTo(pxB, pyB);
+        ctx.stroke();
+        const ang = Math.atan2(pyB - pyA, pxB - pxA);
+        const ah = Math.max(9, zm * 6.5);
+        ctx.beginPath();
+        ctx.moveTo(pxB, pyB);
+        ctx.lineTo(pxB - ah * Math.cos(ang - 0.45), pyB - ah * Math.sin(ang - 0.45));
+        ctx.lineTo(pxB - ah * Math.cos(ang + 0.45), pyB - ah * Math.sin(ang + 0.45));
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    /** Instantaneous rotation pole in the ring plane: offset (-ẋ/ω̇, 0) from centre → world (−ẋ/ω, x) */
+    if (Math.abs(om) > 1e-14) {
+      const xwIc = -xd / om;
+      const pxIc = worldXToPx(xwIc);
+      const pyIc = xiToY(xPhys);
+      const radIc = Math.max(5, zm * 3.5);
+      ctx.fillStyle = day ? '#eab308' : '#facc15';
+      ctx.beginPath();
+      ctx.arc(pxIc, pyIc, radIc, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+function redrawAll() {
+  drawMain();
+  drawPlotAxes('plot1-canvas', plot1View, PLOT_PAD, 't (s)', 'x');
+  drawPlotSeries('plot1-canvas', plot1View, PLOT_PAD, simHist, 't', 'x', PLOT_BLUE);
+  drawPlotAxes('plot2-canvas', plot2View, PLOT_PAD, 't (s)', 'θ');
+  drawPlotSeries('plot2-canvas', plot2View, PLOT_PAD, simHist, 't', 'th', PLOT_RED);
+  drawPlotAxes('plot3-canvas', plot3View, PLOT_PAD, 't (s)', 'ẋ, θ̇');
+  drawPlotSeries('plot3-canvas', plot3View, PLOT_PAD, simHist, 't', 'xd', PLOT_BLUE);
+  drawPlotSeries('plot3-canvas', plot3View, PLOT_PAD, simHist, 't', 'om', PLOT_RED);
+  updateInfo();
+}
+
+function updateInfo() {
+  const box = document.getElementById('info-box');
+  const tmax = document.getElementById('tmax-input').value;
+  const { f, r, m, v0, w0 } = params;
+  let extra = '';
+  if (stateY) {
+    extra =
+      `\nt = ${simTime.toFixed(5)} s\n` +
+      `x = ${stateY[0].toFixed(6)}\n` +
+      `θ = ${stateY[2].toFixed(6)}\n` +
+      `ẋ = ${stateY[1].toFixed(6)}\n` +
+      `θ̇ = ${stateY[3].toFixed(6)}`;
+  }
+  box.textContent =
+    `f = ${f.toFixed(4)}\n` +
+    `r = ${r.toFixed(4)} m\n` +
+    `m = ${m.toFixed(4)} kg\n` +
+    `ẋ(0) = ${v0.toFixed(4)} m/s\n` +
+    `θ̇(0) = ${w0.toFixed(4)} rad/s\n` +
+    `T_max = ${tmax} s\n` +
+    `run = ${simRunning ? 'yes' : 'no'}` +
+    extra;
+}
+
+document.getElementById('tmax-input').addEventListener('change', () => {
+  fitPlotsFromHist();
+  updateInfo();
+  redrawAll();
+});
+
+function getPlaybackSpeed() {
+  const el = document.getElementById('speed-slider');
+  if (!el) return 1;
+  return Math.max(0.02, Math.min(1, parseFloat(el.value) / 100));
+}
+
+function recordSample() {
+  if (!stateY) return;
+  simHist.push({
+    t: simTime,
+    x: stateY[0],
+    xd: stateY[1],
+    th: stateY[2],
+    om: stateY[3],
+  });
+  if (simHist.length > 12000) simHist.splice(0, simHist.length - 12000);
+}
+
+function simStep() {
+  if (!simRunning || !stateY) return;
+  readParams();
+  const tmax = parseFloat(document.getElementById('tmax-input').value) || 3;
+  const nSub = Math.max(1, Math.round(SUBSTEPS_PER_FRAME * getPlaybackSpeed()));
+  for (let k = 0; k < nSub; k++) {
+    if (simTime >= tmax) {
+      recordSample();
+      fitPlotsFromHist();
+      stopSim();
+      redrawAll();
+      return;
+    }
+    rk4Step(stateY, DT, params);
+    simTime += DT;
+    if ((k & 3) === 0) recordSample();
+  }
+  if (++plotFitPhase >= 10) {
+    plotFitPhase = 0;
+    fitPlotsFromHist();
+  }
+  animId = requestAnimationFrame(simStep);
+  redrawAll();
+}
+
+function startSim() {
+  readParams();
+  stopSim();
+  stateY = new Float64Array([0, params.v0, 0, params.w0]);
+  simTime = 0;
+  plotFitPhase = 0;
+  simHist = [];
+  recordSample();
+  fitPlotsFromHist();
+  simRunning = true;
+  animId = requestAnimationFrame(simStep);
+  redrawAll();
+}
+
+function stopSim() {
+  simRunning = false;
+  if (animId) cancelAnimationFrame(animId);
+  animId = null;
+  redrawAll();
+}
+
+function resetSim() {
+  stopSim();
+  stateY = null;
+  simTime = 0;
+  simHist = [];
+  mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+  mainView.offY = MAIN_VIEW_OFFY_DEFAULT;
+  mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+  plot1View.reset(); plot2View.reset(); plot3View.reset();
+  fitPlotsFromHist();
+  redrawAll();
+}
+
+document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1 / 1.13 : 1.13;
+  readParams();
+  const rr = Math.max(params.r, 1e-6);
+  const zoomOld = mainView.zoom;
+  const zoomNew = Math.min(14, Math.max(0.12, zoomOld * factor));
+  mainView.zoom = zoomNew;
+  if (!simRunning) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const xCam = stateY ? stateY[0] : 0;
+    const zm0 = Math.min(14, Math.max(0.12, zoomOld));
+    const viewSpan0 = (4 * rr) / zm0;
+    const pxPerM0 = canvas.height / viewSpan0;
+    const xiAt = xCam + viewSpan0 * 0.5 - ((my - mainView.offY) / canvas.height) * viewSpan0;
+    const xWorldAt = (mx - canvas.width * 0.5 - mainView.offX) / pxPerM0;
+    const zm1 = zoomNew;
+    const viewSpan1 = (4 * rr) / zm1;
+    const pxPerM1 = canvas.height / viewSpan1;
+    mainView.offY = my - ((xCam + viewSpan1 * 0.5 - xiAt) / viewSpan1) * canvas.height;
+    mainView.offX = mx - canvas.width * 0.5 - xWorldAt * pxPerM1;
+  }
+  redrawAll();
+}, { passive: false });
+
+{
+  let mainDrag = false, mlx = 0, mly = 0;
+  canvas.addEventListener('mousedown', e => { mainDrag = true; mlx = e.clientX; mly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!mainDrag || simRunning) return;
+    const rect = canvas.getBoundingClientRect();
+    const scX = canvas.width / rect.width, scY = canvas.height / rect.height;
+    mainView.offX += (e.clientX - mlx) * scX;
+    mainView.offY += (e.clientY - mly) * scY;
+    mlx = e.clientX; mly = e.clientY;
+    redrawAll();
+  });
+  window.addEventListener('mouseup', () => { mainDrag = false; });
+  canvas.addEventListener('dblclick', () => {
+    mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+    mainView.offY = MAIN_VIEW_OFFY_DEFAULT;
+    mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+    redrawAll();
+  });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+  if (!btn || !panel) return;
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); redrawAll(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side, maxVwFrac = 0.45) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  if (!panel || !rz) return;
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * maxVwFrac));
+    panel.style.width = w + 'px'; resize(); redrawAll();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+setupResizer('left-resizer', 'left-panel', 'left');
+setupResizer('right-resizer', 'right-panel', 'right', 0.56);
+
+function typesetLeftRightWhenMathJaxReady() {
+  function go() {
+    const lp = document.getElementById('left-panel');
+    const rp = document.getElementById('right-panel');
+    if (!lp || !rp) return false;
+    if (!window.MathJax || !MathJax.typesetPromise) return false;
+    MathJax.typesetPromise([lp, rp]).catch(() => {});
+    return true;
+  }
+  if (go()) return;
+  let n = 0;
+  const id = setInterval(() => {
+    if (go()) clearInterval(id);
+    else if (++n > 100) clearInterval(id);
+  }, 50);
+}
+
+function initApp() {
+  if (window.__simRotolamentoShellInit) return;
+  typesetLeftRightWhenMathJaxReady();
+
+  const eqOv = document.getElementById('eq-overlay');
+  const eqClose = document.getElementById('eq-close');
+  const btnEq = document.getElementById('btn-show-equations');
+  const eqContent = document.getElementById('eq-content');
+  function openEquations() {
+    if (!eqOv) return;
+    eqOv.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise(eqContent ? [eqContent] : []).catch(() => {});
+    else if (window.MathJax && MathJax.typeset) try { MathJax.typeset(eqContent ? [eqContent] : undefined); } catch (e) {}
+  }
+  if (eqClose && eqOv) eqClose.addEventListener('click', () => eqOv.classList.add('hidden'));
+  if (eqOv) eqOv.addEventListener('click', e => { if (e.target === eqOv) eqOv.classList.add('hidden'); });
+  if (btnEq) btnEq.addEventListener('click', openEquations);
+
+  const showFv = document.getElementById('show-friction-vectors');
+  if (showFv) showFv.addEventListener('change', redrawAll);
+
+  const spdSlider = document.getElementById('speed-slider');
+  const spdVal = document.getElementById('speed-val');
+  function syncSpeedLabel() {
+    if (spdSlider && spdVal) spdVal.textContent = spdSlider.value + '%';
+  }
+  if (spdSlider) spdSlider.addEventListener('input', () => { syncSpeedLabel(); redrawAll(); });
+  syncSpeedLabel();
+
+  const helpOv = document.getElementById('help-overlay');
+  const helpOpen = document.getElementById('help-open');
+  if (helpOpen && helpOv) helpOpen.addEventListener('click', () => helpOv.classList.remove('hidden'));
+
+  setupPanZoom('plot1-canvas', plot1View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot2-canvas', plot2View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot3-canvas', plot3View, PLOT_PAD, redrawAll);
+
+  setupCollapse('left-collapse', 'left-panel', '◀', '▶');
+  setupCollapse('right-collapse', 'right-panel', '▶', '◀');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      if (!body || !toggle) return;
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+  });
+
+  resize(); readParams(); fitPlotsFromHist(); redrawAll();
+
+  function syncThemeFromCheckbox() {
+    document.body.classList.toggle('theme-day', document.getElementById('theme-day').checked);
+  }
+  const themeDay = document.getElementById('theme-day');
+  if (themeDay) {
+    themeDay.addEventListener('change', () => {
+      syncThemeFromCheckbox();
+      redrawAll();
+    });
+  }
+  syncThemeFromCheckbox();
+
+  window.__simRotolamentoShellInit = true;
+}
+
+resize();
+fitPlotsFromHist();
+redrawAll();
+initApp();
+
+window.addEventListener('resize', () => { resize(); redrawAll(); });
+
+setTimeout(() => {
+  if (!window.__simRotolamentoShellInit) initApp();
+  resize();
+  redrawAll();
+}, 2500);
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</body>
+</html>
