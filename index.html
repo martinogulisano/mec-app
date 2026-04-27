@@ -404,29 +404,33 @@
   <!-- Ring with friction — Part 1 (GeoGebra) -->
   <a class="card" href="https://www.geogebra.org/m/xzpv6kwg" target="_blank" rel="noopener noreferrer">
     <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="26" cy="26" r="16" stroke="#dc2626" stroke-width="2.2" fill="none"/>
-      <line x1="26" y1="26" x2="26" y2="12" stroke="#64748b" stroke-width="1.2"/>
-      <line x1="26" y1="26" x2="38" y2="26" stroke="#64748b" stroke-width="1.2"/>
-      <line x1="26" y1="26" x2="18" y2="34" stroke="#64748b" stroke-width="1.2"/>
+      <circle cx="26" cy="32" r="11.5" stroke="#dc2626" stroke-width="2.2" fill="none"/>
+      <!-- horizontal segment: left end at rightmost point of ring (26+11.5, 32) -->
+      <line x1="37.5" y1="32" x2="47" y2="32" stroke="#64748b" stroke-width="2.4" stroke-linecap="round"/>
+      <!-- vertical applied force at outer end of segment (upward) -->
+      <line x1="47" y1="32" x2="47" y2="24" stroke="#58a6ff" stroke-width="2.2" stroke-linecap="round"/>
+      <polygon points="47,22 50,28 44,28" fill="#58a6ff"/>
     </svg>
     <div class="card-body">
       <h2>Ring with friction — Part 1</h2>
-      <p>GeoGebra worksheet: ring with distributed friction on the rim (opens in a new tab).</p>
+      <p>Exercise 8.21 — GeoGebra worksheet: ring with distributed friction on the rim (opens in a new tab).</p>
     </div>
   </a>
 
   <!-- Ring with friction — Part 2 (motion simulator) -->
   <a class="card" href="ring_with_friction_motion.html">
     <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="26" cy="26" r="16" stroke="#dc2626" stroke-width="2.2" fill="none"/>
-      <line x1="26" y1="26" x2="26" y2="12" stroke="#64748b" stroke-width="1.2"/>
-      <line x1="26" y1="26" x2="38" y2="26" stroke="#64748b" stroke-width="1.2"/>
-      <line x1="26" y1="26" x2="14" y2="30" stroke="#58a6ff" stroke-width="1.6"/>
-      <polygon points="26,10 29,15 23,15" fill="#58a6ff" opacity="0.85"/>
+      <circle cx="26" cy="26" r="15" stroke="#dc2626" stroke-width="2.2" fill="none"/>
+      <!-- vertical vector from centre, upward (translation sense) -->
+      <line x1="26" y1="26" x2="26" y2="9" stroke="#58a6ff" stroke-width="2.2" stroke-linecap="round"/>
+      <polygon points="26,6 30,13 22,13" fill="#58a6ff"/>
+      <!-- Arc r=10 about (26,26); sweep 0 picks center at ring center (not the alternate circle through the same endpoints) -->
+      <path d="M 36 26 A 10 10 0 0 0 26 16 A 10 10 0 0 0 16 26" stroke="#f0c040" stroke-width="1.85" fill="none" stroke-linecap="round"/>
+      <polygon points="14.2,26.3 17.8,26.3 16,29" fill="#f0c040"/>
     </svg>
     <div class="card-body">
       <h2>Ring with friction — Part 2</h2>
-      <p>In-browser simulator: translation along the vertical guide, rotation, friction vectors, and instantaneous rotation pole.</p>
+      <p>Exercise 8.22 — motion of a ring with friction.</p>
     </div>
   </a>
 
