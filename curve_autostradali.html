@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Highway horizontal curves</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() {
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(initApp).catch(() => initApp());
+    }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.3);
+  --info-bg:rgba(0,0,0,.3); --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92);
+  --info-bg:rgba(0,0,0,.06); --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; transition:background .25s,color .25s; }
+.theme-switch-row { display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px; font-size:.78em; user-select:none; }
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .sec-toggle { color:#6e7781; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+body.theme-day button.secondary { border-color:#aab; }
+body.theme-day button { color:#1a1f2e; }
+body.theme-day button.secondary { color:#1a1f2e; background:#c8d4e8; border-color:#9aa8bc; }
+body.theme-day button.secondary:hover { background:#b8c6dc; color:#1a1f2e; }
+body.theme-day #help-close, body.theme-day #eq-close { color:#1a1f2e; background:#e8b4bf; }
+body.theme-day #help-close:hover, body.theme-day #eq-close:hover { color:#1a1f2e; background:#dfa0ae; }
+body.theme-day #info-box { color:#24292f; border:1px solid #d8dee4; }
+body.theme-day .section > .section-title { color:#57606a; }
+body.theme-day .theme-switch-row, body.theme-day .theme-switch-row label { color:#24292f; }
+body.theme-day .panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.22); }
+body.theme-day .panel::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,0.35); }
+body.theme-day .panel { scrollbar-color:rgba(0,0,0,0.22) transparent; }
+body.theme-day .collapse-btn:hover { color:#fff; }
+#eq-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1001; }
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
+#btn-show-equations { flex:1; min-width:0; font-size:.8em; font-weight:600; padding:6px 12px; }
+#eq-content .eq-section-title { font-size:.78em; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d; }
+#eq-content .eq-section-title:first-child { margin-top:0; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.85em 0 !important; width:100%; text-align:center; }
+.panel { background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:8px; height:100vh; max-height:100vh; min-height:0; transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1); }
+#left-panel  { width:300px; min-width:200px; max-width:45vw; flex:0 0 auto; }
+#right-panel { width:480px; min-width:240px; max-width:58vw; flex:0 0 auto; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note { font-size:.82em; color:#8b949e; border-top:1px solid #21262d; padding-top:10px; margin-top:4px; }
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer { width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative; display:flex; align-items:center; justify-content:center; }
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa; cursor:pointer; font-size:10px; z-index:10; padding:0; line-height:1; transition:background .15s, border-color .15s, color .15s; }
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title { font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; }
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:600px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 52px; font-size:.8em; text-align:right; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 60px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+.info-row { font-size:.72em; font-family:monospace; color:#aaa; padding:1px 0; }
+.info-row span { color:#e0e0e0; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button.secondary { background:var(--accent); border:1px solid #555; transition:border-color .2s; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; }
+canvas#canvas:active { cursor:grabbing; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; border:1px solid transparent; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+body.theme-day .plot-hint { color:rgba(0,0,0,.32); }
+mjx-container { display:inline !important; }
+.warn { color:#ff9800; font-size:.72em; font-family:monospace; padding:4px 6px; background:rgba(255,152,0,0.1); border-radius:4px; border:1px solid rgba(255,152,0,0.3); }
+</style>
+</head>
+<body class="theme-night">
+
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> — adjust system parameters</li>
+      <li><strong>Play / Stop / Reset</strong> — control the simulation</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot or the main view</li>
+      <li><strong>Double-click</strong> a plot or the main view to reset the view</li>
+      <li><strong>Scroll the right panel</strong> to explore all widgets</li>
+      <li><strong>Day mode</strong> — light theme for panels, main view, and plots</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
+    <button type="button" id="help-close">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:680px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.93em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      <div class="eq-section-title">Clothoid (Euler spiral)</div>
+      <p>Curvature varies linearly with arc length $s$ along the clothoid:</p>
+      $$k(s) = \frac{s}{A^2} = \frac{s}{LR}, \qquad A^2 = LR$$
+      <p>Natural parameterization (entry clothoid):</p>
+      $$x(s)=\int_0^s \cos\!\left(\frac{\sigma^2}{2A^2}\right)d\sigma, \quad y(s)=\int_0^s \sin\!\left(\frac{\sigma^2}{2A^2}\right)d\sigma$$
+      <p>Tangent angle: $\theta(s)=s^2/(2A^2)$. At the end $s=L$: $\theta(L)=L/(2R)$.</p>
+      <div class="eq-section-title">Piecewise curvature (five segments)</div>
+      <p>Let $s_1$ be the start of the first clothoid, $s_2=s_1+L$, $s_3=s_2+L_{\mathrm{arc}}$, $s_4=s_3+L$, and $s_{\mathrm{tot}}$ the total length. Then:</p>
+      $$k(s)=\begin{cases}
+      0 & 0 \le s < s_1 \quad\text{(straight 1)}\\[6pt]
+      \dfrac{s-s_1}{LR} & s_1 \le s < s_2 \quad\text{(clothoid 1)}\\[8pt]
+      \dfrac{1}{R} & s_2 \le s < s_3 \quad\text{(circular arc)}\\[8pt]
+      \dfrac{L-(s-s_3)}{LR} & s_3 \le s < s_4 \quad\text{(clothoid 2)}\\[8pt]
+      0 & s_4 \le s \le s_{\mathrm{tot}} \quad\text{(straight 2)}
+      \end{cases}$$
+      <div class="eq-section-title">Lateral acceleration and jerk</div>
+      $$a_y(s) = V^2\,k(s)$$
+      $$j_y(s) = V^3\,\frac{dk}{ds}$$
+      <p>With clothoids: $dk/ds = \pm 1/(LR)$ on the ramps, and $0$ on straights and on the arc.</p>
+      <div class="eq-section-title">Comfort limits</div>
+      $$R_{\min} = \frac{V^2}{a_{y,\max}} = \frac{V^2}{0.15\,g}$$
+      <p>Design lateral jerk on a clothoid ramp: $|j_y| = V^3/(LR)$. Requiring $|j_y|\le j_{y,\max}$ gives a minimum clothoid length</p>
+      $$L_{\min} = \frac{V^3}{j_{y,\max}\,R}$$
+      <p>(reference value $j_{y,\max}=0.7\ \mathrm{m/s^3}$ is shown as horizontal dashed lines on the jerk plot; sliders are not clamped to this value.)</p>
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>HIGHWAY CURVE</h1>
+  <h2>Clothoid geometry</h2>
+
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Parameters</div>
+    <div class="param-row">
+      <label>$V$:</label>
+      <input type="range" id="V-slider" min="50" max="220" value="130" step="5">
+      <span class="val" id="V-val">130 km/h</span>
+    </div>
+    <div class="param-row">
+      <label>$R$:</label>
+      <input type="range" id="R-slider" min="880" max="1400" value="1000" step="10">
+      <span class="val" id="R-val">1000 m</span>
+    </div>
+    <div class="param-row">
+      <label>$L$:</label>
+      <input type="range" id="L-slider" min="1" max="800" value="300" step="1">
+      <span class="val" id="L-val">300 m</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="btn-row">
+      <button id="btn-simulate">&#9654; Play</button>
+      <button id="btn-stop" class="secondary">&#9632; Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">State</div>
+    <div id="info-box">Adjust parameters and press Play.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Hide panel">&#9664;</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Hide panel">&#9654;</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot1">
+      <span>Lateral acceleration $a_y(s)$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot1">
+      <canvas id="plot1-canvas" class="plot-view" width="340" height="170" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &middot; drag: pan &middot; dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot2">
+      <span>Lateral jerk $j_y(s)$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot2">
+      <canvas id="plot2-canvas" class="plot-view" width="340" height="170" style="width:100%;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &middot; drag: pan &middot; dbl-click: reset</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const g = 9.81;
+/** Design reference for lateral jerk (plot guideline only; L is not forced to L_min). */
+const JY_MAX_DESIGN = 0.7;
+/** World coordinates of the two fixed straight endpoints (m). */
+const STRAIGHT_EXTENT_M = 2000;
+/** Main view background grid: square cell side in world units (m). */
+const GRID_STEP_M = 200;
+/** World-space scale bar: horizontal segment of length GRID_STEP_M (same example as grid spacing). */
+const SCALE_BAR_WORLD = { x0: -2000, x1: -1800, y: -200 };
+
+{
+  const helpOv = document.getElementById('help-overlay');
+  document.getElementById('help-close').addEventListener('click', () => helpOv.classList.add('hidden'));
+  helpOv.addEventListener('click', e => { if (e.target === helpOv) helpOv.classList.add('hidden'); });
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+let params = { V: 130, R: 1000, L: 300 };
+let road = null;
+let simRunning = false;
+let animId = null;
+let simT = 0;
+let lastTimestamp = null;
+
+const mainView = { offX: 0, offY: 0, zoom: 1 };
+
+// ── PanZoomView ───────────────────────────────────────────────────────────────
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0=x0; this._x1=x1; this._y0=y0; this._y1=y1;
+    this.xMin=x0; this.xMax=x1; this.yMin=y0; this.yMax=y1; this.active=false;
+  }
+  toX(v,pad,W){ return pad.l+(v-this.xMin)/(this.xMax-this.xMin)*(W-pad.l-pad.r); }
+  toY(v,pad,H){ return pad.t+(H-pad.t-pad.b)*(1-(v-this.yMin)/(this.yMax-this.yMin)); }
+  px2data(px,py,pad,W,H){
+    const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+    return [this.xMin+(px-pad.l)/pw*(this.xMax-this.xMin),
+            this.yMin+(1-(py-pad.t)/ph)*(this.yMax-this.yMin)];
+  }
+  zoomAt(f,xd,yd){
+    this.active=true;
+    this.xMin=xd+(this.xMin-xd)*f; this.xMax=xd+(this.xMax-xd)*f;
+    this.yMin=yd+(this.yMin-yd)*f; this.yMax=yd+(this.yMax-yd)*f;
+  }
+  pan(dx,dy){ this.active=true; this.xMin-=dx; this.xMax-=dx; this.yMin-=dy; this.yMax-=dy; }
+  reset(){ this.active=false; this.xMin=this._x0; this.xMax=this._x1; this.yMin=this._y0; this.yMax=this._y1; }
+}
+
+const PLOT_PAD = { l:46, r:20, t:14, b:28 };
+let plot1View = new PanZoomView(0,4000,0,2);
+let plot2View = new PanZoomView(0,4000,-1,1);
+
+// ── Road geometry ─────────────────────────────────────────────────────────────
+function integrateClothoid1(A2, L, N) {
+  // Entry clothoid: k(s)=s/A², θ(s)=s²/(2A²)
+  const ds = L / N;
+  const pts = new Array(N+1);
+  let x=0, y=0;
+  pts[0] = {s:0, x:0, y:0, theta:0};
+  for (let i=1; i<=N; i++) {
+    const s0=(i-1)*ds, s1=i*ds;
+    const t0=s0*s0/(2*A2), t1=s1*s1/(2*A2);
+    x += 0.5*(Math.cos(t0)+Math.cos(t1))*ds;
+    y += 0.5*(Math.sin(t0)+Math.sin(t1))*ds;
+    pts[i] = {s:s1, x, y, theta:t1};
+  }
+  return pts;
+}
+
+function integrateClothoid2(L, R, N) {
+  // Exit clothoid: k(s)=(L-s)/(LR), θ_local(s)=s/R - s²/(2LR)
+  const ds = L / N;
+  const pts = new Array(N+1);
+  let x=0, y=0;
+  pts[0] = {s:0, x:0, y:0, theta_local:0};
+  for (let i=1; i<=N; i++) {
+    const s0=(i-1)*ds, s1=i*ds;
+    const t0=s0/R-s0*s0/(2*L*R), t1=s1/R-s1*s1/(2*L*R);
+    x += 0.5*(Math.cos(t0)+Math.cos(t1))*ds;
+    y += 0.5*(Math.sin(t0)+Math.sin(t1))*ds;
+    pts[i] = {s:s1, x, y, theta_local:t1};
+  }
+  return pts;
+}
+
+function computeRoad(V_kmh, R, L) {
+  const V = V_kmh / 3.6;
+  const R_min = V*V / (0.15*g);
+  const A2 = L > 0 ? L*R : 0;
+  const N = 500;
+  const dtheta_arc = Math.PI/2 - (L>0 ? L/R : 0);
+  const arc_len = R * Math.max(0, dtheta_arc);
+
+  // ── Entry clothoid (block frame, origin = start of clothoid) ──
+  let c1 = [];
+  if (L > 0) c1 = integrateClothoid1(A2, L, N);
+  const c1end = L>0 ? c1[c1.length-1] : {x:0,y:0,theta:0};
+  const theta1 = c1end.theta; // = L/(2R)
+
+  // ── Arc ──
+  const Cx = c1end.x - R*Math.sin(theta1);
+  const Cy = c1end.y + R*Math.cos(theta1);
+  const phi_start = theta1 - Math.PI/2;
+  const N_arc = 300;
+  const arcPts = [];
+  for (let i=0; i<=N_arc; i++) {
+    const phi = phi_start + (dtheta_arc>0 ? i/N_arc*dtheta_arc : 0);
+    arcPts.push({ x: Cx+R*Math.cos(phi), y: Cy+R*Math.sin(phi) });
+  }
+  const P3 = arcPts[arcPts.length-1];
+  const theta2 = Math.PI/2 - (L>0 ? L/(2*R) : 0);
+
+  // ── Exit clothoid ──
+  let c2world = [];
+  if (L > 0) {
+    const raw2 = integrateClothoid2(L, R, N);
+    const cos2=Math.cos(theta2), sin2=Math.sin(theta2);
+    c2world = raw2.map(p => ({
+      s: p.s,
+      x: P3.x + cos2*p.x - sin2*p.y,
+      y: P3.y + sin2*p.x + cos2*p.y,
+    }));
+  }
+
+  // ── Block endpoint P4 (still in block frame) ──
+  const P4b = L>0 ? c2world[c2world.length-1] : {x:P3.x, y:P3.y};
+
+  // ── Offset: place P4b.x = 0 → start straight at x = -P4b.x ──
+  const Qx = -P4b.x;
+  const L_str1 = Qx + STRAIGHT_EXTENT_M;
+  const L_str2 = STRAIGHT_EXTENT_M - P4b.y;
+
+  // ── Build flat point array ──
+  const allPts = [];
+  const N_str = 60;
+  let sCur = 0;
+  const xStraightStart = -STRAIGHT_EXTENT_M;
+
+  // Straight 1
+  const s_c1 = L_str1;
+  for (let i=0; i<=N_str; i++) {
+    const t=i/N_str;
+    allPts.push({x:xStraightStart+t*L_str1, y:0, s:t*L_str1});
+  }
+  sCur = L_str1;
+
+  // Clothoid 1
+  const s_arc = sCur + L;
+  if (L > 0) {
+    for (let i=0; i<c1.length; i++) {
+      allPts.push({x:c1[i].x+Qx, y:c1[i].y, s:sCur+c1[i].s});
+    }
+  }
+  sCur += L;
+
+  // Arc
+  const s_c2 = sCur + arc_len;
+  for (let i=0; i<=N_arc; i++) {
+    allPts.push({x:arcPts[i].x+Qx, y:arcPts[i].y, s:sCur+(dtheta_arc>0?i/N_arc*arc_len:0)});
+  }
+  sCur += arc_len;
+
+  // Clothoid 2
+  const s_str2 = sCur + L;
+  if (L > 0) {
+    for (let i=0; i<c2world.length; i++) {
+      allPts.push({x:c2world[i].x+Qx, y:c2world[i].y, s:sCur+c2world[i].s});
+    }
+  }
+  sCur += L;
+
+  // Straight 2
+  const totalLen = sCur + L_str2;
+  for (let i=0; i<=N_str; i++) {
+    const t=i/N_str;
+    allPts.push({x:0, y:P4b.y+t*L_str2, s:sCur+t*L_str2});
+  }
+
+  const nStr = N_str + 1;
+  const nC1 = L > 0 ? c1.length : 0;
+  const nArc = N_arc + 1;
+  const nC2 = L > 0 ? c2world.length : 0;
+  const i0 = 0;
+  const i1 = i0 + nStr;
+  const i2 = i1 + nC1;
+  const i3 = i2 + nArc;
+  const i4 = i3 + nC2;
+  const i5 = allPts.length;
+  const segIdx = [
+    [i0, i1], // straight 1
+    [i1, i2], // clothoid 1
+    [i2, i3], // arc
+    [i3, i4], // clothoid 2
+    [i4, i5], // straight 2
+  ];
+
+  const s_c1_start = L_str1;
+  const s_arc_start = L_str1 + L;
+  const s_c2_start = L_str1 + L + arc_len;
+  const s_str2_start = L_str1 + 2 * L + arc_len;
+  const markerS = [];
+  const pushMarker = (s) => {
+    if (markerS.length && Math.abs(markerS[markerS.length - 1] - s) < 1e-3) return;
+    markerS.push(s);
+  };
+  pushMarker(s_c1_start);
+  if (L > 0) pushMarker(s_arc_start);
+  pushMarker(s_c2_start);
+  if (L > 0) pushMarker(s_str2_start);
+
+  return {
+    allPts, totalLen, V, R, L, A2,
+    L_str1, L_str2, arc_len, R_min,
+    s_c1_start, s_arc_start, s_c2_start, s_str2_start,
+    segIdx, markerS,
+    valid: L_str1>=0 && L_str2>=0,
+  };
+}
+
+// ── Analytic curvature and dk/ds ──────────────────────────────────────────────
+function kAtS(rd, s) {
+  const {L,R,s_c1_start,s_arc_start,s_c2_start,s_str2_start} = rd;
+  if (s < s_c1_start || s > s_str2_start) return 0;
+  if (s < s_arc_start) return (s-s_c1_start)/(L*R);
+  if (s < s_c2_start) return 1/R;
+  if (s < s_str2_start) return (L-(s-s_c2_start))/(L*R);
+  return 0;
+}
+
+function dkdsAtS(rd, s) {
+  const {L,R,s_c1_start,s_arc_start,s_c2_start,s_str2_start} = rd;
+  if (L === 0) return 0;
+  if (s >= s_c1_start && s < s_arc_start) return 1/(L*R);
+  if (s >= s_c2_start && s < s_str2_start) return -1/(L*R);
+  return 0;
+}
+
+// ── Position interpolation ────────────────────────────────────────────────────
+function posAtS(rd, s) {
+  const pts = rd.allPts;
+  if (s <= pts[0].s) return pts[0];
+  if (s >= pts[pts.length-1].s) return pts[pts.length-1];
+  let lo=0, hi=pts.length-1;
+  while (hi-lo>1) { const m=(lo+hi)>>1; if (pts[m].s<=s) lo=m; else hi=m; }
+  const t = (s-pts[lo].s)/(pts[hi].s-pts[lo].s);
+  return { x:pts[lo].x+t*(pts[hi].x-pts[lo].x), y:pts[lo].y+t*(pts[hi].y-pts[lo].y) };
+}
+
+// ── Checkered “finish line” markers at segment boundaries (world + canvas) ───
+function tangentWorldAtS(rd, s) {
+  const ds = 0.4;
+  const s0 = Math.max(0, s - ds);
+  const s1 = Math.min(rd.totalLen, s + ds);
+  const p0 = posAtS(rd, s0);
+  const p1 = posAtS(rd, s1);
+  const dx = p1.x - p0.x, dy = p1.y - p0.y;
+  const len = Math.hypot(dx, dy) || 1e-9;
+  return { tx: dx / len, ty: dy / len };
+}
+
+function drawSegmentFinishLines(ctx, road, roadW, isDay) {
+  if (!road.markerS || !road.markerS.length) return;
+  const halfWm = 12;
+  const nStripes = 16;
+  const light1 = isDay ? '#f0f0f0' : '#c8c8c8';
+  const dark1 = isDay ? '#1a1a1a' : '#0a0a0a';
+  const th = Math.max(3.5, roadW * 0.45);
+  for (const sm of road.markerS) {
+    const p = posAtS(road, sm);
+    const t = tangentWorldAtS(road, sm);
+    const nx = -t.ty, ny = t.tx;
+    const c = w2c(p.x, p.y);
+    const pL = w2c(p.x - nx * halfWm, p.y - ny * halfWm);
+    const pR = w2c(p.x + nx * halfWm, p.y + ny * halfWm);
+    const pF = w2c(p.x + t.tx * 0.6, p.y + t.ty * 0.6);
+    const txPx = pF.px - c.px, tyPx = pF.py - c.py;
+    const tlen = Math.hypot(txPx, tyPx) || 1;
+    const ux = txPx / tlen, uy = tyPx / tlen;
+    const dx = pR.px - pL.px, dy = pR.py - pL.py;
+    for (let k = 0; k < nStripes; k++) {
+      const u0 = k / nStripes, u1 = (k + 1) / nStripes;
+      const x0 = pL.px + u0 * dx, y0 = pL.py + u0 * dy;
+      const x1 = pL.px + u1 * dx, y1 = pL.py + u1 * dy;
+      ctx.beginPath();
+      ctx.moveTo(x0 - ux * th * 0.5, y0 - uy * th * 0.5);
+      ctx.lineTo(x1 - ux * th * 0.5, y1 - uy * th * 0.5);
+      ctx.lineTo(x1 + ux * th * 0.5, y1 + uy * th * 0.5);
+      ctx.lineTo(x0 + ux * th * 0.5, y0 + uy * th * 0.5);
+      ctx.closePath();
+      ctx.fillStyle = k % 2 === 0 ? dark1 : light1;
+      ctx.fill();
+    }
+    ctx.strokeStyle = isDay ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pL.px, pL.py);
+    ctx.lineTo(pR.px, pR.py);
+    ctx.stroke();
+  }
+}
+
+// ── Slider wiring ─────────────────────────────────────────────────────────────
+function readParams() {
+  params = {
+    V: parseFloat(document.getElementById('V-slider').value),
+    R: parseFloat(document.getElementById('R-slider').value),
+    L: parseFloat(document.getElementById('L-slider').value),
+  };
+}
+
+function updateConstraints() {
+  const Vms = params.V/3.6;
+  const Rmin = Vms*Vms/(0.15*g);
+  const Lmax = Math.floor(params.R*Math.PI/2*0.95);
+
+  const Rsl = document.getElementById('R-slider');
+  Rsl.min = Math.ceil(Rmin);
+  if (params.R < Rmin) { params.R = Math.ceil(Rmin); Rsl.value = params.R; }
+
+  const Lsl = document.getElementById('L-slider');
+  Lsl.min = 1;
+  Lsl.max = Lmax;
+  if (params.L < 1) { params.L = 1; Lsl.value = params.L; }
+  if (params.L > Lmax) { params.L = Lmax; Lsl.value = params.L; }
+
+  document.getElementById('V-val').textContent = params.V+' km/h';
+  document.getElementById('R-val').textContent = Math.round(params.R)+' m';
+  document.getElementById('L-val').textContent = Math.round(params.L)+' m';
+}
+
+function rebuildRoad() {
+  readParams();
+  updateConstraints();
+  road = computeRoad(params.V, params.R, params.L);
+  simT = 0;
+  lastTimestamp = null;
+  resetPlotViews();
+  redrawAll();
+}
+
+// ── Plot views ────────────────────────────────────────────────────────────────
+function resetPlotViews() {
+  if (!road) return;
+  const {V, R, L, totalLen} = road;
+  const ay_max = Math.max(V*V/R*1.25, 0.15*g*1.3);
+  const jy_fromGeom = L>0 ? V*V*V/(L*R)*1.3 : ay_max*0.5;
+  const jy_max = Math.max(jy_fromGeom, JY_MAX_DESIGN * 1.15);
+  plot1View = new PanZoomView(0, totalLen, 0, ay_max);
+  plot2View = new PanZoomView(0, totalLen, -jy_max, jy_max);
+}
+
+// ── World→canvas transform ────────────────────────────────────────────────────
+function w2c(xw, yw) {
+  const W=canvas.width, H=canvas.height;
+  const span = 2300;
+  const scale = Math.min(W,H)/span * 0.85 * mainView.zoom;
+  // World offset chosen so default view frames the 2 km straight endpoints
+  return {
+    px: W*0.5 + (xw+800)*scale + mainView.offX,
+    py: H*0.5 - (yw-800)*scale + mainView.offY,
+  };
+}
+
+// ── CSS variable helper ───────────────────────────────────────────────────────
+function cssVar(n,fb){ const v=getComputedStyle(document.body).getPropertyValue(n).trim(); return v||fb; }
+
+// ── Main view drawing ─────────────────────────────────────────────────────────
+function drawMain() {
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = cssVar('--canvas-bg','#0d1117');
+  ctx.fillRect(0,0,W,H);
+
+  if (!road) return;
+  const isDay = document.body.classList.contains('theme-day');
+
+  if (!road.valid) {
+    ctx.fillStyle = '#ff9800';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Invalid geometry: radius or clothoid length exceed layout constraints.', W/2, H/2);
+    return;
+  }
+
+  // Compute pixel road width (~10 m in world space)
+  const span=2300, scale=Math.min(W,H)/span*0.85*mainView.zoom;
+  const roadW = Math.max(5, 10*scale);
+
+  // World grid (axis-aligned squares GRID_STEP_M × GRID_STEP_M in plan view)
+  function c2w(px, py) {
+    return {
+      xw: (px - W * 0.5 - mainView.offX) / scale - 800,
+      yw: 800 - (py - H * 0.5 - mainView.offY) / scale
+    };
+  }
+  let wx0 = 1e9, wx1 = -1e9, wy0 = 1e9, wy1 = -1e9;
+  for (const [px, py] of [[0, 0], [W, 0], [W, H], [0, H]]) {
+    const w = c2w(px, py);
+    wx0 = Math.min(wx0, w.xw); wx1 = Math.max(wx1, w.xw);
+    wy0 = Math.min(wy0, w.yw); wy1 = Math.max(wy1, w.yw);
+  }
+  const padM = GRID_STEP_M * 2;
+  const xStart = Math.floor((wx0 - padM) / GRID_STEP_M) * GRID_STEP_M;
+  const xEnd = Math.ceil((wx1 + padM) / GRID_STEP_M) * GRID_STEP_M;
+  const yStart = Math.floor((wy0 - padM) / GRID_STEP_M) * GRID_STEP_M;
+  const yEnd = Math.ceil((wy1 + padM) / GRID_STEP_M) * GRID_STEP_M;
+  ctx.strokeStyle = isDay ? 'rgba(0,0,0,0.11)' : 'rgba(255,255,255,0.075)';
+  ctx.lineWidth = 1;
+  for (let xw = xStart; xw <= xEnd; xw += GRID_STEP_M) {
+    const p0 = w2c(xw, yStart), p1 = w2c(xw, yEnd);
+    ctx.beginPath();
+    ctx.moveTo(p0.px, p0.py);
+    ctx.lineTo(p1.px, p1.py);
+    ctx.stroke();
+  }
+  for (let yw = yStart; yw <= yEnd; yw += GRID_STEP_M) {
+    const p0 = w2c(xStart, yw), p1 = w2c(xEnd, yw);
+    ctx.beginPath();
+    ctx.moveTo(p0.px, p0.py);
+    ctx.lineTo(p1.px, p1.py);
+    ctx.stroke();
+  }
+
+  // Scale reference: GRID_STEP_M m (segment (−2000,−200)–(−1800,−200) in world coords)
+  {
+    const sb = SCALE_BAR_WORLD;
+    const tickM = 14;
+    const pL = w2c(sb.x0, sb.y), pR = w2c(sb.x1, sb.y);
+    const col = isDay ? 'rgba(45,45,55,0.92)' : 'rgba(210,215,225,0.92)';
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = Math.max(1.5, scale * 0.012);
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(pL.px, pL.py);
+    ctx.lineTo(pR.px, pR.py);
+    ctx.stroke();
+    const cap = (xw, yw) => {
+      const c = w2c(xw, yw);
+      const a = w2c(xw, yw - tickM), b = w2c(xw, yw + tickM);
+      ctx.beginPath();
+      ctx.moveTo(a.px, a.py);
+      ctx.lineTo(b.px, b.py);
+      ctx.stroke();
+    };
+    cap(sb.x0, sb.y);
+    cap(sb.x1, sb.y);
+    const mid = w2c((sb.x0 + sb.x1) * 0.5, sb.y + 62);
+    ctx.font = `${Math.max(10, Math.min(12, 8 + scale * 0.01))}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('200 m', mid.px, mid.py);
+  }
+
+  const pts = road.allPts;
+  const segIdx = road.segIdx;
+  const segBorder = isDay
+    ? ['#555', '#b71c1c', '#0d47a1', '#b71c1c', '#555']
+    : ['#555', '#8b1520', '#1565c0', '#8b1520', '#555'];
+  const segFill = isDay
+    ? ['#b0b8c4', '#e53935', '#1976d2', '#e53935', '#b0b8c4']
+    : ['#6d7582', '#c62828', '#42a5f5', '#c62828', '#6d7582'];
+
+  function strokeSegment(a, b, color, width) {
+    ctx.beginPath();
+    for (let i=a;i<b;i++) {
+      const {px,py}=w2c(pts[i].x,pts[i].y);
+      if(i===a) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.stroke();
+  }
+
+  // Draw road border (per segment; clothoids red, circular arc blue, straights gray)
+  for (let s=0;s<segIdx.length;s++) {
+    const [a,b]=segIdx[s];
+    strokeSegment(a, b, segBorder[s], roadW+5);
+  }
+
+  // Draw road surface — distinct color per segment (straight / clothoid / arc / clothoid / straight)
+  for (let s=0;s<segIdx.length;s++) {
+    const [a,b]=segIdx[s];
+    strokeSegment(a, b, segFill[s % segFill.length], roadW);
+  }
+
+  // Center dashed lane marking (full path)
+  ctx.beginPath();
+  for (let i=0;i<pts.length;i++) {
+    const {px,py}=w2c(pts[i].x,pts[i].y);
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  ctx.strokeStyle = isDay ? 'rgba(255,220,0,0.5)' : 'rgba(255,220,0,0.35)';
+  ctx.lineWidth = Math.max(1, roadW*0.12);
+  ctx.setLineDash([roadW*1.5, roadW*1.2]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  drawSegmentFinishLines(ctx, road, roadW, isDay);
+
+  // Moving point
+  const sCur = (simRunning||simT>0) ? (simT*road.V)%road.totalLen : 0;
+  const pos = posAtS(road, sCur);
+  const {px:mpx, py:mpy} = w2c(pos.x, pos.y);
+  const mr = Math.max(6, roadW*0.65);
+  ctx.beginPath(); ctx.arc(mpx,mpy,mr,0,2*Math.PI);
+  ctx.fillStyle = cssVar('--highlight','#e94560');
+  ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+
+  // Start/end dots (fixed straight anchors)
+  const {px:sx,py:sy}=w2c(-STRAIGHT_EXTENT_M,0);
+  ctx.beginPath(); ctx.arc(sx,sy,5,0,2*Math.PI);
+  ctx.fillStyle='#4caf50'; ctx.fill();
+  const {px:ex,py:ey}=w2c(0,STRAIGHT_EXTENT_M);
+  ctx.beginPath(); ctx.arc(ex,ey,5,0,2*Math.PI);
+  ctx.fillStyle='#ff9800'; ctx.fill();
+
+  // Labels
+  ctx.font=`${Math.max(9,Math.min(13,scale*20))}px monospace`;
+  ctx.fillStyle=isDay?'#555':'#aaa';
+  ctx.textAlign='left'; ctx.fillText(`(-${STRAIGHT_EXTENT_M}, 0)`,sx+8,sy-10);
+  ctx.textAlign='right'; ctx.fillText(`(0, ${STRAIGHT_EXTENT_M})`,ex-8,ey+14);
+}
+
+// ── Plot helpers ──────────────────────────────────────────────────────────────
+function plotTheme() {
+  const d=document.body.classList.contains('theme-day');
+  return {
+    grid:  d?'rgba(0,0,0,0.06)':'rgba(255,255,255,0.07)',
+    grid0: d?'rgba(0,0,0,0.18)':'rgba(255,255,255,0.15)',
+    axis:  d?'rgba(0,0,0,0.32)':'rgba(255,255,255,0.2)',
+    tick:  d?'#3d4554':'#888',
+    zoom:  d?'rgba(199,62,84,0.78)':'rgba(233,69,96,0.6)',
+    blue:  d?'#1565c0':'#64b5f6',
+    red:   d?'#b71c1c':'#ef9a9a',
+    mark:  d?'rgba(199,62,84,0.9)':'rgba(233,69,96,0.85)',
+    orange:d?'rgba(230,100,0,0.7)':'rgba(255,152,0,0.65)',
+  };
+}
+
+function niceTicks(lo,hi,n=5) {
+  if(hi<=lo) return [];
+  const r=hi-lo, rough=r/n;
+  const pow=Math.pow(10,Math.floor(Math.log10(Math.abs(rough)||1)));
+  const step=[1,2,2.5,5,10].find(f=>f*pow>=rough-1e-10)*pow;
+  const start=Math.ceil(lo/step-1e-9)*step;
+  const ticks=[];
+  for(let v=start;v<=hi+step*1e-9;v+=step) ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+function drawAxes(cvId, view, pad, xLbl, yLbl) {
+  const cv=document.getElementById(cvId);
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  const pt=plotTheme();
+  const toX=v=>view.toX(v,pad,W);
+  const toY=v=>view.toY(v,pad,H);
+  c.clearRect(0,0,W,H);
+
+  c.font='9px sans-serif';
+  for(const vx of niceTicks(view.xMin,view.xMax,5)) {
+    const px=toX(vx); if(px<pad.l-1||px>W-pad.r+1) continue;
+    c.beginPath(); c.moveTo(px,pad.t); c.lineTo(px,H-pad.b);
+    c.strokeStyle=pt.grid; c.lineWidth=1; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='center';
+    c.fillText(vx>=1000?(vx/1000).toFixed(1)+'k':vx.toFixed(0), px, H-3);
+  }
+  for(const vy of niceTicks(view.yMin,view.yMax,4)) {
+    const py=toY(vy); if(py<pad.t-1||py>H-pad.b+1) continue;
+    c.beginPath(); c.moveTo(pad.l,py); c.lineTo(W-pad.r,py);
+    c.strokeStyle=Math.abs(vy)<1e-9?pt.grid0:pt.grid; c.lineWidth=1; c.stroke();
+    c.fillStyle=pt.tick; c.textAlign='right';
+    const lbl=Math.abs(vy)<1e-4?'0':vy.toFixed(Math.abs(vy)<0.1?3:Math.abs(vy)<10?2:1);
+    c.fillText(lbl, pad.l-3, py+3);
+  }
+  c.strokeStyle=pt.axis; c.lineWidth=1;
+  c.beginPath(); c.moveTo(pad.l,pad.t); c.lineTo(pad.l,H-pad.b); c.lineTo(W-pad.r,H-pad.b); c.stroke();
+  c.fillStyle=pt.tick; c.textAlign='center'; c.font='10px sans-serif';
+  c.fillText(xLbl, (pad.l+W-pad.r)/2, H);
+  c.save(); c.translate(11,(pad.t+H-pad.b)/2); c.rotate(-Math.PI/2);
+  c.textAlign='center'; c.fillText(yLbl,0,0); c.restore();
+  if(view.active){ c.fillStyle=pt.zoom; c.font='bold 9px sans-serif'; c.textAlign='right'; c.fillText('zoom',W-pad.r-2,pad.t+10); }
+}
+
+function drawMarker(cvId, view, pad, s_cur, pt) {
+  if(s_cur===null) return;
+  const cv=document.getElementById(cvId);
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  const px=view.toX(s_cur,pad,W);
+  if(px<pad.l||px>W-pad.r) return;
+  c.beginPath(); c.moveTo(px,pad.t); c.lineTo(px,H-pad.b);
+  c.strokeStyle=pt.mark; c.lineWidth=1.5;
+  c.setLineDash([3,2]); c.stroke(); c.setLineDash([]);
+}
+
+// ── Plot 1: ay(s) ─────────────────────────────────────────────────────────────
+function drawPlot1(s_cur) {
+  if(!road||!plot1View) return;
+  const cv=document.getElementById('plot1-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  const view=plot1View, pad=PLOT_PAD, pt=plotTheme();
+
+  drawAxes('plot1-canvas', view, pad, 's  [m]', 'ay  [m/s²]');
+
+  const {V,totalLen} = road;
+  const NP=800;
+  const sMin=view.xMin, sMax=view.xMax;
+
+  // ay curve
+  c.beginPath();
+  let first=true;
+  for(let i=0;i<=NP;i++){
+    const s=sMin+(i/NP)*(sMax-sMin);
+    const ay=V*V*kAtS(road,s);
+    const px=view.toX(s,pad,W), py=view.toY(ay,pad,H);
+    if(first){c.moveTo(px,py);first=false;}else c.lineTo(px,py);
+  }
+  c.strokeStyle=pt.blue; c.lineWidth=2; c.stroke();
+
+  // 0.15g limit line
+  const ay_lim=0.15*g;
+  const py_lim=view.toY(ay_lim,pad,H);
+  if(py_lim>=pad.t&&py_lim<=H-pad.b){
+    c.beginPath(); c.setLineDash([5,3]);
+    c.moveTo(pad.l,py_lim); c.lineTo(W-pad.r,py_lim);
+    c.strokeStyle=pt.orange; c.lineWidth=1.2; c.stroke(); c.setLineDash([]);
+    c.fillStyle=pt.orange; c.font='9px sans-serif'; c.textAlign='right';
+    c.fillText('0.15g', W-pad.r-2, py_lim-2);
+  }
+
+  drawMarker('plot1-canvas', view, pad, s_cur, pt);
+}
+
+// ── Plot 2: jy(s) ─────────────────────────────────────────────────────────────
+function drawPlot2(s_cur) {
+  if(!road||!plot2View) return;
+  const cv=document.getElementById('plot2-canvas');
+  const c=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  const view=plot2View, pad=PLOT_PAD, pt=plotTheme();
+
+  drawAxes('plot2-canvas', view, pad, 's  [m]', 'jy  [m/s³]');
+
+  const {V, L, s_c1_start, s_arc_start, s_c2_start, s_str2_start} = road;
+
+  if(L === 0) {
+    // Impulse at junctions: draw dashed vertical lines
+    for(const sj of [s_arc_start, s_c2_start]) {
+      const px=view.toX(sj,pad,W);
+      if(px<pad.l||px>W-pad.r) continue;
+      c.beginPath(); c.setLineDash([4,3]);
+      c.moveTo(px,pad.t); c.lineTo(px,H-pad.b);
+      c.strokeStyle=pt.red; c.lineWidth=1.5; c.stroke(); c.setLineDash([]);
+      c.fillStyle=pt.red; c.font='9px sans-serif'; c.textAlign='center';
+      c.fillText('δ', px, pad.t+10);
+    }
+  } else {
+    // Step function: sample densely near junctions
+    const junctions=[s_c1_start, s_arc_start, s_c2_start, s_str2_start];
+    const eps=1;
+    const sMin=view.xMin, sMax=view.xMax;
+    const samples=[];
+    // uniform samples
+    const NP=600;
+    for(let i=0;i<=NP;i++) samples.push(sMin+(i/NP)*(sMax-sMin));
+    // extra samples at junctions
+    for(const sj of junctions) {
+      samples.push(sj-eps, sj, sj+eps);
+    }
+    samples.sort((a,b)=>a-b);
+
+    c.beginPath();
+    let first=true;
+    for(const s of samples){
+      const jy=V*V*V*dkdsAtS(road,s);
+      const px=view.toX(s,pad,W), py=view.toY(jy,pad,H);
+      if(first){c.moveTo(px,py);first=false;}else c.lineTo(px,py);
+    }
+    c.strokeStyle=pt.red; c.lineWidth=2; c.stroke();
+  }
+
+  // Design jerk limits ±JY_MAX_DESIGN (reference only)
+  for (const jLim of [JY_MAX_DESIGN, -JY_MAX_DESIGN]) {
+    const pyJ = view.toY(jLim, pad, H);
+    if (pyJ >= pad.t && pyJ <= H - pad.b) {
+      c.beginPath();
+      c.setLineDash([5, 4]);
+      c.moveTo(pad.l, pyJ);
+      c.lineTo(W - pad.r, pyJ);
+      c.strokeStyle = pt.orange;
+      c.lineWidth = 1.2;
+      c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = pt.orange;
+      c.font = '9px sans-serif';
+      c.textAlign = 'right';
+      const lbl = jLim > 0 ? '+0.7' : '−0.7';
+      c.fillText(lbl + ' m/s³', W - pad.r - 2, pyJ - (jLim > 0 ? 2 : -10));
+    }
+  }
+
+  drawMarker('plot2-canvas', view, pad, s_cur, pt);
+}
+
+// ── Info box ──────────────────────────────────────────────────────────────────
+function updateInfo() {
+  const box=document.getElementById('info-box');
+  if(!road){box.textContent='Computing...';return;}
+  const sCur=(simRunning||simT>0)?(simT*road.V)%road.totalLen:0;
+  const k=kAtS(road,sCur);
+  const dk=dkdsAtS(road,sCur);
+  const ay=road.V*road.V*k;
+  const jy=road.V*road.V*road.V*dk;
+  const lines=[
+    `V       = ${params.V} km/h`,
+    `R       = ${Math.round(params.R)} m`,
+    `L       = ${Math.round(params.L)} m`,
+    `──────────────────`,
+    `R_min   = ${Math.round(road.R_min)} m`,
+    `L_str1  = ${Math.round(road.L_str1)} m`,
+    `L_arc   = ${Math.round(road.arc_len)} m`,
+    `L_str2  = ${Math.round(road.L_str2)} m`,
+    `S_tot   = ${Math.round(road.totalLen)} m`,
+    `──────────────────`,
+    `s       = ${Math.round(sCur)} m`,
+    `ay      = ${ay.toFixed(2)} m/s²`,
+    `jy      = ${jy.toFixed(3)} m/s³`,
+  ];
+  if(!road.valid) lines.unshift('⚠ Invalid geometry!');
+  box.textContent=lines.join('\n');
+}
+
+// ── Redraw all ────────────────────────────────────────────────────────────────
+function redrawAll() {
+  const sCur=road&&(simRunning||simT>0)?(simT*road.V)%road.totalLen:null;
+  drawMain();
+  drawPlot1(sCur);
+  drawPlot2(sCur);
+  updateInfo();
+}
+
+// ── Simulation loop ───────────────────────────────────────────────────────────
+function simStep(ts) {
+  if(!simRunning) return;
+  if(lastTimestamp!==null) simT+=(ts-lastTimestamp)/1000;
+  lastTimestamp=ts;
+  redrawAll();
+  animId=requestAnimationFrame(simStep);
+}
+
+function startSim() {
+  if(!road) rebuildRoad();
+  simRunning=true; lastTimestamp=null;
+  if(animId) cancelAnimationFrame(animId);
+  animId=requestAnimationFrame(simStep);
+}
+
+function stopSim() {
+  simRunning=false; lastTimestamp=null;
+  if(animId){cancelAnimationFrame(animId);animId=null;}
+  redrawAll();
+}
+
+function resetSim() {
+  stopSim(); simT=0;
+  mainView.offX=0; mainView.offY=0; mainView.zoom=1;
+  redrawAll();
+}
+
+// ── Canvas resize ─────────────────────────────────────────────────────────────
+function resize() {
+  const cont=document.getElementById('canvas-container');
+  const sz=Math.min(cont.clientWidth-12,cont.clientHeight-12);
+  canvas.width=sz; canvas.height=sz;
+}
+
+// ── Main canvas pan/zoom ──────────────────────────────────────────────────────
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY>0?1/1.13:1.13;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(canvas.width/rect.width);
+  const my=(e.clientY-rect.top)*(canvas.height/rect.height);
+  const sz=canvas.width;
+  mainView.offX=(mx-sz*0.5)*(1-f)+mainView.offX*f;
+  mainView.offY=(my-sz*0.5)*(1-f)+mainView.offY*f;
+  mainView.zoom*=f;
+  redrawAll();
+},{passive:false});
+
+{
+  let drag=false,mlx=0,mly=0;
+  canvas.addEventListener('mousedown',e=>{drag=true;mlx=e.clientX;mly=e.clientY;});
+  window.addEventListener('mousemove',e=>{
+    if(!drag) return;
+    const rect=canvas.getBoundingClientRect();
+    mainView.offX+=(e.clientX-mlx)*(canvas.width/rect.width);
+    mainView.offY+=(e.clientY-mly)*(canvas.height/rect.height);
+    mlx=e.clientX;mly=e.clientY;
+    redrawAll();
+  });
+  window.addEventListener('mouseup',()=>{drag=false;});
+  canvas.addEventListener('dblclick',()=>{mainView.offX=0;mainView.offY=0;mainView.zoom=1;redrawAll();});
+}
+
+// ── Plot pan/zoom ─────────────────────────────────────────────────────────────
+function setupPlotPanZoom(cvId,getView) {
+  const cv=document.getElementById(cvId);
+  const pad=PLOT_PAD;
+  cv.style.cursor='crosshair';
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const view=getView();
+    const rect=cv.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(cv.width/rect.width);
+    const py=(e.clientY-rect.top)*(cv.height/rect.height);
+    const [xd,yd]=view.px2data(px,py,pad,cv.width,cv.height);
+    view.zoomAt(e.deltaY>0?1.15:1/1.15,xd,yd);
+    redrawAll();
+  },{passive:false});
+  let drag=false,lx=0,ly=0;
+  cv.addEventListener('mousedown',e=>{
+    drag=true;
+    const rect=cv.getBoundingClientRect();
+    lx=(e.clientX-rect.left)*(cv.width/rect.width);
+    ly=(e.clientY-rect.top)*(cv.height/rect.height);
+    cv.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!drag) return;
+    const view=getView();
+    const rect=cv.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(cv.width/rect.width);
+    const py=(e.clientY-rect.top)*(cv.height/rect.height);
+    const pw=cv.width-pad.l-pad.r, ph=cv.height-pad.t-pad.b;
+    view.pan((px-lx)/pw*(view.xMax-view.xMin),-(py-ly)/ph*(view.yMax-view.yMin));
+    lx=px;ly=py;redrawAll();
+  });
+  window.addEventListener('mouseup',()=>{drag=false;cv.style.cursor='crosshair';});
+  cv.addEventListener('dblclick',()=>{getView().reset();redrawAll();});
+}
+
+// ── Collapse & resize panels ──────────────────────────────────────────────────
+function setupCollapse(btnId,panelId,openArrow,closeArrow) {
+  const btn=document.getElementById(btnId),panel=document.getElementById(panelId);
+  let collapsed=false;
+  btn.addEventListener('mousedown',e=>e.stopPropagation());
+  btn.addEventListener('click',e=>{
+    e.stopPropagation(); collapsed=!collapsed;
+    panel.classList.toggle('collapsed',collapsed);
+    btn.textContent=collapsed?closeArrow:openArrow;
+    setTimeout(()=>{resize();redrawAll();},270);
+  });
+}
+
+function setupResizer(rzId,panelId,side,maxFrac=0.45) {
+  const panel=document.getElementById(panelId),rz=document.getElementById(rzId);
+  let startX,startW;
+  rz.addEventListener('mousedown',e=>{
+    e.preventDefault();startX=e.clientX;startW=panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  });
+  function onMove(e){
+    const delta=side==='left'?(e.clientX-startX):(startX-e.clientX);
+    const w=Math.max(parseInt(getComputedStyle(panel).minWidth)||180,Math.min(startW+delta,window.innerWidth*maxFrac));
+    panel.style.width=w+'px';resize();redrawAll();
+  }
+  function onUp(){rz.classList.remove('dragging');document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function initApp() {
+  if(window.__appInit) return;
+  window.__appInit=true;
+  try{ if(window.MathJax&&MathJax.typeset) MathJax.typeset(); }catch(e){}
+
+  setupPlotPanZoom('plot1-canvas',()=>plot1View);
+  setupPlotPanZoom('plot2-canvas',()=>plot2View);
+  setupCollapse('left-collapse','left-panel','◀','▶');
+  setupCollapse('right-collapse','right-panel','▶','◀');
+  setupResizer('left-resizer','left-panel','left');
+  setupResizer('right-resizer','right-panel','right',0.56);
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr=>{
+    hdr.addEventListener('click',()=>{
+      const body=document.getElementById(hdr.id.replace('hdr-','body-'));
+      const tog=hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      tog.textContent=body.classList.contains('collapsed')?'▶':'▼';
+    });
+  });
+
+  document.getElementById('btn-simulate').addEventListener('click',()=>{stopSim();startSim();});
+  document.getElementById('btn-stop').addEventListener('click',stopSim);
+  document.getElementById('btn-reset').addEventListener('click',resetSim);
+
+  // Wire sliders
+  ['V','R','L'].forEach(id=>{
+    document.getElementById(id+'-slider').addEventListener('input',()=>rebuildRoad());
+  });
+
+  // Theme
+  const themeChk=document.getElementById('theme-day');
+  function syncTheme(){document.body.classList.toggle('theme-day',themeChk.checked);}
+  themeChk.addEventListener('change',()=>{syncTheme();redrawAll();});
+  syncTheme();
+
+  // Equations overlay
+  const eqOv=document.getElementById('eq-overlay');
+  document.getElementById('eq-close').addEventListener('click',()=>eqOv.classList.add('hidden'));
+  eqOv.addEventListener('click',e=>{if(e.target===eqOv)eqOv.classList.add('hidden');});
+  document.getElementById('btn-show-equations').addEventListener('click',()=>{
+    eqOv.classList.remove('hidden');
+    if(window.MathJax&&MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]).catch(()=>{});
+  });
+
+  resize();
+  rebuildRoad();
+}
+
+resize();
+setTimeout(()=>{if(!window.__appInit)initApp();},2500);
+window.addEventListener('resize',()=>{resize();redrawAll();});
+</script>
+</body>
+</html>
