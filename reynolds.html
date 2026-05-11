@@ -258,8 +258,8 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
       <input type="range" id="h0-slider" min="1" max="100" step="0.5" value="10">
       <span class="val" id="h0-val">10</span></div>
     <div class="param-row"><span class="param-meaning">Gap at x=a</span><label>$h_1$ (µm):</label>
-      <input type="range" id="h1-slider" min="1" max="100" step="0.5" value="30">
-      <span class="val" id="h1-val">30</span></div>
+      <input type="range" id="h1-slider" min="1" max="100" step="0.5" value="20">
+      <span class="val" id="h1-val">20</span></div>
     <div class="param-row"><span class="param-meaning">Bearing length</span><label>$a$ (mm):</label>
       <input type="range" id="a-slider" min="5" max="200" step="1" value="50">
       <span class="val" id="a-val">50</span></div>
@@ -434,6 +434,20 @@ function uOf(x, y, Q, p) {
   if (h <= 0) return 0;
   const yClamped = Math.max(0, Math.min(h, y));
   return -dpdx(x, Q, p) * yClamped * (h - yClamped) / (2 * p.mu) + p.U1 * (h - yClamped) / h;
+}
+
+/** Vertical velocity v(x,y) from incompressibility ∂u/∂x + ∂v/∂y = 0 with v(x,0)=0.
+ *  Cubic in y; for the exponential gap h'(x) = c·h(x). Used internally for particle motion. */
+function vOf(x, y, Q, p) {
+  const h = hOf(x, p);
+  if (h <= 0) return 0;
+  const yc = Math.max(0, Math.min(h, y));
+  const hp = p.c * h;
+  const pp  = -12 * p.mu * Q / (h * h * h) + 6 * p.mu * p.U1 / (h * h);
+  const ppp =  36 * p.mu * Q * hp / (h * h * h * h) - 12 * p.mu * p.U1 * hp / (h * h * h);
+  return (ppp / (2 * p.mu)) * (yc * yc / 6) * (3 * h - 2 * yc)
+       + (pp * hp * yc * yc) / (4 * p.mu)
+       - p.U1 * hp * yc * yc / (2 * h * h);
 }
 
 /** Shear on the flat plate at y=0: τ = μ ∂u/∂y|0 = -h/2 · dp/dx - μ U1 / h. */
@@ -1207,12 +1221,21 @@ function stepParticles(dt) {
   const vScale = (0.35 * p.a) / maxU;
   for (const part of particles) {
     const u = uOf(part.x, part.y, Q, p);
+    const v = vOf(part.x, part.y, Q, p);
     part.x += u * vScale * dt;
-    if (part.x < 0) part.x += p.a;
-    else if (part.x > p.a) part.x -= p.a;
+    part.y += v * vScale * dt;
+    /* When a particle exits the domain on either side, re-seed it as a fresh entrant
+       near the right edge with random y. This keeps the channel populated and replenishes
+       the upper region which would otherwise drain due to the downward v in the converging gap. */
+    if (part.x < 0 || part.x > p.a) {
+      part.x = (0.95 + 0.04 * Math.random()) * p.a;
+      const hr = hOf(part.x, p);
+      part.y = (0.04 + 0.92 * Math.random()) * hr;
+    }
     /* Keep y within current h(x) after geometry changes. */
     const h = hOf(part.x, p);
     if (part.y > h * 0.98) part.y = h * 0.98;
+    if (part.y < 0.01 * h) part.y = 0.01 * h;
   }
 }
 

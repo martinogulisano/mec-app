@@ -270,8 +270,8 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
       <input type="range" id="hb-slider" min="1" max="100" step="0.5" value="10">
       <span class="val" id="hb-val">10</span></div>
     <div class="param-row"><span class="param-meaning">Wide gap</span><label>$h_a$ (µm):</label>
-      <input type="range" id="ha-slider" min="1" max="100" step="0.5" value="30">
-      <span class="val" id="ha-val">30</span></div>
+      <input type="range" id="ha-slider" min="1" max="100" step="0.5" value="20">
+      <span class="val" id="ha-val">20</span></div>
     <div class="param-row"><span class="param-meaning">Narrow length</span><label>$b$ (mm):</label>
       <input type="range" id="b-slider" min="1" max="200" step="1" value="20">
       <span class="val" id="b-val">20</span></div>
@@ -455,6 +455,56 @@ function uOf(x, y, Q, p) {
   const yClamped = Math.max(0, Math.min(h, y));
   const G = (x <= p.b) ? p.G1 : p.G2;
   return -G * yClamped * (h - yClamped) / (2 * p.mu) + p.U1 * (h - yClamped) / h;
+}
+
+/** Streamfunction in a constant-h segment: ψ(y) = ∫₀^y u(y') dy'.
+ *  ψ(0)=0 and ψ(h)=Q by construction; cubic in y. */
+function psiOf(y, h, G, U1, mu) {
+  return (G / (6 * mu)) * y * y * y
+       - 0.5 * (G * h / (2 * mu) + U1 / h) * y * y
+       + U1 * y;
+}
+
+/** u(y) in a constant-h segment (= ψ'(y); used as the Newton derivative). */
+function uSeg(y, h, G, U1, mu) {
+  return -G * y * (h - y) / (2 * mu) + U1 * (h - y) / h;
+}
+
+/** Streamline-preserving y remap when a particle crosses the step.
+ *  Finds y_new in the new segment such that ψ_new(y_new) = ψ_old(y_old).
+ *  If the new segment has a backflow region near the top (u changes sign at y_split),
+ *  the search is restricted to the monotone branch [0, y_split] so particles map to the
+ *  forward-flow streamline. Bisection is used for robustness. */
+function remapStep(yOld, hOld, GOld, hNew, GNew, U1, mu) {
+  const psiTarget = psiOf(yOld, hOld, GOld, U1, mu);
+  let yMax = hNew;
+  if (Math.abs(GNew) > 1e-30) {
+    const ySplit = 2 * mu * U1 / (GNew * hNew);
+    if (ySplit > 0 && ySplit < hNew) yMax = ySplit;
+  }
+  let lo = 0, hi = yMax;
+  const psiLo = 0;
+  const psiHi = psiOf(yMax, hNew, GNew, U1, mu);
+  const decreasing = psiLo > psiHi;
+  let target = psiTarget;
+  if (decreasing) {
+    if (target > psiLo) target = psiLo;
+    else if (target < psiHi) target = psiHi;
+  } else {
+    if (target < psiLo) target = psiLo;
+    else if (target > psiHi) target = psiHi;
+  }
+  for (let k = 0; k < 40; k++) {
+    const mid = 0.5 * (lo + hi);
+    const psiMid = psiOf(mid, hNew, GNew, U1, mu);
+    if (decreasing) {
+      if (psiMid >= target) lo = mid; else hi = mid;
+    } else {
+      if (psiMid <= target) lo = mid; else hi = mid;
+    }
+    if (hi - lo < 1e-12) break;
+  }
+  return 0.5 * (lo + hi);
 }
 
 /** Shear on the flat plate at y=0, constant in each segment. */
@@ -1231,14 +1281,33 @@ function stepParticles(dt) {
     maxU = Math.max(maxU, Math.abs(uOf(part.x, part.y, Q, p)));
   }
   const vScale = (0.35 * p.L) / maxU;
+  /* In each segment v(x,y) ≡ 0 (Reynolds approx with h piecewise constant). When a particle
+     crosses x=b within the domain, apply a streamline-preserving y remap:
+     ψ_new(y_new) = ψ_old(y_old). When a particle exits either boundary, re-seed it as a
+     fresh entrant near the right edge with random y, so the backflow zone of segment 2 stays
+     populated and the visualization doesn't drain over time. */
   for (const part of particles) {
+    const segOld = (part.x <= p.b) ? 1 : 2;
     const u = uOf(part.x, part.y, Q, p);
     part.x += u * vScale * dt;
-    if (part.x < 0) part.x += p.L;
-    else if (part.x > p.L) part.x -= p.L;
-    /* Keep y within current h(x) after geometry changes (especially across the step). */
+    if (part.x < 0 || part.x > p.L) {
+      part.x = (0.95 + 0.04 * Math.random()) * p.L;
+      const hr = hOf(part.x, p);
+      part.y = (0.04 + 0.92 * Math.random()) * hr;
+    } else {
+      const segNew = (part.x <= p.b) ? 1 : 2;
+      if (segOld !== segNew) {
+        const hOld = (segOld === 1) ? p.h_b : p.h_a;
+        const GOld = (segOld === 1) ? p.G1  : p.G2;
+        const hNew = (segNew === 1) ? p.h_b : p.h_a;
+        const GNew = (segNew === 1) ? p.G1  : p.G2;
+        part.y = remapStep(part.y, hOld, GOld, hNew, GNew, p.U1, p.mu);
+      }
+    }
+    /* Safety clamp inside the current segment. */
     const h = hOf(part.x, p);
-    if (part.y > h * 0.98) part.y = h * 0.98;
+    if (part.y > h * 0.99) part.y = h * 0.99;
+    if (part.y < 0.01 * h) part.y = 0.01 * h;
   }
 }
 
