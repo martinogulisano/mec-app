@@ -475,6 +475,38 @@
     </div>
   </a>
 
+  <!-- Reynolds: exponential-gap slider bearing -->
+  <a class="card" href="reynolds.html">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- flat lower plate -->
+      <line x1="8" y1="42" x2="44" y2="42" stroke="#6f7588" stroke-width="2.4" stroke-linecap="round"/>
+      <!-- fluid in the wedge (gap grows exponentially left → right) -->
+      <path d="M10,41 L10,37 C26,36 33,31 42,18 L42,41 Z" fill="rgba(88,166,255,0.28)" stroke="none"/>
+      <!-- upper profile (exponential-style curve) -->
+      <path d="M10,37 C26,36 33,31 42,18" stroke="#58a6ff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="card-body">
+      <h2>Exponential Slider bearing</h2>
+      <p>Application of Reynolds Equation for thin film lubrications.</p>
+    </div>
+  </a>
+
+  <!-- Reynolds: Rayleigh step bearing -->
+  <a class="card" href="reynolds_step.html">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- flat lower plate -->
+      <line x1="8" y1="42" x2="44" y2="42" stroke="#6f7588" stroke-width="2.4" stroke-linecap="round"/>
+      <!-- fluid: narrow left, wide right, step at x≈26 -->
+      <path d="M10,41 L10,37 L26,37 L26,28 L42,28 L42,41 Z" fill="rgba(88,166,255,0.28)" stroke="none"/>
+      <!-- stepped upper surface -->
+      <polyline points="10,37 26,37 26,28 42,28" stroke="#58a6ff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="card-body">
+      <h2>Step Slider bearing</h2>
+      <p>Application of Reynolds Equation for thin film lubrications.</p>
+    </div>
+  </a>
+
 </div><!-- .grid -->
 
 <p class="epigraph"><em>What I cannot create, I do not understand.</em> <cite>— Richard Feynman</cite></p>
