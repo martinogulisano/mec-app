@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reynolds slider bearing</title>
+<title>Exponential Slider Bearing</title>
 <script>
 window.MathJax = {
   tex: { inlineMath: [['\\(','\\)'], ['$', '$']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
@@ -201,11 +201,10 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
   <div id="help-box">
     <h3>Quick guide</h3>
     <ul>
-      <li><strong>Sliders</strong> — adjust geometry, model, and angle</li>
-      <li><strong>Play / Stop / Reset</strong> — control the angle sweep</li>
+      <li><strong>Sliders</strong> — adjust geometry, fluid, and boundary conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — control the fluid tracer particles</li>
       <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot or the main view</li>
       <li><strong>Double-click</strong> a plot to reset its view</li>
-      <li><strong>Zoom in / Zoom out</strong> — detail or full section on the main canvas</li>
     </ul>
     <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
     <button type="button" id="help-close">Got it</button>
@@ -224,18 +223,18 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 \(p_0\): ambient pressure imposed at \(x=0\) and \(x=a\) (Pa)</p>
       <div class="eq-section-title">Film thickness (exponential gap)</div>
       \[ h(x) = h_0\,\mathrm{e}^{c x}, \qquad c = \frac{1}{a}\ln\!\frac{h_1}{h_0} \]
-      <div class="eq-section-title">Reynolds equation (1D, steady, incompressible)</div>
-      \[ \frac{\mathrm{d}}{\mathrm{d}x}\!\left(\frac{h^3}{12\mu}\frac{\mathrm{d}p}{\mathrm{d}x}\right) = \tfrac{1}{2} U_1\,\frac{\mathrm{d}h}{\mathrm{d}x} \]
+      <div class="eq-section-title">Reynolds equation (steady, incompressible, thin film)</div>
+      \[ \frac{\partial}{\partial x}\!\left(\frac{h^3}{12\mu}\frac{\partial p}{\partial x}\right) = \tfrac{1}{2} U_1\,\frac{\partial h}{\partial x} \]
       <div class="eq-section-title">Flow rate per unit width (constant in steady state)</div>
-      \[ Q = \int_0^{h}\! u\,\mathrm{d}y = -\frac{h^3}{12\mu}\frac{\mathrm{d}p}{\mathrm{d}x} + \frac{U_1 h}{2} = \mathrm{const} \]
+      \[ Q = \int_0^{h}\! u\,\mathrm{d}y = -\frac{h^3}{12\mu}\frac{\partial p}{\partial x} + \frac{U_1 h}{2} = \mathrm{const} \]
       \[ Q = \frac{3\,U_1\,h_0\,h_1\,(h_0+h_1)}{4\,(h_0^{2}+h_0 h_1 + h_1^{2})} \]
       <div class="eq-section-title">Pressure</div>
-      \[ \frac{\mathrm{d}p}{\mathrm{d}x} = -\frac{12\mu Q}{h^3} + \frac{6\mu U_1}{h^2} \]
+      \[ \frac{\partial p}{\partial x} = -\frac{12\mu Q}{h^3} + \frac{6\mu U_1}{h^2} \]
       \[ p(x) - p_0 = -\frac{4\mu Q}{c}\!\left(\frac{1}{h_0^{3}}-\frac{1}{h(x)^{3}}\right) + \frac{3\mu U_1}{c}\!\left(\frac{1}{h_0^{2}}-\frac{1}{h(x)^{2}}\right) \]
       <div class="eq-section-title">Velocity profile</div>
-      \[ u(x,y) = -\frac{1}{2\mu}\,\frac{\mathrm{d}p}{\mathrm{d}x}\,y\,(h-y) + U_1\,\frac{h-y}{h} \]
+      \[ u(x,y) = -\frac{1}{2\mu}\,\frac{\partial p}{\partial x}\,y\,(h-y) + U_1\,\frac{h-y}{h} \]
       <div class="eq-section-title">Shear stress on the flat plate \((y=0)\)</div>
-      \[ \tau(x) = \mu\,\left.\frac{\partial u}{\partial y}\right|_{y=0} = -\frac{h}{2}\frac{\mathrm{d}p}{\mathrm{d}x} - \frac{\mu U_1}{h} \]
+      \[ \tau(x) = \mu\,\left.\frac{\partial u}{\partial y}\right|_{y=0} = -\frac{h}{2}\,\frac{\partial p}{\partial x} - \frac{\mu U_1}{h} \]
       <div class="eq-section-title">Integrated quantities (per unit width)</div>
       \[ N = \int_0^{a} (p - p_0)\,\mathrm{d}x \qquad\text{(load capacity)} \]
       \[ T = \int_0^{a} \tau(x)\,\mathrm{d}x \qquad\text{(viscous drag on the flat plate)} \]
@@ -246,7 +245,7 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 </div>
 
 <div id="left-panel" class="panel">
-  <h1>Reynolds slider bearing</h1>
+  <h1>Exponential Slider Bearing</h1>
   <h2>Plane slider, thin film, exponential gap</h2>
 
   <div class="theme-switch-row">
@@ -296,10 +295,6 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 
   <div class="section">
     <div class="section-title">Main view</div>
-    <div class="btn-row">
-      <button type="button" id="btn-zoom-in" title="Zoom in around the canvas center">Zoom in</button>
-      <button type="button" id="btn-zoom-out" class="secondary" title="Reset main-view pan and zoom">Zoom out</button>
-    </div>
     <div class="theme-switch-row" style="margin-top:6px;margin-bottom:4px;justify-content:flex-start;">
       <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:.8em;"><input type="checkbox" id="chk-show-pressure" checked> Show pressure profile $p(x)$</label>
     </div>
@@ -1511,15 +1506,6 @@ function initApp() {
   if (cps) cps.addEventListener('change', redrawAll);
   const cvs = document.getElementById('chk-show-velocity');
   if (cvs) cvs.addEventListener('change', redrawAll);
-
-  document.getElementById('btn-zoom-in').addEventListener('click', () => {
-    mainView.zoom *= 1.4;
-    redrawAll();
-  });
-  document.getElementById('btn-zoom-out').addEventListener('click', () => {
-    resetMainViewTransform();
-    redrawAll();
-  });
 
   document.getElementById('btn-sim-play').addEventListener('click', startParticles);
   document.getElementById('btn-sim-stop').addEventListener('click', stopParticles);

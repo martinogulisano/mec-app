@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reynolds step bearing</title>
+<title>Step Slider Bearing</title>
 <script>
 window.MathJax = {
   tex: { inlineMath: [['\\(','\\)'], ['$', '$']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
@@ -201,11 +201,10 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
   <div id="help-box">
     <h3>Quick guide</h3>
     <ul>
-      <li><strong>Sliders</strong> — adjust geometry, model, and angle</li>
-      <li><strong>Play / Stop / Reset</strong> — control the angle sweep</li>
+      <li><strong>Sliders</strong> — adjust geometry, fluid, and boundary conditions</li>
+      <li><strong>Play / Stop / Reset</strong> — control the fluid tracer particles</li>
       <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot or the main view</li>
       <li><strong>Double-click</strong> a plot to reset its view</li>
-      <li><strong>Zoom in / Zoom out</strong> — detail or full section on the main canvas</li>
     </ul>
     <div class="note">Designed for laptop/desktop — not tested on touch devices.</div>
     <button type="button" id="help-close">Got it</button>
@@ -226,14 +225,15 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 \(p_0\): ambient pressure imposed at \(x=0\) and \(x=a+b\) (Pa)</p>
       <div class="eq-section-title">Step geometry</div>
       \[ h(x) = \begin{cases} h_b & 0 \le x \le b \\[4pt] h_a & b < x \le a+b \end{cases} \]
-      <div class="eq-section-title">Reynolds equation in each segment</div>
-      Because \(h\) is constant in each segment, \(\dfrac{\mathrm{d}h}{\mathrm{d}x}=0\) and
-      \[ \frac{\mathrm{d}}{\mathrm{d}x}\!\left(\frac{h^{3}}{12\mu}\frac{\mathrm{d}p}{\mathrm{d}x}\right)=0
-         \;\Longrightarrow\; \frac{\mathrm{d}p}{\mathrm{d}x}=G_i\,\text{ constant} \]
-      so \(p(x)\) is piecewise linear: \(G_1\) on \([0,b]\), \(G_2\) on \([b,a+b]\).
+      <div class="eq-section-title">Reynolds equation (steady, incompressible, thin film)</div>
+      \[ \frac{\partial}{\partial x}\!\left(\frac{h^{3}}{12\mu}\frac{\partial p}{\partial x}\right) = \tfrac{1}{2}\,U_1\,\frac{\partial h}{\partial x} \]
+      Because \(h\) is constant in each segment, \(\partial h/\partial x = 0\), so
+      \[ \frac{\partial}{\partial x}\!\left(\frac{h^{3}}{12\mu}\frac{\partial p}{\partial x}\right)=0
+         \;\Longrightarrow\; \frac{\partial p}{\partial x}=G_i\,\text{ constant} \]
+      i.e. \(p(x)\) is piecewise linear: \(G_1\) on \([0,b]\), \(G_2\) on \([b,a+b]\).
       <div class="eq-section-title">Continuity at the step \(x=b\)</div>
       Pressure continuous (\(p\) is a state variable) and flow rate per unit width continuous:
-      \[ Q = -\frac{h^{3}}{12\mu}\frac{\mathrm{d}p}{\mathrm{d}x}+\frac{U_1 h}{2}=\mathrm{const} \]
+      \[ Q = -\frac{h^{3}}{12\mu}\,\frac{\partial p}{\partial x}+\frac{U_1 h}{2}=\mathrm{const} \]
       With \(p(0)=p(a+b)=p_0\) the two unknowns \(G_1,G_2\) follow from
       \[ G_1\,b + G_2\,a = 0, \qquad
          -\frac{h_b^{3}}{12\mu}G_1+\frac{U_1 h_b}{2}=-\frac{h_a^{3}}{12\mu}G_2+\frac{U_1 h_a}{2} \]
@@ -243,9 +243,9 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
       \[ p_{\max}-p_0 = G_1\,b = -\frac{6\mu\,U_1\,a\,b\,(h_a-h_b)}{a\,h_b^{3}+b\,h_a^{3}} \]
       \[ Q = \frac{U_1\,h_a\,h_b\,(a\,h_b^{2}+b\,h_a^{2})}{2\,(a\,h_b^{3}+b\,h_a^{3})} \]
       <div class="eq-section-title">Velocity profile (in each segment)</div>
-      \[ u(x,y) = -\frac{1}{2\mu}\,\frac{\mathrm{d}p}{\mathrm{d}x}\,y\,(h-y) + U_1\,\frac{h-y}{h} \]
+      \[ u(x,y) = -\frac{1}{2\mu}\,\frac{\partial p}{\partial x}\,y\,(h-y) + U_1\,\frac{h-y}{h} \]
       <div class="eq-section-title">Shear on the flat plate, constant in each segment</div>
-      \[ \tau_i = -\frac{h_i}{2}\,G_i - \frac{\mu U_1}{h_i}, \quad i\in\{1,2\} \]
+      \[ \tau_i = \mu\,\left.\frac{\partial u}{\partial y}\right|_{y=0} = -\frac{h_i}{2}\,G_i - \frac{\mu U_1}{h_i}, \quad i\in\{1,2\} \]
       <div class="eq-section-title">Integrated quantities (per unit width)</div>
       The pressure profile is triangular, so
       \[ N = \int_0^{a+b}\!(p-p_0)\,\mathrm{d}x = \frac{(a+b)}{2}\,(p_{\max}-p_0) \]
@@ -257,7 +257,7 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 </div>
 
 <div id="left-panel" class="panel">
-  <h1>Reynolds step bearing</h1>
+  <h1>Step Slider Bearing</h1>
   <h2>Rayleigh step, two-region thin film</h2>
 
   <div class="theme-switch-row">
@@ -266,15 +266,18 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 
   <div class="section">
     <div class="section-title">Geometry</div>
-    <div class="param-row"><span class="param-meaning">Gap at x=0</span><label>$h_0$ (µm):</label>
-      <input type="range" id="h0-slider" min="1" max="100" step="0.5" value="10">
-      <span class="val" id="h0-val">10</span></div>
-    <div class="param-row"><span class="param-meaning">Gap at x=a</span><label>$h_1$ (µm):</label>
-      <input type="range" id="h1-slider" min="1" max="100" step="0.5" value="30">
-      <span class="val" id="h1-val">30</span></div>
-    <div class="param-row"><span class="param-meaning">Bearing length</span><label>$a$ (mm):</label>
-      <input type="range" id="a-slider" min="5" max="200" step="1" value="50">
-      <span class="val" id="a-val">50</span></div>
+    <div class="param-row"><span class="param-meaning">Narrow gap</span><label>$h_b$ (µm):</label>
+      <input type="range" id="hb-slider" min="1" max="100" step="0.5" value="10">
+      <span class="val" id="hb-val">10</span></div>
+    <div class="param-row"><span class="param-meaning">Wide gap</span><label>$h_a$ (µm):</label>
+      <input type="range" id="ha-slider" min="1" max="100" step="0.5" value="30">
+      <span class="val" id="ha-val">30</span></div>
+    <div class="param-row"><span class="param-meaning">Narrow length</span><label>$b$ (mm):</label>
+      <input type="range" id="b-slider" min="1" max="200" step="1" value="20">
+      <span class="val" id="b-val">20</span></div>
+    <div class="param-row"><span class="param-meaning">Wide length</span><label>$a$ (mm):</label>
+      <input type="range" id="a-slider" min="1" max="200" step="1" value="30">
+      <span class="val" id="a-val">30</span></div>
   </div>
 
   <div class="section">
@@ -307,10 +310,6 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
 
   <div class="section">
     <div class="section-title">Main view</div>
-    <div class="btn-row">
-      <button type="button" id="btn-zoom-in" title="Zoom in around the canvas center">Zoom in</button>
-      <button type="button" id="btn-zoom-out" class="secondary" title="Reset main-view pan and zoom">Zoom out</button>
-    </div>
     <div class="theme-switch-row" style="margin-top:6px;margin-bottom:4px;justify-content:flex-start;">
       <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:.8em;"><input type="checkbox" id="chk-show-pressure" checked> Show pressure profile $p(x)$</label>
     </div>
@@ -322,12 +321,13 @@ canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:ba
   <div class="section">
     <div class="section-title">Results (per unit width)</div>
     <div class="muted" id="force-readout" style="font-size:.74em;line-height:1.55;">
-      <div>$N=\int_0^a (p-p_0)\,\mathrm{d}x$: <span id="N-val">—</span> N/m</div>
-      <div>$T=\int_0^a \tau\,\mathrm{d}x$: <span id="T-val">—</span> N/m</div>
+      <div>$N=\tfrac{a+b}{2}(p_{\max}-p_0)$: <span id="N-val">—</span> N/m</div>
+      <div>$T=\tau_1 b+\tau_2 a$: <span id="T-val">—</span> N/m</div>
       <div>$f=T/N$: <span id="f-val">—</span></div>
       <div>$Q$: <span id="Q-val">—</span> m²/s</div>
       <div>$p_{\max}-p_0$: <span id="pmax-val">—</span> Pa</div>
-      <div>$h_{\min}$: <span id="hmin-val">—</span> µm</div>
+      <div>$\tau_1$ (narrow): <span id="tau1-val">—</span> Pa</div>
+      <div>$\tau_2$ (wide): <span id="tau2-val">—</span> Pa</div>
     </div>
   </div>
 </div>
@@ -404,84 +404,77 @@ function valFromLogSlider(s, nominal) {
   return nominal * logSliderFactorFromNominal(s);
 }
 
-/** Reads SI parameters from the sliders. h0,h1 in µm slider -> m; a in mm -> m; p0 in kPa -> Pa. */
+/** Reads SI parameters from the sliders. h_b,h_a in µm slider -> m; a,b in mm -> m; p0 in kPa -> Pa. */
 function readPhysics() {
-  const h0 = parseFloat(document.getElementById('h0-slider').value) * 1e-6;
-  const h1 = parseFloat(document.getElementById('h1-slider').value) * 1e-6;
-  const a  = parseFloat(document.getElementById('a-slider').value)  * 1e-3;
-  const U1 = parseFloat(document.getElementById('U1-slider').value);
-  const mu = valFromLogSlider(parseFloat(document.getElementById('mu-lg-slider').value), NOM_MU);
-  const p0 = parseFloat(document.getElementById('p0-slider').value) * 1e3;
-  const c = (Math.abs(h1 - h0) < 1e-15) ? 0 : Math.log(h1 / h0) / a;
-  return { h0, h1, a, U1, mu, p0, c };
+  const h_b = parseFloat(document.getElementById('hb-slider').value) * 1e-6;
+  const h_a = parseFloat(document.getElementById('ha-slider').value) * 1e-6;
+  const b   = parseFloat(document.getElementById('b-slider').value)  * 1e-3;
+  const a   = parseFloat(document.getElementById('a-slider').value)  * 1e-3;
+  const U1  = parseFloat(document.getElementById('U1-slider').value);
+  const mu  = valFromLogSlider(parseFloat(document.getElementById('mu-lg-slider').value), NOM_MU);
+  const p0  = parseFloat(document.getElementById('p0-slider').value) * 1e3;
+  const L = a + b;
+  /* Pre-compute the closed-form constants once per snapshot. */
+  const denom = a * h_b * h_b * h_b + b * h_a * h_a * h_a;
+  const G1 = denom > 0 ? -6 * mu * U1 * a * (h_a - h_b) / denom : 0;
+  const G2 = a > 0 ? -G1 * b / a : 0;
+  const tau1 = -0.5 * h_b * G1 - mu * U1 / h_b;
+  const tau2 = -0.5 * h_a * G2 - mu * U1 / h_a;
+  const pmax = p0 + G1 * b; /* pressure at the step x=b */
+  return { h_b, h_a, a, b, L, U1, mu, p0, G1, G2, tau1, tau2, pmax };
 }
 
+/** Step thickness: h_b for x ≤ b, h_a for x > b. */
 function hOf(x, p) {
-  if (p.c === 0) return p.h0;
-  return p.h0 * Math.exp(p.c * x);
+  return (x <= p.b) ? p.h_b : p.h_a;
 }
 
-/** Closed-form Q for an exponential gap with p(0)=p(a)=p0 (independent of c). */
+/** Closed-form Q (same in both segments; verified via continuity). Independent of μ. */
 function flowQ(p) {
-  const num = 3 * p.U1 * p.h0 * p.h1 * (p.h0 + p.h1);
-  const den = 4 * (p.h0 * p.h0 + p.h0 * p.h1 + p.h1 * p.h1);
-  return num / den;
+  const denom = p.a * p.h_b * p.h_b * p.h_b + p.b * p.h_a * p.h_a * p.h_a;
+  if (denom <= 0) return 0;
+  const num = p.U1 * p.h_a * p.h_b * (p.a * p.h_b * p.h_b + p.b * p.h_a * p.h_a);
+  return num / (2 * denom);
 }
 
-/** Standard Reynolds form: Q = -h³/(12μ) dp/dx + U1 h/2  ⇒  dp/dx = -12μQ/h³ + 6μU1/h². */
+/** dp/dx is piecewise constant: G1 in segment 1, G2 in segment 2. */
 function dpdx(x, Q, p) {
-  const h = hOf(x, p);
-  return -12 * p.mu * Q / (h * h * h) + 6 * p.mu * p.U1 / (h * h);
+  return (x <= p.b) ? p.G1 : p.G2;
 }
 
-/** Integrated pressure with BC p(0)=p0 (and automatically p(a)=p0 with the closed-form Q). */
+/** Piecewise linear pressure with p(0)=p(a+b)=p0 and p continuous at x=b. */
 function pOf(x, Q, p) {
-  if (p.c === 0) return p.p0;
-  const h = hOf(x, p);
-  const h0 = p.h0;
-  return p.p0
-    - (4 * p.mu * Q / p.c) * (1 / (h0 * h0 * h0) - 1 / (h * h * h))
-    + (3 * p.mu * p.U1 / p.c) * (1 / (h0 * h0) - 1 / (h * h));
+  if (x <= p.b) return p.p0 + p.G1 * x;
+  return p.pmax + p.G2 * (x - p.b);
 }
 
-/** Standard Couette+Poiseuille: u = -(1/2μ) dp/dx · y(h-y) + U1 (h-y)/h. */
+/** Standard Couette+Poiseuille in each segment: u = -(1/2μ) dp/dx · y(h-y) + U1 (h-y)/h. */
 function uOf(x, y, Q, p) {
   const h = hOf(x, p);
   if (h <= 0) return 0;
   const yClamped = Math.max(0, Math.min(h, y));
-  return -dpdx(x, Q, p) * yClamped * (h - yClamped) / (2 * p.mu) + p.U1 * (h - yClamped) / h;
+  const G = (x <= p.b) ? p.G1 : p.G2;
+  return -G * yClamped * (h - yClamped) / (2 * p.mu) + p.U1 * (h - yClamped) / h;
 }
 
-/** Shear on the flat plate at y=0: τ = μ ∂u/∂y|0 = -h/2 · dp/dx - μ U1 / h. */
+/** Shear on the flat plate at y=0, constant in each segment. */
 function tauOf(x, Q, p) {
-  const h = hOf(x, p);
-  if (h <= 0) return 0;
-  return -0.5 * h * dpdx(x, Q, p) - p.mu * p.U1 / h;
+  return (x <= p.b) ? p.tau1 : p.tau2;
 }
 
 /** Trapezoid: N = ∫(p-p0)dx, T = ∫τ dx, f = T/N. Also returns p_max, p_min, h_min. */
+/** Closed-form integrated quantities for the Rayleigh step bearing. */
 function integrateForces(p) {
   const Q = flowQ(p);
-  const n = 200;
-  let N = 0, T = 0;
-  let pMax = -Infinity, pMin = Infinity;
-  let hMin = Infinity;
-  for (let i = 0; i <= n; i++) {
-    const x = (i / n) * p.a;
-    const w = (i === 0 || i === n) ? 0.5 : 1.0;
-    const pv = pOf(x, Q, p);
-    const tv = tauOf(x, Q, p);
-    N += w * (pv - p.p0);
-    T += w * tv;
-    if (pv > pMax) pMax = pv;
-    if (pv < pMin) pMin = pv;
-    const hv = hOf(x, p);
-    if (hv < hMin) hMin = hv;
-  }
-  const dx = p.a / n;
-  N *= dx; T *= dx;
+  /* Triangular pressure profile with apex p_max at x=b. */
+  const dPmax = p.pmax - p.p0;
+  const N = 0.5 * p.L * dPmax;
+  const T = p.tau1 * p.b + p.tau2 * p.a;
   const f = Math.abs(N) > 1e-12 ? T / N : NaN;
-  return { N, T, f, Q, pMax, pMin, hMin };
+  const pMax = Math.max(p.p0, p.pmax);
+  const pMin = Math.min(p.p0, p.pmax);
+  const hMin = Math.min(p.h_a, p.h_b);
+  return { N, T, f, Q, pMax, pMin, hMin, tau1: p.tau1, tau2: p.tau2 };
 }
 
 function fmtSci(x, nd) {
@@ -499,8 +492,9 @@ function updateReadouts(p, R) {
   set('T-val', fmtSci(R.T, 4));
   set('f-val', Number.isFinite(R.f) ? R.f.toFixed(4) : '—');
   set('Q-val', fmtSci(R.Q, 4));
-  set('pmax-val', fmtSci(R.pMax - p.p0, 4));
-  set('hmin-val', (R.hMin * 1e6).toFixed(2));
+  set('pmax-val', fmtSci(p.pmax - p.p0, 4));
+  set('tau1-val', fmtSci(R.tau1, 4));
+  set('tau2-val', fmtSci(R.tau2, 4));
 }
 
 /* ---------- Plot view (kept from template, used for the three right-panel plots) ---------- */
@@ -687,18 +681,12 @@ function drawPXPlot(phys) {
   const ctxP = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   const Q = flowQ(phys);
-  const n = 240;
-  const xs = [], ps = [];
-  let pmin = Infinity, pmax = -Infinity;
-  for (let i = 0; i <= n; i++) {
-    const x = (i / n) * phys.a;
-    const pv = pOf(x, Q, phys) - phys.p0;
-    xs.push(x); ps.push(pv);
-    if (pv < pmin) pmin = pv;
-    if (pv > pmax) pmax = pv;
-  }
+  /* Triangular profile: (0,0) -> (b, p_max-p0) -> (L, 0). */
+  const dpPeak = phys.pmax - phys.p0;
+  const pmin = Math.min(0, dpPeak);
+  const pmax = Math.max(0, dpPeak);
   const pad = Math.max(Math.abs(pmin), Math.abs(pmax), 1) * 0.12;
-  pXView.setRange(0, phys.a, Math.min(pmin - pad, -pad), Math.max(pmax + pad, pad));
+  pXView.setRange(0, phys.L, Math.min(pmin - pad, -pad), Math.max(pmax + pad, pad));
 
   drawPlotFrame(ctxP, W, H, P_PAD, pXView, 'x (m)', 'p − p₀ (Pa)',
     x => x.toFixed(3),
@@ -708,17 +696,28 @@ function drawPXPlot(phys) {
   const toY = v => pXView.toY(v, P_PAD, H);
   const day = document.body.classList.contains('theme-day');
 
+  /* Three-vertex polyline. */
   ctxP.strokeStyle = day ? '#c73e54' : '#f87171';
   ctxP.lineWidth = 2.2;
   ctxP.lineJoin = 'round';
   ctxP.beginPath();
-  for (let i = 0; i < xs.length; i++) {
-    const px = toX(xs[i]), py = toY(ps[i]);
-    if (i === 0) ctxP.moveTo(px, py); else ctxP.lineTo(px, py);
-  }
+  ctxP.moveTo(toX(0), toY(0));
+  ctxP.lineTo(toX(phys.b), toY(dpPeak));
+  ctxP.lineTo(toX(phys.L), toY(0));
   ctxP.stroke();
 
-  const xMarks = [0, phys.a * xDragFrac, phys.a];
+  /* Dashed vertical at x=b for visual cue. */
+  ctxP.save();
+  ctxP.setLineDash([4, 4]);
+  ctxP.strokeStyle = day ? 'rgba(60,70,90,0.45)' : 'rgba(200,210,230,0.4)';
+  ctxP.lineWidth = 1;
+  ctxP.beginPath();
+  ctxP.moveTo(toX(phys.b), toY(pXView.yMin));
+  ctxP.lineTo(toX(phys.b), toY(pXView.yMax));
+  ctxP.stroke();
+  ctxP.restore();
+
+  const xMarks = [0, phys.L * xDragFrac, phys.L];
   const colors = ['#22c55e', '#fbbf24', '#3b82f6'];
   for (let k = 0; k < 3; k++) {
     const x = xMarks[k];
@@ -739,19 +738,12 @@ function drawTauXPlot(phys) {
   if (!cv) return;
   const ctxP = cv.getContext('2d');
   const W = cv.width, H = cv.height;
-  const Q = flowQ(phys);
-  const n = 240;
-  const xs = [], ts = [];
-  let tmin = Infinity, tmax = -Infinity;
-  for (let i = 0; i <= n; i++) {
-    const x = (i / n) * phys.a;
-    const tv = tauOf(x, Q, phys);
-    xs.push(x); ts.push(tv);
-    if (tv < tmin) tmin = tv;
-    if (tv > tmax) tmax = tv;
-  }
-  const pad = Math.max(Math.abs(tmin), Math.abs(tmax), 1) * 0.12;
-  tauXView.setRange(0, phys.a, Math.min(tmin - pad, -pad), Math.max(tmax + pad, pad));
+  /* Piecewise constant: tau1 on [0,b], tau2 on [b,L]. */
+  const t1 = phys.tau1, t2 = phys.tau2;
+  const tmin = Math.min(t1, t2, 0);
+  const tmax = Math.max(t1, t2, 0);
+  const pad = Math.max(Math.abs(tmin), Math.abs(tmax), 1) * 0.18;
+  tauXView.setRange(0, phys.L, tmin - pad, tmax + pad);
 
   drawPlotFrame(ctxP, W, H, P_PAD, tauXView, 'x (m)', 'τ (Pa)',
     x => x.toFixed(3),
@@ -761,21 +753,34 @@ function drawTauXPlot(phys) {
   const toY = v => tauXView.toY(v, P_PAD, H);
   const day = document.body.classList.contains('theme-day');
 
+  /* Step function: two horizontal segments joined by a vertical jump at x=b. */
   ctxP.strokeStyle = day ? '#0f766e' : '#5eead4';
-  ctxP.lineWidth = 2.2;
-  ctxP.lineJoin = 'round';
+  ctxP.lineWidth = 2.4;
+  ctxP.lineJoin = 'miter';
+  ctxP.lineCap = 'butt';
   ctxP.beginPath();
-  for (let i = 0; i < xs.length; i++) {
-    const px = toX(xs[i]), py = toY(ts[i]);
-    if (i === 0) ctxP.moveTo(px, py); else ctxP.lineTo(px, py);
-  }
+  ctxP.moveTo(toX(0), toY(t1));
+  ctxP.lineTo(toX(phys.b), toY(t1));
+  ctxP.lineTo(toX(phys.b), toY(t2));
+  ctxP.lineTo(toX(phys.L), toY(t2));
   ctxP.stroke();
 
-  const xMarks = [0, phys.a * xDragFrac, phys.a];
+  /* Dashed vertical line at x=b. */
+  ctxP.save();
+  ctxP.setLineDash([4, 4]);
+  ctxP.strokeStyle = day ? 'rgba(60,70,90,0.45)' : 'rgba(200,210,230,0.4)';
+  ctxP.lineWidth = 1;
+  ctxP.beginPath();
+  ctxP.moveTo(toX(phys.b), toY(tauXView.yMin));
+  ctxP.lineTo(toX(phys.b), toY(tauXView.yMax));
+  ctxP.stroke();
+  ctxP.restore();
+
+  const xMarks = [0, phys.L * xDragFrac, phys.L];
   const colors = ['#22c55e', '#fbbf24', '#3b82f6'];
   for (let k = 0; k < 3; k++) {
     const x = xMarks[k];
-    const tv = tauOf(x, Q, phys);
+    const tv = (x <= phys.b) ? t1 : t2;
     const px = toX(x), py = toY(tv);
     ctxP.beginPath();
     ctxP.arc(px, py, 5, 0, Math.PI * 2);
@@ -797,8 +802,10 @@ function drawUYPlot(phys) {
   const ctxP = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   const Q = flowQ(phys);
-  const xD = phys.a * xDragFrac;
+  const xD = phys.L * xDragFrac;
   const h = hOf(xD, phys);
+  /* Fixed y-axis range so the plot stays stable when the drag point crosses the step. */
+  const hYmax = Math.max(phys.h_b, phys.h_a) * 1e6;
   const n = 80;
   const us = [], ys = [];
   for (let i = 0; i <= n; i++) {
@@ -806,7 +813,7 @@ function drawUYPlot(phys) {
     us.push(uOf(xD, y, Q, phys));
     ys.push(y);
   }
-  uYView.setRange(-U_AXIS_HALF_RANGE, U_AXIS_HALF_RANGE, 0, h * 1e6);
+  uYView.setRange(-U_AXIS_HALF_RANGE, U_AXIS_HALF_RANGE, 0, hYmax);
 
   drawPlotFrame(ctxP, W, H, P_PAD, uYView, 'u (m/s)', 'y (µm)',
     x => x.toFixed(2),
@@ -850,22 +857,23 @@ function drawUYPlot(phys) {
   ctxP.font = '11px Segoe UI, sans-serif';
   ctxP.textAlign = 'left';
   ctxP.textBaseline = 'top';
-  ctxP.fillText('x = ' + (xD * 1000).toFixed(2) + ' mm', P_PAD.l + 6, P_PAD.t + 4);
+  const seg = (xD <= phys.b) ? 'narrow (h_b)' : 'wide (h_a)';
+  ctxP.fillText('x = ' + (xD * 1000).toFixed(2) + ' mm  ·  ' + seg, P_PAD.l + 6, P_PAD.t + 4);
 }
 
 /* ---------- Main canvas: world-to-canvas mapping ---------- */
 
 /** Builds the world->canvas transform parameters from current phys and canvas size sz. */
 function makeView(phys, sz) {
-  const a = phys.a;
-  const hMax = Math.max(phys.h0, phys.h1);
+  const L = phys.L; /* total length a + b */
+  const hMax = Math.max(phys.h_b, phys.h_a);
   const xPxMargin = 0.05 * sz;
-  const scaleX = (sz - 2 * xPxMargin) / (1.1 * a); /* x∈[-0.05a, 1.05a] */
+  const scaleX = (sz - 2 * xPxMargin) / (1.1 * L); /* x∈[-0.05L, 1.05L] */
   /** Bottom plate at py = 0.70 sz; hMax mapped to about 0.22 sz pixels above. */
   const yPxFloor = 0.70 * sz;
   const scaleY = (0.22 * sz) / Math.max(hMax, 1e-9);
-  const xPxOrigin = xPxMargin + 0.05 * a * scaleX; /* such that x=0 maps to xPxMargin + 0.05*a*scaleX */
-  return { sz, a, hMax, xPxMargin, scaleX, scaleY, yPxFloor, xPxOrigin };
+  const xPxOrigin = xPxMargin + 0.05 * L * scaleX; /* such that x=0 maps to xPxMargin + 0.05*L*scaleX */
+  return { sz, L, hMax, xPxMargin, scaleX, scaleY, yPxFloor, xPxOrigin };
 }
 
 function W2C(wx, wy, view) {
@@ -900,30 +908,26 @@ function cssVar(name, fallback) {
 /* ---------- Main scene drawing ---------- */
 
 function drawBearing(phys, view, day) {
-  const a = phys.a;
-  /* Fluid region: top profile down to bottom plate. */
-  const n = 200;
+  const L = phys.L;
+  const b = phys.b;
+  /* Fluid region: two rectangles joined at the step x=b. */
   ctx.beginPath();
-  let xy = W2C(0, hOf(0, phys), view);
-  ctx.moveTo(xy[0], xy[1]);
-  for (let i = 1; i <= n; i++) {
-    const x = (i / n) * a;
-    xy = W2C(x, hOf(x, phys), view);
-    ctx.lineTo(xy[0], xy[1]);
-  }
-  xy = W2C(a, 0, view); ctx.lineTo(xy[0], xy[1]);
+  let xy = W2C(0, phys.h_b, view); ctx.moveTo(xy[0], xy[1]);
+  xy = W2C(b, phys.h_b, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(b, phys.h_a, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(L, phys.h_a, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(L, 0, view); ctx.lineTo(xy[0], xy[1]);
   xy = W2C(0, 0, view); ctx.lineTo(xy[0], xy[1]);
   ctx.closePath();
   ctx.fillStyle = day ? 'rgba(96, 165, 220, 0.42)' : 'rgba(56, 128, 200, 0.48)';
   ctx.fill();
 
-  /* Top profile (curve). */
+  /* Top profile drawn as 3 polyline segments. */
   ctx.beginPath();
-  for (let i = 0; i <= n; i++) {
-    const x = (i / n) * a;
-    xy = W2C(x, hOf(x, phys), view);
-    if (i === 0) ctx.moveTo(xy[0], xy[1]); else ctx.lineTo(xy[0], xy[1]);
-  }
+  xy = W2C(0, phys.h_b, view); ctx.moveTo(xy[0], xy[1]);
+  xy = W2C(b, phys.h_b, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(b, phys.h_a, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(L, phys.h_a, view); ctx.lineTo(xy[0], xy[1]);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = day ? '#1a6a9e' : '#93c5fd';
@@ -933,24 +937,38 @@ function drawBearing(phys, view, day) {
   /* Solid top body fill — a polygon above the gap (visual cue). */
   ctx.save();
   ctx.beginPath();
-  for (let i = 0; i <= n; i++) {
-    const x = (i / n) * a;
-    xy = W2C(x, hOf(x, phys), view);
-    if (i === 0) ctx.moveTo(xy[0], xy[1]); else ctx.lineTo(xy[0], xy[1]);
-  }
-  /* up to the canvas top inside the bearing length */
-  xy = W2C(a, view.hMax * 2.5, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(0, phys.h_b, view); ctx.moveTo(xy[0], xy[1]);
+  xy = W2C(b, phys.h_b, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(b, phys.h_a, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(L, phys.h_a, view); ctx.lineTo(xy[0], xy[1]);
+  xy = W2C(L, view.hMax * 2.5, view); ctx.lineTo(xy[0], xy[1]);
   xy = W2C(0, view.hMax * 2.5, view); ctx.lineTo(xy[0], xy[1]);
   ctx.closePath();
   ctx.clip();
-  /* very light tint */
   ctx.fillStyle = day ? 'rgba(200, 215, 235, 0.18)' : 'rgba(80, 120, 180, 0.10)';
   ctx.fillRect(0, 0, view.sz, view.sz);
   ctx.restore();
 
+  /* Faint dashed vertical at the step x=b to emphasize the discontinuity. */
+  const [sx0, sy0] = W2C(b, 0, view);
+  const [sx1, sy1] = W2C(b, view.hMax * 1.4, view);
+  ctx.save();
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = day ? 'rgba(60,70,90,0.55)' : 'rgba(180,195,225,0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(sx0, sy0); ctx.lineTo(sx1, sy1); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = day ? '#475569' : '#cbd5e1';
+  ctx.font = 'italic 11px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('x = b', sx1, sy1 - 4);
+  ctx.restore();
+
   /* Bottom plate: thick horizontal bar (filled rectangle just below y=0). */
-  const [bx0, by0] = W2C(-0.02 * a, 0, view);
-  const [bx1] = W2C(1.02 * a, 0, view);
+  const [bx0, by0] = W2C(-0.02 * L, 0, view);
+  const [bx1] = W2C(1.02 * L, 0, view);
   const plateThickness = Math.max(8, 0.025 * view.sz);
   ctx.fillStyle = day ? '#475569' : '#334155';
   ctx.fillRect(Math.min(bx0, bx1), by0, Math.abs(bx1 - bx0), plateThickness);
@@ -962,10 +980,10 @@ function drawBearing(phys, view, day) {
 
 function drawU1Arrow(phys, view, day) {
   if (Math.abs(phys.U1) < 1e-9) return;
-  const a = phys.a;
+  const L = phys.L;
   const yWorld = -view.hMax * 1.0; /* below the bottom plate */
-  const len = Math.min(0.35, 0.35 * Math.abs(phys.U1) / 20) * a + 0.05 * a;
-  const xCenter = 0.5 * a;
+  const len = Math.min(0.35, 0.35 * Math.abs(phys.U1) / 20) * L + 0.05 * L;
+  const xCenter = 0.5 * L;
   const xLeft = xCenter - len / 2;
   const xRight = xCenter + len / 2;
   const xTip = phys.U1 < 0 ? xLeft : xRight;
@@ -996,19 +1014,10 @@ function drawU1Arrow(phys, view, day) {
 }
 
 function drawPressureOverlay(phys, view, day) {
-  const Q = flowQ(phys);
-  const a = phys.a;
-  const n = 200;
-  const xs = [], dps = [];
-  let dpMin = Infinity, dpMax = -Infinity;
-  for (let i = 0; i <= n; i++) {
-    const x = (i / n) * a;
-    const dp = pOf(x, Q, phys) - phys.p0;
-    xs.push(x); dps.push(dp);
-    if (dp < dpMin) dpMin = dp;
-    if (dp > dpMax) dpMax = dp;
-  }
-  const amp = Math.max(Math.abs(dpMin), Math.abs(dpMax), 1);
+  const L = phys.L;
+  /* Three vertices define the triangular profile: (0,0), (b, p_max-p0), (L, 0). */
+  const dpPeak = phys.pmax - phys.p0;
+  const amp = Math.max(Math.abs(dpPeak), 1);
 
   const sz = view.sz;
   const yZeroPx = 0.225 * sz; /* zero line of pressure band */
@@ -1023,35 +1032,36 @@ function drawPressureOverlay(phys, view, day) {
   ctx.strokeStyle = day ? 'rgba(80,90,110,0.7)' : 'rgba(220,230,250,0.55)';
   ctx.lineWidth = 1;
   const [px0Zero] = W2C(0, 0, view);
-  const [px1Zero] = W2C(a, 0, view);
+  const [px1Zero] = W2C(L, 0, view);
   ctx.beginPath();
   ctx.moveTo(px0Zero, yZeroPx); ctx.lineTo(px1Zero, yZeroPx);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  /* p-p0 curve in red. */
+  /* p-p0 curve in red: two line segments meeting at the peak over x=b. */
+  const [pxL] = W2C(0, 0, view);
+  const [pxPeak] = W2C(phys.b, 0, view);
+  const [pxR] = W2C(L, 0, view);
+  const pyL = pToPy(0);
+  const pyPeak = pToPy(dpPeak);
+  const pyR = pToPy(0);
+
   ctx.beginPath();
-  for (let i = 0; i < xs.length; i++) {
-    const [px] = W2C(xs[i], 0, view);
-    const py = pToPy(dps[i]);
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
+  ctx.moveTo(pxL, pyL);
+  ctx.lineTo(pxPeak, pyPeak);
+  ctx.lineTo(pxR, pyR);
   ctx.strokeStyle = day ? '#c73e54' : '#f87171';
   ctx.lineWidth = 2.6;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.stroke();
 
-  /* Filled area below curve down to zero line (semi-transparent). */
+  /* Filled triangle. */
   ctx.beginPath();
-  for (let i = 0; i < xs.length; i++) {
-    const [px] = W2C(xs[i], 0, view);
-    const py = pToPy(dps[i]);
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  const [pxR] = W2C(xs[xs.length - 1], 0, view);
+  ctx.moveTo(pxL, pyL);
+  ctx.lineTo(pxPeak, pyPeak);
+  ctx.lineTo(pxR, pyR);
   ctx.lineTo(pxR, yZeroPx);
-  const [pxL] = W2C(xs[0], 0, view);
   ctx.lineTo(pxL, yZeroPx);
   ctx.closePath();
   ctx.fillStyle = day ? 'rgba(199, 62, 84, 0.18)' : 'rgba(248, 113, 113, 0.18)';
@@ -1075,12 +1085,12 @@ const VEL_ARROW_SCALE_PER_MPS = 0.018; /* world length per (m/s), as a fraction 
 
 function drawVelocityProfiles(phys, view, day) {
   const Q = flowQ(phys);
-  const a = phys.a;
-  const xMarks = [0, a * xDragFrac, a];
+  const L = phys.L;
+  const xMarks = [0, L * xDragFrac, L];
   const colors = ['#22c55e', '#fbbf24', '#3b82f6'];
 
-  /* Fixed arrow scale (does NOT depend on the current u values): 1 m/s → 0.018·a in world. */
-  const arrowScale = VEL_ARROW_SCALE_PER_MPS * a;
+  /* Fixed arrow scale (does NOT depend on the current u values): 1 m/s → 0.018·L in world. */
+  const arrowScale = VEL_ARROW_SCALE_PER_MPS * L;
 
   ctx.save();
   for (let k = 0; k < xMarks.length; k++) {
@@ -1142,7 +1152,7 @@ function drawVelocityProfiles(phys, view, day) {
     ctx.font = 'italic 12px Segoe UI, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    const lbl = k === 0 ? 'x = 0' : (k === 1 ? 'x = x_drag' : 'x = a');
+    const lbl = k === 0 ? 'x = 0' : (k === 1 ? 'x = x_drag' : 'x = a+b');
     ctx.fillText(lbl, vx1, vy1 - 6);
   }
   ctx.restore();
@@ -1172,9 +1182,9 @@ function drawVelocityProfiles(phys, view, day) {
   ctx.restore();
 }
 
-/** Red filled circle on the bottom plate at x = a*xDragFrac, draggable. */
+/** Red filled circle on the bottom plate at x = L*xDragFrac, draggable. */
 function drawDraggablePoint(phys, view, day) {
-  const xp = phys.a * xDragFrac;
+  const xp = phys.L * xDragFrac;
   const [px, py] = W2C(xp, 0, view);
   ctx.save();
   ctx.beginPath();
@@ -1201,7 +1211,7 @@ const NUM_PARTICLES = 90;
 function seedParticles(p) {
   particles = [];
   for (let i = 0; i < NUM_PARTICLES; i++) {
-    const x = Math.random() * p.a;
+    const x = Math.random() * p.L;
     const h = hOf(x, p);
     const y = (0.04 + 0.92 * Math.random()) * h;
     particles.push({ x, y });
@@ -1212,7 +1222,7 @@ function stepParticles(dt) {
   if (!particles.length) return;
   const p = readPhysics();
   const Q = flowQ(p);
-  /* Normalize visual speed: fastest particle traverses ~0.35 a per second. */
+  /* Normalize visual speed: fastest particle traverses ~0.35 L per second. */
   let maxU = 1e-12;
   for (const part of particles) {
     const h = hOf(part.x, p);
@@ -1220,13 +1230,13 @@ function stepParticles(dt) {
     if (part.y < 0) part.y = 0.01 * h;
     maxU = Math.max(maxU, Math.abs(uOf(part.x, part.y, Q, p)));
   }
-  const vScale = (0.35 * p.a) / maxU;
+  const vScale = (0.35 * p.L) / maxU;
   for (const part of particles) {
     const u = uOf(part.x, part.y, Q, p);
     part.x += u * vScale * dt;
-    if (part.x < 0) part.x += p.a;
-    else if (part.x > p.a) part.x -= p.a;
-    /* Keep y within current h(x) after geometry changes. */
+    if (part.x < 0) part.x += p.L;
+    else if (part.x > p.L) part.x -= p.L;
+    /* Keep y within current h(x) after geometry changes (especially across the step). */
     const h = hOf(part.x, p);
     if (part.y > h * 0.98) part.y = h * 0.98;
   }
@@ -1300,7 +1310,7 @@ function drawScene() {
   ctx.textBaseline = 'top';
   ctx.fillText('y axis exaggerated', sz - 8, 8);
   ctx.textAlign = 'left';
-  ctx.fillText('h₀ = ' + (p.h0 * 1e6).toFixed(1) + ' µm   h₁ = ' + (p.h1 * 1e6).toFixed(1) + ' µm   a = ' + (p.a * 1e3).toFixed(1) + ' mm', 8, 8);
+  ctx.fillText('h_b = ' + (p.h_b * 1e6).toFixed(1) + ' µm   h_a = ' + (p.h_a * 1e6).toFixed(1) + ' µm   b = ' + (p.b * 1e3).toFixed(1) + ' mm   a = ' + (p.a * 1e3).toFixed(1) + ' mm', 8, 8);
 
   drawBearing(p, view, day);
 
@@ -1344,8 +1354,9 @@ function wireSliders() {
     sl.addEventListener('input', () => { sync(); redrawAll(); });
     sync();
   }
-  wireLin('h0-slider', 'h0-val', v => v.toFixed(1));
-  wireLin('h1-slider', 'h1-val', v => v.toFixed(1));
+  wireLin('hb-slider', 'hb-val', v => v.toFixed(1));
+  wireLin('ha-slider', 'ha-val', v => v.toFixed(1));
+  wireLin('b-slider', 'b-val', v => v.toFixed(0));
   wireLin('a-slider', 'a-val', v => v.toFixed(0));
   wireLin('U1-slider', 'U1-val', v => v.toFixed(2));
   wireLin('p0-slider', 'p0-val', v => v.toFixed(1));
@@ -1376,7 +1387,7 @@ let dragMode = null; /* 'pan' or 'point' or null */
 let panLast = null;
 
 function pickHitDraggable(px, py, phys, view) {
-  const xp = phys.a * xDragFrac;
+  const xp = phys.L * xDragFrac;
   const [hx, hy] = W2C(xp, 0, view);
   const dx = px - hx, dy = py - hy;
   return (dx * dx + dy * dy) < (16 * 16);
@@ -1427,7 +1438,7 @@ function setupMainCanvasInteraction() {
       const phys = readPhysics();
       const view = makeView(phys, canvas.width);
       const xw = canvasPxToWorldX(mx, view);
-      let frac = xw / phys.a;
+      let frac = xw / phys.L;
       if (frac < 0.02) frac = 0.02;
       if (frac > 0.98) frac = 0.98;
       xDragFrac = frac;
@@ -1522,15 +1533,6 @@ function initApp() {
   if (cps) cps.addEventListener('change', redrawAll);
   const cvs = document.getElementById('chk-show-velocity');
   if (cvs) cvs.addEventListener('change', redrawAll);
-
-  document.getElementById('btn-zoom-in').addEventListener('click', () => {
-    mainView.zoom *= 1.4;
-    redrawAll();
-  });
-  document.getElementById('btn-zoom-out').addEventListener('click', () => {
-    resetMainViewTransform();
-    redrawAll();
-  });
 
   document.getElementById('btn-sim-play').addEventListener('click', startParticles);
   document.getElementById('btn-sim-stop').addEventListener('click', stopParticles);
