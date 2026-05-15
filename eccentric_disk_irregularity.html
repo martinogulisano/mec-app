@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Degree of irregularity</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  loader: { load: ['input/tex', 'output/svg'] },
+  svg: { fontCache: 'local' },
+  startup: {
+    ready() {
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(initApp).catch(() => initApp());
+    }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+body.theme-night {
+  --bg:#1a1a2e; --panel:#16213e; --accent:#0f3460; --text:#e0e0e0; --highlight:#e94560;
+  --canvas-bg:#0d1117; --plot-fill:rgba(0,0,0,.3);
+  --info-bg:rgba(0,0,0,.3); --resizer-btn-bg:rgba(10,30,60,0.92); --resizer-btn-border:#444;
+}
+body.theme-day {
+  --bg:#e9ecf2; --panel:#f4f6fa; --accent:#d8deeb; --text:#1a1f2e; --highlight:#c73e54;
+  --canvas-bg:#ffffff; --plot-fill:rgba(255,255,255,.92);
+  --info-bg:rgba(0,0,0,.06); --resizer-btn-bg:rgba(255,255,255,0.95); --resizer-btn-border:#aab;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; transition:background .25s,color .25s; }
+.theme-switch-row {
+  display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 10px;
+  font-size:.78em; user-select:none;
+}
+.theme-switch-row label { cursor:pointer; display:flex; align-items:center; gap:6px; }
+.theme-switch-row input { accent-color:var(--highlight); width:16px; height:16px; cursor:pointer; }
+body.theme-day #help-box { background:#fff; border-color:#c5cad3; color:#24292f; }
+body.theme-day #help-box h3 { color:#1f2328; }
+body.theme-day #help-box .note { color:#57606a; border-top-color:#d8dee4; }
+body.theme-day .panel h2 { color:#57606a; }
+body.theme-day .section-title { color:#57606a; }
+body.theme-day .sec-toggle { color:#6e7781; }
+body.theme-day .param-row label { color:#24292f; }
+body.theme-day .param-row .val { color:#333; }
+body.theme-day .collapse-btn { background:var(--resizer-btn-bg) !important; border-color:var(--resizer-btn-border) !important; color:#444 !important; }
+body.theme-day button.secondary { border-color:#aab; }
+body.theme-day input[type="number"].compact { border-color:#c5cad3; color:#24292f; }
+body.theme-day button { color:#1a1f2e; }
+body.theme-day button.secondary { color:#1a1f2e; background:#c8d4e8; border-color:#9aa8bc; }
+body.theme-day button.secondary:hover { background:#b8c6dc; color:#1a1f2e; }
+body.theme-day #help-close,
+body.theme-day #eq-close { color:#1a1f2e; background:#e8b4bf; }
+body.theme-day #help-close:hover,
+body.theme-day #eq-close:hover { color:#1a1f2e; background:#dfa0ae; }
+body.theme-day #info-box { color:#24292f; border:1px solid #d8dee4; }
+body.theme-day .section > .section-title { color:#57606a; }
+body.theme-day .theme-switch-row,
+body.theme-day .theme-switch-row label { color:#24292f; }
+body.theme-day .panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.22); }
+body.theme-day .panel::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,0.35); }
+body.theme-day .panel { scrollbar-color:rgba(0,0,0,0.22) transparent; }
+body.theme-day .collapse-btn:hover { color:#fff; }
+#eq-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:1001;
+}
+#eq-overlay.hidden { display:none !important; }
+#eq-close:hover { background:#c73e54 !important; }
+body.theme-day #eq-box { background:#fff !important; border-color:#c5cad3 !important; color:#24292f !important; }
+body.theme-day #eq-box .eq-section-title { color:#57606a !important; border-bottom-color:#d8dee4 !important; }
+#btn-show-equations {
+  flex:1; min-width:0;
+  font-size:.8em; font-weight:600; padding:6px 12px;
+}
+#eq-content .eq-section-title {
+  font-size:.78em; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#8b949e; margin:1.1em 0 .35em 0; padding-bottom:4px; border-bottom:1px solid #30363d;
+}
+#eq-content .eq-section-title:first-child { margin-top:0; }
+#eq-content mjx-container[display="true"] { display:block !important; margin:0.85em 0 !important; width:100%; text-align:center; }
+.panel {
+  background:var(--panel); padding:10px; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; gap:8px;
+  height:100vh; max-height:100vh; min-height:0;
+  transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1), padding .25s cubic-bezier(.4,0,.2,1);
+}
+#left-panel  { width:300px; min-width:200px; max-width:45vw; flex:0 0 auto; }
+#right-panel { width:540px; min-width:240px; max-width:58vw; flex:0 0 auto; }
+.panel.collapsed { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden !important; }
+.panel::-webkit-scrollbar { width:6px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18); border-radius:3px; }
+.panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
+#help-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:1000; }
+#help-overlay.hidden { display:none; }
+#help-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; max-width:420px; width:90%; color:#c9d1d9; font-size:.88em; line-height:1.6; position:relative; }
+#help-box h3 { color:#e6edf3; font-size:1.05em; margin-bottom:12px; }
+#help-box ul { padding-left:18px; margin-bottom:16px; }
+#help-box ul li { margin-bottom:6px; }
+#help-box .note {
+  font-size:.82em; color:#8b949e;
+  border-top:1px solid #21262d; padding-top:10px; margin-top:4px;
+}
+#help-close { display:block; margin:16px auto 0; background:#e94560; color:white; border:none; padding:7px 28px; border-radius:6px; cursor:pointer; font-size:.88em; font-weight:600; }
+.panel h1 { font-size:1.05em; color:var(--highlight); text-align:center; }
+.panel h2 { font-size:.78em; color:#aaa; text-align:center; font-weight:normal; margin-bottom:2px; }
+.resizer {
+  width:14px; cursor:col-resize; background:var(--accent); flex-shrink:0; transition:background .15s; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.resizer:hover, .resizer.dragging { background:var(--highlight); }
+.collapse-btn {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:14px; height:40px; background:var(--resizer-btn-bg); border:1px solid var(--resizer-btn-border); border-radius:4px; color:#aaa;
+  cursor:pointer; font-size:10px; z-index:10; padding:0; line-height:1;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.collapse-btn:hover { background:var(--highlight); color:white; border-color:var(--highlight); }
+.section { background:var(--accent); border-radius:8px; padding:7px 9px; overflow:hidden; flex-shrink:0; }
+.section-title {
+  font-size:.72em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#aaa;
+  margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;
+}
+.sec-toggle { font-size:11px; color:#888; cursor:pointer; user-select:none; }
+.section-body { overflow:hidden; transition:max-height .25s ease, opacity .2s ease; max-height:500px; opacity:1; }
+.section-body.collapsed { max-height:0 !important; opacity:0; }
+.section-title.collapsible { cursor:pointer; }
+input[type="number"].compact {
+  flex:1; background:var(--accent); border:1px solid #555; color:var(--text);
+  border-radius:4px; padding:2px 5px; font-size:.76em; min-width:0;
+}
+.param-row { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+.param-row label { flex:0 0 88px; font-size:.8em; text-align:right; }
+button.btn-ic-zero { padding:3px 10px; font-size:.72em; font-weight:600; flex-shrink:0; }
+.param-row input[type="range"] { flex:1; min-width:0; accent-color:var(--highlight); }
+.param-row .val { flex:0 0 46px; font-size:.76em; font-family:monospace; color:#ccc; text-align:right; white-space:nowrap; }
+button { background:var(--highlight); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:.78em; font-weight:600; }
+button.secondary { background:var(--accent); border:1px solid #555; transition:border-color .2s; }
+.btn-row { display:flex; gap:5px; flex-wrap:wrap; }
+#canvas-container { flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; position:relative; padding:6px; }
+canvas#canvas { background:var(--canvas-bg); border-radius:8px; cursor:grab; transition:background .25s; }
+canvas#canvas:active { cursor:grabbing; }
+canvas.plot-view { background:var(--plot-fill); border-radius:6px; transition:background .25s; }
+#info-box { background:var(--info-bg); border-radius:6px; padding:6px 8px; font-family:monospace; font-size:.72em; line-height:1.5; white-space:pre-line; transition:background .25s; border:1px solid transparent; }
+.plot-hint { font-size:.65em; color:rgba(128,128,128,.55); text-align:right; margin-top:2px; }
+body.theme-night .plot-hint { color:rgba(255,255,255,.25); }
+body.theme-day .plot-hint { color:rgba(0,0,0,.32); }
+body.theme-day #eq-content > p:first-child { color:#57606a !important; }
+mjx-container { display:inline !important; }
+</style>
+</head>
+<body class="theme-night">
+
+<div id="help-overlay">
+  <div id="help-box">
+    <h3>Quick guide</h3>
+    <ul>
+      <li><strong>Sliders</strong> &mdash; adjust system parameters and initial conditions</li>
+      <li><strong>Play / Stop / Reset</strong> &mdash; control the simulation</li>
+      <li><strong>Scroll</strong> to zoom, <strong>drag</strong> to pan on any plot</li>
+      <li><strong>Double-click</strong> a plot to reset the view</li>
+      <li><strong>Scroll the right panel</strong> to explore all widgets</li>
+      <li><strong>Day mode</strong> &mdash; light theme for panels, main view, and plots</li>
+    </ul>
+    <div class="note">Designed for laptop/desktop &mdash; not tested on touch devices.</div>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
+<div id="eq-overlay" class="hidden">
+  <div id="eq-box" style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:26px 28px;max-width:720px;width:94%;max-height:88vh;overflow-y:auto;color:#c9d1d9;font-size:.93em;line-height:1.75;position:relative;">
+    <div id="eq-content">
+      <div class="eq-section-title">Dynamics</div>
+      \[ T=\tfrac12\,J(\theta)\,\dot\theta^2,\qquad J(\theta)=J_O + m e^2\cos^2\theta \]
+      \[ U(\theta)=\tfrac12\,k\,\bigl(r+e\sin\theta\bigr)^2,\qquad \frac{\mathrm dU}{\mathrm d\theta}=k e\,\bigl(r+e\sin\theta\bigr)\cos\theta \]
+      \[ J(\theta)\,\ddot\theta+\tfrac12\,J'(\theta)\,\dot\theta^2=M_{\mathrm{mot}}-\frac{\mathrm dU}{\mathrm d\theta},\qquad J'(\theta)=-2 m e^2\cos\theta\sin\theta \]
+      <div class="eq-section-title">Irregularity index</div>
+      \[ \delta=\frac{\omega_{\max}-\omega_{\min}}{\langle\omega\rangle_t},\qquad \langle\omega\rangle_t=\frac{1}{T}\int_0^T\omega\,\mathrm dt \]
+      \[ \delta_{\mathrm{Tredgold}}=\frac{2 k e r}{\bigl(J_O + \tfrac12 m e^2\bigr)\,\langle\omega\rangle_t^2} \]
+    </div>
+    <button id="eq-close" style="display:block;margin:18px auto 0;background:#e94560;border:none;padding:7px 28px;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:600;">Close</button>
+  </div>
+</div>
+
+<div id="left-panel" class="panel">
+  <h1>Degree of irregularity</h1>
+  <h2>&#948; from trace vs &#948;<sub>book</sub> (textbook)</h2>
+
+  <div class="theme-switch-row">
+    <label><input type="checkbox" id="theme-day"> Day mode</label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Geometry &amp; inertia</div>
+    <div class="param-row"><label>$r$ (m):</label>
+      <input type="range" id="r-slider" min="0.12" max="1.2" value="0.45" step="0.005">
+      <span class="val" id="r-val">0.45</span></div>
+    <div class="param-row"><label>$e$ (m):</label>
+      <input type="range" id="e-slider" min="0.01" max="0.35" value="0.12" step="0.005">
+      <span class="val" id="e-val">0.12</span></div>
+    <div class="param-row"><label>$m$ (kg):</label>
+      <input type="range" id="m-slider" min="0.05" max="4" value="0.8" step="0.02">
+      <span class="val" id="m-val">0.80</span></div>
+    <div class="param-row"><label>$J_O$:</label>
+      <input type="range" id="J-slider" min="0.002" max="0.8" value="0.08" step="0.001">
+      <span class="val" id="J-val">0.080</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Spring &amp; motor</div>
+    <div class="param-row"><label>$k$:</label>
+      <input type="range" id="k-slider" min="2" max="180" value="42" step="0.5">
+      <span class="val" id="k-val">42</span></div>
+    <div class="param-row"><label>$M_{\mathrm{mot}}$:</label>
+      <input type="range" id="Mm-slider" min="0" max="8" value="0" step="0.05">
+      <span class="val" id="Mm-val">0.00</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Initial state</div>
+    <div class="param-row"><label>$\theta(0)$:</label>
+      <input type="range" id="th0-slider" min="-3.14159" max="3.14159" value="0" step="0.02">
+      <span class="val" id="th0-val">0.00</span></div>
+    <div class="param-row"><label>$\dot\theta(0)$:</label>
+      <input type="range" id="w0-slider" min="0" max="15" value="8.0" step="0.1">
+      <span class="val" id="w0-val">8.00</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="param-row" style="margin-bottom:4px;">
+      <label>$T_{\max}$ (s):</label>
+      <input type="number" id="tmax-input" class="compact" value="20" min="1" max="300" step="1">
+      <span class="val"></span>
+    </div>
+    <div class="btn-row">
+      <button id="btn-simulate">Play</button>
+      <button id="btn-stop" class="secondary">Stop</button>
+      <button id="btn-reset" class="secondary">Reset</button>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button type="button" id="btn-show-equations">Show equations</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">State</div>
+    <div id="info-box">Press Play.</div>
+  </div>
+</div>
+
+<div id="left-resizer" class="resizer">
+  <button class="collapse-btn" id="left-collapse" title="Toggle panel">&#9664;</button>
+</div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="right-resizer" class="resizer">
+  <button class="collapse-btn" id="right-collapse" title="Toggle panel">&#9654;</button>
+</div>
+
+<div id="right-panel" class="panel">
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot1">
+      <span>$\dot\theta$ vs $\theta$ $[0,\,2\pi]$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot1">
+      <canvas id="plot1-canvas" class="plot-view" width="340" height="160" style="width:100%;height:160px;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &middot; drag: pan &middot; dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot-wt">
+      <span>$\dot\theta$ vs $t$ on $[0,\,T]$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot-wt">
+      <canvas id="plot-wt-canvas" class="plot-view" width="340" height="160" style="width:100%;height:160px;display:block;"></canvas>
+      <div class="plot-hint">$T$ = first time $\theta$ advances by $2\pi$ on the trace; marker uses $t \bmod T$.</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot2">
+      <span>Energy vs $\theta$ $[0,\,2\pi]$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot2">
+      <canvas id="plot2-canvas" class="plot-view" width="340" height="160" style="width:100%;height:160px;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &middot; drag: pan &middot; dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot4">
+      <span>$M_{\mathrm{res}}=-k e(r+e\sin\theta)\cos\theta$ vs $\theta$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot4">
+      <canvas id="plot4-canvas" class="plot-view" width="340" height="150" style="width:100%;height:150px;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &middot; drag: pan &middot; dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot5">
+      <span>$\int_0^\theta M_{\mathrm{res}}\,\mathrm{d}\varphi$ vs $\theta$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot5">
+      <canvas id="plot5-canvas" class="plot-view" width="340" height="150" style="width:100%;height:150px;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &middot; drag: pan &middot; dbl-click: reset</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title collapsible" id="hdr-plot6">
+      <span>$f(\theta)=e\cos\theta\bigl(k r+\sin\theta\,(k e - m e\,\omega_{\mathrm{med}}^2)\bigr)$</span><span class="sec-toggle">&#9660;</span>
+    </div>
+    <div class="section-body" id="body-plot6">
+      <canvas id="plot6-canvas" class="plot-view" width="340" height="150" style="width:100%;height:150px;display:block;"></canvas>
+      <div class="plot-hint">scroll: zoom &middot; drag: pan &middot; dbl-click: reset &mdash; $\omega_{\mathrm{med}}$ = RK probe mean (phase dashed line)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+{
+  const helpOv = document.getElementById('help-overlay');
+  const helpBtn = document.getElementById('help-close');
+  if (helpOv && helpBtn) {
+    helpBtn.addEventListener('click', () => helpOv.classList.add('hidden'));
+    helpOv.addEventListener('click', e => { if (e.target === helpOv) helpOv.classList.add('hidden'); });
+  }
+}
+
+let params = {
+  r: 0.45, e: 0.12, m: 0.8, JO: 0.08, k: 42, Mmot: 0, th0: 0, w0: 8.0,
+};
+let simRunning = false;
+let animId = null;
+let simT = 0;
+let state = { theta: 0, omega: 8.0 };
+const HIST_CAP = 12000;
+const hist = {
+  t: new Float64Array(HIST_CAP),
+  th: new Float64Array(HIST_CAP),
+  w: new Float64Array(HIST_CAP),
+  Tkin: new Float64Array(HIST_CAP),
+  U: new Float64Array(HIST_CAP),
+  n: 0,
+};
+function histClear() { hist.n = 0; }
+function histPush(t, th, w, Tk, Ue) {
+  if (hist.n >= HIST_CAP) {
+    const drop = HIST_CAP >> 2;
+    hist.t.copyWithin(0, drop, hist.n);
+    hist.th.copyWithin(0, drop, hist.n);
+    hist.w.copyWithin(0, drop, hist.n);
+    hist.Tkin.copyWithin(0, drop, hist.n);
+    hist.U.copyWithin(0, drop, hist.n);
+    hist.n -= drop;
+  }
+  const i = hist.n++;
+  hist.t[i] = t; hist.th[i] = th; hist.w[i] = w; hist.Tkin[i] = Tk; hist.U[i] = Ue;
+}
+
+const MAIN_VIEW_ZOOM_DEFAULT = 1;
+const MAIN_VIEW_OFFX_DEFAULT = 0;
+const MAIN_VIEW_OFFY_DEFAULT = 0;
+const mainView = { offX: MAIN_VIEW_OFFX_DEFAULT, offY: MAIN_VIEW_OFFY_DEFAULT, zoom: MAIN_VIEW_ZOOM_DEFAULT };
+
+/** World span mapped to the main canvas (must be declared before wireSlider, which triggers redrawAll). */
+const MAIN_SPAN = 2.8;
+
+class PanZoomView {
+  constructor(x0, x1, y0, y1) {
+    this._x0 = x0; this._x1 = x1; this._y0 = y0; this._y1 = y1;
+    this.xMin = x0; this.xMax = x1; this.yMin = y0; this.yMax = y1; this.active = false;
+  }
+  toX(v, pad, W) { return pad.l + (v - this.xMin) / (this.xMax - this.xMin) * (W - pad.l - pad.r); }
+  toY(v, pad, H) { return pad.t + (H - pad.t - pad.b) * (1 - (v - this.yMin) / (this.yMax - this.yMin)); }
+  px2data(px, py, pad, W, H) {
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    return [this.xMin + (px - pad.l) / pw * (this.xMax - this.xMin),
+      this.yMin + (1 - (py - pad.t) / ph) * (this.yMax - this.yMin)];
+  }
+  zoomAt(factor, xd, yd) {
+    this.active = true;
+    this.xMin = xd + (this.xMin - xd) * factor;
+    this.xMax = xd + (this.xMax - xd) * factor;
+    this.yMin = yd + (this.yMin - yd) * factor;
+    this.yMax = yd + (this.yMax - yd) * factor;
+  }
+  pan(dxd, dyd) {
+    this.active = true;
+    this.xMin -= dxd; this.xMax -= dxd;
+    this.yMin -= dyd; this.yMax -= dyd;
+  }
+  reset() {
+    this.active = false;
+    this.xMin = this._x0; this.xMax = this._x1; this.yMin = this._y0; this.yMax = this._y1;
+  }
+}
+
+const PLOT_PAD = { l: 48, r: 32, t: 14, b: 28 };
+const PLOT_CANVAS_IDS = ['plot1-canvas', 'plot-wt-canvas', 'plot2-canvas', 'plot4-canvas', 'plot5-canvas', 'plot6-canvas'];
+
+function syncPlotCanvasDpr() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  for (const id of PLOT_CANVAS_IDS) {
+    const cv = document.getElementById(id);
+    if (!cv) continue;
+    const rect = cv.getBoundingClientRect();
+    const w = Math.max(200, Math.round(rect.width * dpr)) || 680;
+    const h = Math.max(120, Math.round(rect.height * dpr)) || 300;
+    if (cv.width !== w || cv.height !== h) {
+      cv.width = w;
+      cv.height = h;
+    }
+  }
+}
+
+const plot1View = new PanZoomView(0, 2 * Math.PI, 0, 8);
+const plotWtView = new PanZoomView(0, 1, 0, 8);
+const plot2View = new PanZoomView(0, 2 * Math.PI, 0, 5);
+const plot4View = new PanZoomView(0, 2 * Math.PI, -1, 1);
+const plot5View = new PanZoomView(0, 2 * Math.PI, -1, 1);
+const plot6View = new PanZoomView(0, 2 * Math.PI, -1, 1);
+
+function setupPanZoom(cvId, view, pad, redrawFn) {
+  const cv = document.getElementById(cvId);
+  cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const [xd, yd] = view.px2data(px, py, pad, cv.width, cv.height);
+    view.zoomAt(e.deltaY > 0 ? 1.15 : 1 / 1.15, xd, yd);
+    redrawFn();
+  }, { passive: false });
+  let drag = false, lx, ly;
+  cv.addEventListener('mousedown', e => {
+    drag = true;
+    const rect = cv.getBoundingClientRect();
+    lx = (e.clientX - rect.left) * (cv.width / rect.width);
+    ly = (e.clientY - rect.top) * (cv.height / rect.height);
+    cv.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = cv.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (cv.width / rect.width);
+    const py = (e.clientY - rect.top) * (cv.height / rect.height);
+    const pw = cv.width - pad.l - pad.r, ph = cv.height - pad.t - pad.b;
+    view.pan((px - lx) / pw * (view.xMax - view.xMin), -(py - ly) / ph * (view.yMax - view.yMin));
+    lx = px; ly = py; redrawFn();
+  });
+  window.addEventListener('mouseup', () => { drag = false; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('dblclick', () => { view.reset(); redrawFn(); });
+}
+
+function niceTicks(lo, hi, target = 5) {
+  if (hi <= lo) return [];
+  const range = hi - lo;
+  const rough = range / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(Math.abs(rough) || 1)));
+  const step = [1, 2, 2.5, 5, 10].find(f => f * pow >= rough - 1e-10) * pow;
+  const start = Math.ceil(lo / step - 1e-9) * step;
+  const ticks = [];
+  for (let v = start; v <= hi + step * 1e-9; v += step)
+    ticks.push(parseFloat(v.toFixed(10)));
+  return ticks;
+}
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function plotPlotTheme() {
+  const d = document.body.classList.contains('theme-day');
+  return {
+    grid: d ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.07)',
+    grid0: d ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
+    axis: d ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.2)',
+    tick: d ? '#3d4554' : '#888',
+    zoom: d ? 'rgba(199,62,84,0.78)' : 'rgba(233,69,96,0.6)',
+  };
+}
+
+function drawPlotAxes(cvId, view, pad, xAxisLbl, yAxisLbl) {
+  const cv = document.getElementById(cvId);
+  const c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const pt = plotPlotTheme();
+  const toX = v => view.toX(v, pad, W);
+  const toY = v => view.toY(v, pad, H);
+  c.clearRect(0, 0, W, H);
+  const xTicks = niceTicks(view.xMin, view.xMax, 5);
+  const yTicks = niceTicks(view.yMin, view.yMax, 5);
+  c.font = '11px sans-serif';
+  for (const vx of xTicks) {
+    const px = toX(vx);
+    if (px < pad.l || px > W - pad.r) continue;
+    c.beginPath(); c.moveTo(px, pad.t); c.lineTo(px, H - pad.b);
+    c.strokeStyle = pt.grid; c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'center';
+    c.fillText(vx.toFixed(2), px, H - 3);
+  }
+  for (const vy of yTicks) {
+    const py = toY(vy);
+    if (py < pad.t || py > H - pad.b) continue;
+    c.beginPath(); c.moveTo(pad.l, py); c.lineTo(W - pad.r, py);
+    c.strokeStyle = Math.abs(vy) < 1e-9 ? pt.grid0 : pt.grid; c.stroke();
+    c.fillStyle = pt.tick; c.textAlign = 'right';
+    c.fillText(vy.toFixed(2), pad.l - 4, py + 4);
+  }
+  c.strokeStyle = pt.axis; c.beginPath();
+  c.moveTo(pad.l, pad.t); c.lineTo(pad.l, H - pad.b); c.lineTo(W - pad.r, H - pad.b); c.stroke();
+  c.fillStyle = pt.tick; c.textAlign = 'center';
+  c.font = '12px sans-serif';
+  c.fillText(xAxisLbl, (pad.l + W - pad.r) / 2, H - 1);
+  c.save();
+  c.translate(14, (pad.t + H - pad.b) / 2);
+  c.rotate(-Math.PI / 2);
+  c.textAlign = 'center';
+  c.fillText(yAxisLbl, 0, 0);
+  c.restore();
+  if (view.active) {
+    c.fillStyle = pt.zoom; c.font = 'bold 10px sans-serif';
+    c.textAlign = 'right';
+    c.fillText('zoom', W - pad.r - 4, pad.t + 10);
+  }
+}
+
+function inertia(th) {
+  const c = Math.cos(th), m = params.m, e = params.e, JO = params.JO;
+  return JO + m * e * e * c * c;
+}
+
+function dUdth(th) {
+  const { k, r, e } = params;
+  return k * e * (r + e * Math.sin(th)) * Math.cos(th);
+}
+
+/** Resisting spring contribution in the equation: $-dU/d\theta$. */
+function MresSpring(th) {
+  return -dUdth(th);
+}
+
+/** $\int_0^\theta M_{\mathrm{res}}\,\mathrm{d}\varphi = U(0)-U(\theta)$ (exact for this $U$). */
+function MresIntegralFrom0(th) {
+  return -(potentialEnergy(th) - potentialEnergy(0));
+}
+
+function kineticEnergy(th, w) {
+  return 0.5 * inertia(th) * w * w;
+}
+
+function potentialEnergy(th) {
+  const s = params.r + params.e * Math.sin(th);
+  return 0.5 * params.k * s * s;
+}
+
+function thetaDD(th, w) {
+  const I = inertia(th);
+  const Iph = -2 * params.m * params.e * params.e * Math.cos(th) * Math.sin(th);
+  const Uph = dUdth(th);
+  return (params.Mmot - Uph - 0.5 * Iph * w * w) / I;
+}
+
+function rk4Step(st, dt) {
+  const f = (s) => ({ theta: s.omega, omega: thetaDD(s.theta, s.omega) });
+  const k1 = f(st);
+  const k2 = f({ theta: st.theta + 0.5 * dt * k1.theta, omega: st.omega + 0.5 * dt * k1.omega });
+  const k3 = f({ theta: st.theta + 0.5 * dt * k2.theta, omega: st.omega + 0.5 * dt * k2.omega });
+  const k4 = f({ theta: st.theta + dt * k3.theta, omega: st.omega + dt * k3.omega });
+  return {
+    theta: st.theta + dt / 6 * (k1.theta + 2 * k2.theta + 2 * k3.theta + k4.theta),
+    omega: st.omega + dt / 6 * (k1.omega + 2 * k2.omega + 2 * k3.omega + k4.omega),
+  };
+}
+
+function readParams() {
+  const r = parseFloat(document.getElementById('r-slider').value);
+  const eSl = document.getElementById('e-slider');
+  eSl.max = String(Math.max(0.02, r * 0.95));
+  let e = parseFloat(eSl.value);
+  if (e > r * 0.98) { e = r * 0.98; eSl.value = String(e); }
+  params = {
+    r,
+    e,
+    m: parseFloat(document.getElementById('m-slider').value),
+    JO: parseFloat(document.getElementById('J-slider').value),
+    k: parseFloat(document.getElementById('k-slider').value),
+    Mmot: parseFloat(document.getElementById('Mm-slider').value),
+    th0: parseFloat(document.getElementById('th0-slider').value),
+    w0: parseFloat(document.getElementById('w0-slider').value),
+  };
+  document.getElementById('e-val').textContent = params.e.toFixed(2);
+}
+
+let _probeMeanKey = '';
+let _probeMeanVal = 0;
+
+/** RK probe: time-mean $\langle\omega\rangle_t \approx \Delta\theta/T$ (cached from sliders/ICs). */
+function computeOmegaMeanFromProbe() {
+  const p = params;
+  const dt = 0.006;
+  const tEnd = Math.min(24, Math.max(10, 36 / (Math.abs(p.w0) + 0.15)));
+  let s = { theta: p.th0, omega: p.w0 };
+  const th0 = s.theta;
+  let t = 0;
+  while (t < tEnd) {
+    s = rk4Step(s, dt);
+    t += dt;
+  }
+  return t > 1e-9 ? (s.theta - th0) / t : p.w0;
+}
+
+function getProbeOmegaMean() {
+  readParams();
+  const key = [params.r, params.e, params.m, params.JO, params.k, params.Mmot, params.th0, params.w0].join('|');
+  if (key !== _probeMeanKey) {
+    _probeMeanKey = key;
+    _probeMeanVal = computeOmegaMeanFromProbe();
+  }
+  return _probeMeanVal;
+}
+
+/** Textbook / Tredgold-type: $2 k e r / ((J_O + \tfrac12 m e^2)\,\langle\omega\rangle_t^2)$. */
+function deltaBookTredgold() {
+  const { k, e, r, m, JO } = params;
+  const w = getProbeOmegaMean();
+  const den = (JO + 0.5 * m * e * e) * w * w;
+  return den > 1e-20 ? (2 * k * e * r) / den : 0;
+}
+
+/** $f(\theta)=e\cos\theta\,(k r+\sin\theta\,(k e - m e\,\omega_{\mathrm{med}}^2))$; pass $\omega_{\mathrm{med}}$ or omit for probe $\langle\omega\rangle_t$. */
+function fThetaPanel(th, omegaMed) {
+  const { e, r, k, m } = params;
+  const w = omegaMed != null ? omegaMed : getProbeOmegaMean();
+  return e * Math.cos(th) * (k * r + Math.sin(th) * (k * e - m * e * w * w));
+}
+
+function wireSlider(id, valId, fmt) {
+  const sl = document.getElementById(id), vl = document.getElementById(valId);
+  const upd = () => { vl.textContent = fmt(parseFloat(sl.value)); readParams(); redrawAll(); };
+  sl.addEventListener('input', upd); upd();
+}
+wireSlider('r-slider', 'r-val', v => v.toFixed(2));
+wireSlider('e-slider', 'e-val', v => v.toFixed(2));
+wireSlider('m-slider', 'm-val', v => v.toFixed(2));
+wireSlider('J-slider', 'J-val', v => v.toFixed(3));
+wireSlider('k-slider', 'k-val', v => v.toFixed(0));
+wireSlider('Mm-slider', 'Mm-val', v => v.toFixed(2));
+wireSlider('th0-slider', 'th0-val', v => v.toFixed(2));
+wireSlider('w0-slider', 'w0-val', v => v.toFixed(2));
+
+function resize() {
+  const cont = document.getElementById('canvas-container');
+  const sz = Math.max(220, Math.min(cont.clientWidth - 12, cont.clientHeight - 12));
+  canvas.width = sz; canvas.height = sz;
+  syncPlotCanvasDpr();
+}
+
+function getScale() {
+  const size = Math.min(canvas.width, canvas.height);
+  return (size / MAIN_SPAN) * mainView.zoom;
+}
+function w2c(wx, wy) {
+  const sc = getScale();
+  const cx = canvas.width * 0.5 + mainView.offX + wx * sc;
+  const cy = canvas.height * 0.5 + mainView.offY - wy * sc;
+  return [cx, cy];
+}
+function cLen(len) { return len * getScale(); }
+
+function drawSpringSeg(c2d, x0, y0, x1, y1, coils, ampPx) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 6) return;
+  const ux = dx / len, uy = dy / len;
+  const nx = -uy, ny = ux;
+  const stub = len * 0.12;
+  const coilLen = len - 2 * stub;
+  const N = coils;
+  const steps = N * 24;
+  c2d.beginPath();
+  c2d.moveTo(x0, y0);
+  c2d.lineTo(x0 + ux * stub, y0 + uy * stub);
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const base = stub + t * coilLen;
+    const off = ampPx * Math.sin(t * N * 2 * Math.PI);
+    c2d.lineTo(x0 + ux * base + nx * off, y0 + uy * base + ny * off);
+  }
+  c2d.lineTo(x1, y1);
+  c2d.strokeStyle = document.body.classList.contains('theme-day') ? '#6a5a8a' : '#a78bfa';
+  c2d.lineWidth = 2;
+  c2d.stroke();
+}
+
+function drawMain() {
+  readParams();
+  const { r, e } = params;
+  const th = state.theta;
+  const cxm = e * Math.cos(th);
+  const cym = e * Math.sin(th);
+  const yPlate = cym + r;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = cssVar('--canvas-bg', '#0d1117');
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const day = document.body.classList.contains('theme-day');
+  ctx.strokeStyle = day ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let g = -4; g <= 4; g++) {
+    const yg = g * 0.35;
+    const [gx0, gy0] = w2c(-2.2, yg);
+    const [gx1, gy1] = w2c(2.2, yg);
+    ctx.beginPath(); ctx.moveTo(gx0, gy0); ctx.lineTo(gx1, gy1); ctx.stroke();
+  }
+
+  const [ox, oy] = w2c(0, 0);
+
+  const [mx, my] = w2c(cxm, cym);
+  const Rpx = cLen(r);
+  ctx.beginPath();
+  ctx.arc(mx, my, Rpx, 0, Math.PI * 2);
+  ctx.fillStyle = day ? 'rgba(15,52,96,0.25)' : 'rgba(15,52,96,0.45)';
+  ctx.fill();
+  ctx.strokeStyle = day ? '#0f3460' : '#58a6ff';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  // Spoke from C to rim — rotation clearly visible
+  const [spkx, spky] = w2c(cxm + r * Math.cos(th), cym + r * Math.sin(th));
+  ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(spkx, spky);
+  ctx.strokeStyle = day ? '#c73e54' : '#e94560';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // O-to-C arm (dashed, more visible)
+  ctx.beginPath();
+  ctx.moveTo(ox, oy);
+  ctx.lineTo(mx, my);
+  ctx.strokeStyle = day ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Dot at C (disk center)
+  ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2);
+  ctx.fillStyle = day ? '#0f3460' : '#58a6ff';
+  ctx.fill();
+
+  // Dot at O (hinge)
+  ctx.beginPath();
+  ctx.arc(ox, oy, 4, 0, Math.PI * 2);
+  ctx.fillStyle = day ? '#c73e54' : '#e94560';
+  ctx.fill();
+
+  const pw = 2 * r;  // plate width in world units (full width = 2r)
+  const ph = 0.1 * r;
+  const yFixed = r + e + 0.35;  // fixed anchor above max plate height
+
+  // Guide rod (vertical constraint at x=0, from plate top to fixed support)
+  const [grd0x, grd0y] = w2c(0, yPlate + ph);
+  const [grd1x, grd1y] = w2c(0, yFixed);
+  ctx.beginPath(); ctx.moveTo(grd0x, grd0y); ctx.lineTo(grd1x, grd1y);
+  ctx.strokeStyle = day ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Fixed support bar + hatching
+  const suppHW = Math.max(0.2 * r, 0.32 * pw);
+  const [fs0x, fs0y] = w2c(-suppHW, yFixed);
+  const [fs1x, fs1y] = w2c(suppHW, yFixed);
+  ctx.beginPath(); ctx.moveTo(fs0x, fs0y); ctx.lineTo(fs1x, fs1y);
+  ctx.strokeStyle = day ? '#57606a' : '#8b949e';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.lineWidth = 1;
+  for (let hx = -suppHW * 0.9; hx < suppHW * 0.9; hx += suppHW * 0.32) {
+    const [hx0, hy0] = w2c(hx, yFixed);
+    const [hx1, hy1] = w2c(hx + suppHW * 0.2, yFixed + suppHW * 0.25);
+    ctx.beginPath(); ctx.moveTo(hx0, hy0); ctx.lineTo(hx1, hy1);
+    ctx.strokeStyle = day ? '#57606a' : '#8b949e';
+    ctx.stroke();
+  }
+
+  // Plate
+  const [px0, py0] = w2c(-pw * 0.5, yPlate);
+  const [px1, py1] = w2c(pw * 0.5, yPlate + ph);
+  ctx.fillStyle = day ? '#57606a' : '#8b949e';
+  ctx.fillRect(px0, py0, px1 - px0, py1 - py0);
+
+  // Spring from fixed support down to plate top (variable length — shows compression)
+  const [ax0, ay0] = w2c(0, yFixed);
+  const [ax1, ay1] = w2c(0, yPlate + ph);
+  drawSpringSeg(ctx, ax0, ay0, ax1, ay1, 9, 5);
+}
+
+function normTheta(th) {
+  return ((th % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+}
+
+/** Extrema over the recorded trace (after Play). */
+function omegaStatsFromHist() {
+  if (hist.n < 2) return null;
+  let wMin = hist.w[0], wMax = hist.w[0], iMin = 0, iMax = 0;
+  for (let i = 0; i < hist.n; i++) {
+    if (hist.w[i] < wMin) { wMin = hist.w[i]; iMin = i; }
+    if (hist.w[i] > wMax) { wMax = hist.w[i]; iMax = i; }
+  }
+  return { wMin, wMax, iMin, iMax };
+}
+
+/** $\delta=(\omega_{\max}-\omega_{\min})/\langle\omega\rangle_t$; trace extrema, $\langle\omega\rangle_t=\Delta\theta/T$ from RK probe (fixed until sliders change). */
+function deltaOmegaTrace() {
+  if (hist.n < 2) return null;
+  const wMed = getProbeOmegaMean();
+  if (Math.abs(wMed) < 1e-10) return null;
+  let wMin = hist.w[0], wMax = hist.w[0];
+  for (let i = 0; i < hist.n; i++) {
+    const w = hist.w[i];
+    if (w < wMin) wMin = w;
+    if (w > wMax) wMax = w;
+  }
+  return (wMax - wMin) / wMed;
+}
+
+function drawPlot1Series() {
+  const probeMean = getProbeOmegaMean();
+  if (!plot1View.active) {
+    plot1View.xMin = 0; plot1View.xMax = 2 * Math.PI;
+    let yLo = Infinity, yHi = -Infinity;
+    if (hist.n > 0) {
+      for (let i = 0; i < hist.n; i++) {
+        const w = hist.w[i];
+        if (w < yLo) yLo = w;
+        if (w > yHi) yHi = w;
+      }
+    } else {
+      yLo = yHi = state.omega;
+    }
+    const wc = state.omega;
+    if (wc < yLo) yLo = wc;
+    if (wc > yHi) yHi = wc;
+    if (Number.isFinite(probeMean)) {
+      if (probeMean < yLo) yLo = probeMean;
+      if (probeMean > yHi) yHi = probeMean;
+    }
+    const span = yHi - yLo;
+    const pad = span > 1e-8 ? span * 0.14 : Math.max(0.5, Math.abs(wc) * 0.08 + 0.25);
+    plot1View.yMin = yLo - pad;
+    plot1View.yMax = yHi + pad;
+  }
+  drawPlotAxes('plot1-canvas', plot1View, PLOT_PAD, String.fromCharCode(952) + ' [0,2\u03c0]', String.fromCharCode(969));
+  const cv = document.getElementById('plot1-canvas');
+  const c = cv.getContext('2d');
+  const pad = PLOT_PAD, W = cv.width, H = cv.height;
+  const toX = v => plot1View.toX(v, pad, W);
+  const toY = v => plot1View.toY(v, pad, H);
+  const day = document.body.classList.contains('theme-day');
+
+  if (Number.isFinite(probeMean)) {
+    const yMean = toY(probeMean);
+    c.save();
+    c.strokeStyle = day ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)';
+    c.lineWidth = 1.25;
+    c.setLineDash([5, 4]);
+    c.beginPath();
+    c.moveTo(pad.l, yMean);
+    c.lineTo(W - pad.r, yMean);
+    c.stroke();
+    c.setLineDash([]);
+    c.restore();
+  }
+
+  if (hist.n < 2) {
+    const thN = normTheta(state.theta);
+    const px = toX(thN), py = toY(state.omega);
+    c.beginPath(); c.arc(px, py, 5, 0, Math.PI * 2);
+    c.fillStyle = '#fff'; c.fill();
+    return;
+  }
+
+  const st = omegaStatsFromHist();
+  c.lineWidth = 1.2;
+  // draw as dots (normalized θ causes line jumps at 0/2π boundary)
+  const stride = Math.max(1, Math.floor(hist.n / 3000));
+  for (let i = 0; i < hist.n; i += stride) {
+    const thN = normTheta(hist.th[i]);
+    const px = toX(thN), py = toY(hist.w[i]);
+    const age = i / hist.n;
+    c.fillStyle = `rgba(233,69,96,${0.18 + 0.65 * age})`;
+    c.fillRect(px - 0.9, py - 0.9, 1.8, 1.8);
+  }
+
+  if (st) {
+    const drawExtMark = (idx, fill, stroke) => {
+      const thE = normTheta(hist.th[idx]);
+      const px = toX(thE), py = toY(hist.w[idx]);
+      c.beginPath();
+      c.arc(px, py, 5.5, 0, Math.PI * 2);
+      c.fillStyle = fill;
+      c.fill();
+      c.strokeStyle = stroke;
+      c.lineWidth = 1.5;
+      c.stroke();
+    };
+    drawExtMark(st.iMax, day ? '#1a7f37' : '#3fb950', day ? '#fff' : 'rgba(0,0,0,0.85)');
+    drawExtMark(st.iMin, day ? '#0550ae' : '#58a6ff', day ? '#fff' : 'rgba(0,0,0,0.85)');
+  }
+
+  const thN = normTheta(state.theta);
+  const px = toX(thN), py = toY(state.omega);
+  c.beginPath(); c.arc(px, py, 5, 0, Math.PI * 2);
+  c.fillStyle = '#fff'; c.fill();
+}
+
+/** First time span where $\theta$ unwraps by $2\pi$ on `hist`; else full recorded span. */
+function motionPeriodInfo() {
+  if (hist.n < 2) return null;
+  const t0 = hist.t[0];
+  let acc = 0;
+  for (let i = 1; i < hist.n; i++) {
+    let d = hist.th[i] - hist.th[i - 1];
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    acc += d;
+    if (acc >= 2 * Math.PI - 1e-5) {
+      const T = hist.t[i] - t0;
+      if (T > 1e-9) return { T, iEnd: i, fullPeriod: true };
+    }
+  }
+  const T = hist.t[hist.n - 1] - t0;
+  return T > 1e-9 ? { T, iEnd: hist.n - 1, fullPeriod: false } : null;
+}
+
+function drawPlotWtSeries() {
+  const cvId = 'plot-wt-canvas';
+  const info = motionPeriodInfo();
+  if (!info || info.T < 1e-9) {
+    if (!plotWtView.active) {
+      plotWtView.xMin = 0; plotWtView.xMax = 1;
+      plotWtView.yMin = 0; plotWtView.yMax = 1;
+    }
+    drawPlotAxes(cvId, plotWtView, PLOT_PAD, 't', String.fromCharCode(969));
+    const cv = document.getElementById(cvId);
+    const c = cv.getContext('2d');
+    const day = document.body.classList.contains('theme-day');
+    c.fillStyle = day ? '#57606a' : '#8b949e';
+    c.font = '11px sans-serif';
+    c.textAlign = 'center';
+    c.fillText('Play: ' + String.fromCharCode(969) + ' vs t on [0, T]', cv.width / 2, cv.height / 2);
+    return;
+  }
+  const { T, iEnd, fullPeriod } = info;
+  const t0 = hist.t[0];
+  const wrapRel = rel => (T > 1e-9 ? ((rel % T) + T) % T : 0);
+  if (!plotWtView.active) {
+    plotWtView.xMin = 0; plotWtView.xMax = T;
+    let yLo = Infinity, yHi = -Infinity;
+    for (let i = 0; i < hist.n; i++) {
+      const w = hist.w[i];
+      if (w < yLo) yLo = w;
+      if (w > yHi) yHi = w;
+    }
+    const wc = state.omega;
+    if (wc < yLo) yLo = wc;
+    if (wc > yHi) yHi = wc;
+    const probeMean = getProbeOmegaMean();
+    if (Number.isFinite(probeMean)) {
+      if (probeMean < yLo) yLo = probeMean;
+      if (probeMean > yHi) yHi = probeMean;
+    }
+    const span = yHi - yLo;
+    const padY = span > 1e-8 ? span * 0.14 : Math.max(0.5, Math.abs(wc) * 0.08 + 0.25);
+    plotWtView.yMin = yLo - padY;
+    plotWtView.yMax = yHi + padY;
+  }
+  const xLbl = 't  [0, T]' + (fullPeriod ? '' : ' (span)') + ', T=' + T.toFixed(3) + ' s';
+  drawPlotAxes(cvId, plotWtView, PLOT_PAD, xLbl, String.fromCharCode(969));
+  const cv = document.getElementById(cvId);
+  const c = cv.getContext('2d');
+  const pad = PLOT_PAD, W = cv.width, H = cv.height;
+  const toX = v => plotWtView.toX(v, pad, W);
+  const toY = v => plotWtView.toY(v, pad, H);
+  const day = document.body.classList.contains('theme-day');
+  c.strokeStyle = day ? 'rgba(199,62,84,0.92)' : 'rgba(233,69,96,0.95)';
+  c.lineWidth = 1.35;
+  c.beginPath();
+  for (let i = 0; i <= iEnd; i++) {
+    const x = hist.t[i] - t0;
+    const px = toX(x), py = toY(hist.w[i]);
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.stroke();
+
+  const probeMean = getProbeOmegaMean();
+  if (Number.isFinite(probeMean)) {
+    const yMean = toY(probeMean);
+    c.save();
+    c.strokeStyle = day ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)';
+    c.lineWidth = 1.25;
+    c.setLineDash([5, 4]);
+    c.beginPath();
+    c.moveTo(pad.l, yMean);
+    c.lineTo(W - pad.r, yMean);
+    c.stroke();
+    c.setLineDash([]);
+    c.restore();
+  }
+
+  if (hist.n >= 2) {
+    const st = omegaStatsFromHist();
+    if (st) {
+      const drawWtExt = (idx, fill, stroke) => {
+        const txw = wrapRel(hist.t[idx] - t0);
+        const px = toX(txw), py = toY(hist.w[idx]);
+        c.beginPath();
+        c.arc(px, py, 5.5, 0, Math.PI * 2);
+        c.fillStyle = fill;
+        c.fill();
+        c.strokeStyle = stroke;
+        c.lineWidth = 1.5;
+        c.stroke();
+      };
+      drawWtExt(st.iMax, day ? '#1a7f37' : '#3fb950', day ? '#fff' : 'rgba(0,0,0,0.85)');
+      drawWtExt(st.iMin, day ? '#0550ae' : '#58a6ff', day ? '#fff' : 'rgba(0,0,0,0.85)');
+    }
+  }
+
+  const tx = T > 1e-9 ? ((simT - t0) % T + T) % T : 0;
+  const px = toX(tx), py = toY(state.omega);
+  c.beginPath(); c.arc(px, py, 5, 0, Math.PI * 2);
+  c.fillStyle = '#fff'; c.fill();
+
+  c.font = '10px sans-serif';
+  c.textAlign = 'left';
+  c.fillStyle = day ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)';
+  if (Number.isFinite(probeMean)) c.fillText('\u27e8\u03c9\u27e9_t', pad.l + 4, pad.t + 10);
+  if (hist.n >= 2) {
+    const st = omegaStatsFromHist();
+    if (st) {
+      c.fillStyle = day ? '#1a7f37' : '#3fb950';
+      c.fillText('\u03c9_max', pad.l + 52, pad.t + 10);
+      c.fillStyle = day ? '#0550ae' : '#58a6ff';
+      c.fillText('\u03c9_min', pad.l + 100, pad.t + 10);
+    }
+  }
+}
+
+function drawPlot2Series() {
+  if (!plot2View.active) {
+    plot2View.xMin = 0; plot2View.xMax = 2 * Math.PI;
+    if (hist.n > 0) {
+      let yLo = Infinity, yHi = -Infinity;
+      for (let i = 0; i < hist.n; i++) {
+        const tk = hist.Tkin[i], u = hist.U[i], e = tk + u;
+        if (tk < yLo) yLo = tk;
+        if (tk > yHi) yHi = tk;
+        if (u < yLo) yLo = u;
+        if (u > yHi) yHi = u;
+        if (e < yLo) yLo = e;
+        if (e > yHi) yHi = e;
+      }
+      const span = yHi - yLo;
+      const pad = span > 1e-10 ? span * 0.14 : 0.05;
+      plot2View.yMin = Math.max(0, yLo - pad);
+      plot2View.yMax = yHi + pad;
+    } else {
+      const Tk = kineticEnergy(state.theta, state.omega);
+      const Ue = potentialEnergy(state.theta);
+      const hi = Math.max(Tk, Ue, Tk + Ue, 0.2);
+      plot2View.yMin = 0;
+      plot2View.yMax = hi * 1.25;
+    }
+  }
+  drawPlotAxes('plot2-canvas', plot2View, PLOT_PAD, String.fromCharCode(952) + ' [0,2\u03c0]', 'E');
+  const cv = document.getElementById('plot2-canvas');
+  const c = cv.getContext('2d');
+  const pad = PLOT_PAD, W = cv.width, H = cv.height;
+  const toX = v => plot2View.toX(v, pad, W);
+  const toY = v => plot2View.toY(v, pad, H);
+  if (hist.n < 2) return;
+  function strokeColVsThetaMod(arr, col) {
+    c.strokeStyle = col;
+    c.lineWidth = 1.3;
+    c.beginPath();
+    for (let i = 0; i < hist.n; i++) {
+      const thN = normTheta(hist.th[i]);
+      const px = toX(thN), py = toY(arr[i]);
+      if (i === 0) c.moveTo(px, py);
+      else {
+        const thNm = normTheta(hist.th[i - 1]);
+        const dRaw = hist.th[i] - hist.th[i - 1];
+        const dNor = thN - thNm;
+        if (Math.abs(dRaw) < Math.PI && Math.abs(dNor) > Math.PI * 0.85) c.moveTo(px, py);
+        else c.lineTo(px, py);
+      }
+    }
+    c.stroke();
+  }
+  strokeColVsThetaMod(hist.Tkin, 'rgba(88,166,255,0.9)');
+  strokeColVsThetaMod(hist.U, 'rgba(46,160,67,0.9)');
+  c.strokeStyle = 'rgba(255,200,60,0.85)';
+  c.lineWidth = 1.3;
+  c.beginPath();
+  for (let i = 0; i < hist.n; i++) {
+    const thN = normTheta(hist.th[i]);
+    const px = toX(thN), py = toY(hist.Tkin[i] + hist.U[i]);
+    if (i === 0) c.moveTo(px, py);
+    else {
+      const thNm = normTheta(hist.th[i - 1]);
+      const dRaw = hist.th[i] - hist.th[i - 1];
+      const dNor = thN - thNm;
+      if (Math.abs(dRaw) < Math.PI && Math.abs(dNor) > Math.PI * 0.85) c.moveTo(px, py);
+      else c.lineTo(px, py);
+    }
+  }
+  c.stroke();
+  c.font = '10px sans-serif';
+  c.textAlign = 'left';
+  c.fillStyle = 'rgba(88,166,255,0.95)';
+  c.fillText('T', pad.l + 4, pad.t + 10);
+  c.fillStyle = 'rgba(46,160,67,0.9)';
+  c.fillText('U', pad.l + 20, pad.t + 10);
+  c.fillStyle = 'rgba(255,200,60,0.9)';
+  c.fillText('E', pad.l + 36, pad.t + 10);
+}
+
+function drawPlot4Series() {
+  readParams();
+  const Ns = 400;
+  let yLo = Infinity, yHi = -Infinity;
+  for (let i = 0; i <= Ns; i++) {
+    const th = (2 * Math.PI * i) / Ns;
+    const v = MresSpring(th);
+    if (v < yLo) yLo = v;
+    if (v > yHi) yHi = v;
+  }
+  const vCur = MresSpring(state.theta);
+  if (vCur < yLo) yLo = vCur;
+  if (vCur > yHi) yHi = vCur;
+  const rng = yHi - yLo;
+  const padY = rng > 1e-10 ? rng * 0.16 : Math.max(1e-3, Math.max(Math.abs(yLo), Math.abs(yHi), 1) * 0.06);
+  if (!plot4View.active) {
+    plot4View.xMin = 0; plot4View.xMax = 2 * Math.PI;
+    plot4View.yMin = yLo - padY; plot4View.yMax = yHi + padY;
+  }
+  drawPlotAxes('plot4-canvas', plot4View, PLOT_PAD, String.fromCharCode(952) + ' [0,2\u03c0]', 'M_res');
+  const cv = document.getElementById('plot4-canvas');
+  const c = cv.getContext('2d');
+  const pad = PLOT_PAD, W = cv.width, H = cv.height;
+  const toX = v => plot4View.toX(v, pad, W);
+  const toY = v => plot4View.toY(v, pad, H);
+  const day = document.body.classList.contains('theme-day');
+  c.strokeStyle = day ? 'rgba(147,51,234,0.9)' : 'rgba(192,132,252,0.95)';
+  c.lineWidth = 1.35;
+  c.beginPath();
+  for (let i = 0; i <= Ns; i++) {
+    const th = (2 * Math.PI * i) / Ns;
+    const px = toX(th), py = toY(MresSpring(th));
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.stroke();
+  const thN = normTheta(state.theta);
+  const px = toX(thN), py = toY(MresSpring(state.theta));
+  c.beginPath(); c.arc(px, py, 5, 0, Math.PI * 2);
+  c.fillStyle = '#e94560'; c.fill();
+}
+
+function drawPlot5Series() {
+  readParams();
+  const Ns = 400;
+  let yLo = Infinity, yHi = -Infinity;
+  for (let i = 0; i <= Ns; i++) {
+    const th = (2 * Math.PI * i) / Ns;
+    const v = MresIntegralFrom0(th);
+    if (v < yLo) yLo = v;
+    if (v > yHi) yHi = v;
+  }
+  const vCur5 = MresIntegralFrom0(state.theta);
+  if (vCur5 < yLo) yLo = vCur5;
+  if (vCur5 > yHi) yHi = vCur5;
+  const rng = yHi - yLo;
+  const padY = rng > 1e-10 ? rng * 0.16 : Math.max(1e-3, Math.max(Math.abs(yLo), Math.abs(yHi), 1) * 0.06);
+  if (!plot5View.active) {
+    plot5View.xMin = 0; plot5View.xMax = 2 * Math.PI;
+    plot5View.yMin = yLo - padY; plot5View.yMax = yHi + padY;
+  }
+  drawPlotAxes('plot5-canvas', plot5View, PLOT_PAD, String.fromCharCode(952) + ' [0,2\u03c0]', '\u222B');
+  const cv = document.getElementById('plot5-canvas');
+  const c = cv.getContext('2d');
+  const pad = PLOT_PAD, W = cv.width, H = cv.height;
+  const toX = v => plot5View.toX(v, pad, W);
+  const toY = v => plot5View.toY(v, pad, H);
+  const day = document.body.classList.contains('theme-day');
+  c.strokeStyle = day ? 'rgba(5,80,174,0.9)' : 'rgba(88,166,255,0.95)';
+  c.lineWidth = 1.35;
+  c.beginPath();
+  for (let i = 0; i <= Ns; i++) {
+    const th = (2 * Math.PI * i) / Ns;
+    const px = toX(th), py = toY(MresIntegralFrom0(th));
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.stroke();
+  const thN = normTheta(state.theta);
+  const px = toX(thN), py = toY(MresIntegralFrom0(state.theta));
+  c.beginPath(); c.arc(px, py, 5, 0, Math.PI * 2);
+  c.fillStyle = '#e94560'; c.fill();
+}
+
+function drawPlot6Series() {
+  readParams();
+  const wmed = getProbeOmegaMean();
+  const Ns = 400;
+  let yLo = Infinity, yHi = -Infinity;
+  for (let i = 0; i <= Ns; i++) {
+    const th = (2 * Math.PI * i) / Ns;
+    const v = fThetaPanel(th, wmed);
+    if (v < yLo) yLo = v;
+    if (v > yHi) yHi = v;
+  }
+  const vCur6 = fThetaPanel(state.theta, wmed);
+  if (vCur6 < yLo) yLo = vCur6;
+  if (vCur6 > yHi) yHi = vCur6;
+  const rng = yHi - yLo;
+  const padY = rng > 1e-10 ? rng * 0.16 : Math.max(1e-3, Math.max(Math.abs(yLo), Math.abs(yHi), 1) * 0.06);
+  if (!plot6View.active) {
+    plot6View.xMin = 0; plot6View.xMax = 2 * Math.PI;
+    plot6View.yMin = yLo - padY; plot6View.yMax = yHi + padY;
+  }
+  drawPlotAxes('plot6-canvas', plot6View, PLOT_PAD, String.fromCharCode(952) + ' [0,2\u03c0]', 'f');
+  const cv = document.getElementById('plot6-canvas');
+  const c = cv.getContext('2d');
+  const pad = PLOT_PAD, W = cv.width, H = cv.height;
+  const toX = v => plot6View.toX(v, pad, W);
+  const toY = v => plot6View.toY(v, pad, H);
+  const day = document.body.classList.contains('theme-day');
+  c.strokeStyle = day ? 'rgba(15,118,110,0.95)' : 'rgba(63,185,80,0.95)';
+  c.lineWidth = 1.35;
+  c.beginPath();
+  for (let i = 0; i <= Ns; i++) {
+    const th = (2 * Math.PI * i) / Ns;
+    const px = toX(th), py = toY(fThetaPanel(th, wmed));
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.stroke();
+  const thN = normTheta(state.theta);
+  const px = toX(thN), py = toY(fThetaPanel(state.theta, wmed));
+  c.beginPath(); c.arc(px, py, 5, 0, Math.PI * 2);
+  c.fillStyle = '#e94560'; c.fill();
+}
+
+function redrawAll() {
+  syncPlotCanvasDpr();
+  drawMain();
+  drawPlot1Series();
+  drawPlotWtSeries();
+  drawPlot2Series();
+  drawPlot4Series();
+  drawPlot5Series();
+  drawPlot6Series();
+  updateInfo();
+}
+
+function updateInfo() {
+  readParams();
+  const box = document.getElementById('info-box');
+  const tmax = parseFloat(document.getElementById('tmax-input').value) || 20;
+  const Tk = kineticEnergy(state.theta, state.omega);
+  const Ue = potentialEnergy(state.theta);
+  const dTr = deltaOmegaTrace();
+  const { k, r, e, m } = params;
+  const omegaMLim = Math.sqrt((k * (r + e)) / (e * m));
+  box.textContent =
+    `t = ${simT.toFixed(3)} s\n` +
+    `theta = ${state.theta.toFixed(4)} rad\n` +
+    `omega = ${state.omega.toFixed(4)} rad/s\n` +
+    `omega_m_lim = sqrt(k(r+e)/(e m)) = ${omegaMLim.toFixed(5)} rad/s\n` +
+    `T = ${Tk.toFixed(5)}   U = ${Ue.toFixed(5)}\n` +
+    `E = ${(Tk + Ue).toFixed(5)}\n` +
+    `delta (trace) = ${dTr != null ? dTr.toFixed(5) : 'n/a (run Play)'}\n` +
+    `delta_book (Tredgold) = ${deltaBookTredgold().toFixed(5)}\n` +
+    `T_max = ${tmax} s   run = ${simRunning ? 'yes' : 'no'}`;
+}
+
+document.getElementById('tmax-input').addEventListener('change', updateInfo);
+
+let lastFrameMs = 0;
+function simFrame(ts) {
+  if (!simRunning) return;
+  if (!lastFrameMs) lastFrameMs = ts;
+  let dt = (ts - lastFrameMs) / 1000;
+  lastFrameMs = ts;
+  if (dt > 0.05) dt = 0.05;
+  if (dt < 1e-6) dt = 1 / 60;
+  const tmax = parseFloat(document.getElementById('tmax-input').value) || 20;
+  const h = 1 / 600;
+  let nSub = Math.ceil(dt / h);
+  if (nSub > 80) nSub = 80;
+  const subDt = dt / nSub;
+  for (let s = 0; s < nSub; s++) {
+    if (simT >= tmax) { stopSim(); redrawAll(); return; }
+    state = rk4Step(state, subDt);
+    simT += subDt;
+    const Tk = kineticEnergy(state.theta, state.omega);
+    const Ue = potentialEnergy(state.theta);
+    histPush(simT, state.theta, state.omega, Tk, Ue);
+  }
+  redrawAll();
+  animId = requestAnimationFrame(simFrame);
+}
+
+function startSim() {
+  readParams();
+  state = { theta: params.th0, omega: params.w0 };
+  simT = 0;
+  histClear();
+  const Tk0 = kineticEnergy(state.theta, state.omega);
+  const U0 = potentialEnergy(state.theta);
+  histPush(0, state.theta, state.omega, Tk0, U0);
+  simRunning = true;
+  lastFrameMs = 0;
+  if (animId) cancelAnimationFrame(animId);
+  plot1View.reset(); plotWtView.reset(); plot2View.reset(); plot4View.reset(); plot5View.reset(); plot6View.reset();
+  animId = requestAnimationFrame(simFrame);
+}
+
+function stopSim() {
+  simRunning = false;
+  if (animId) cancelAnimationFrame(animId);
+  animId = null;
+  lastFrameMs = 0;
+  redrawAll();
+}
+
+function resetSim() {
+  stopSim();
+  readParams();
+  state = { theta: params.th0, omega: params.w0 };
+  simT = 0;
+  histClear();
+  mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+  mainView.offY = MAIN_VIEW_OFFY_DEFAULT;
+  mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+  plot1View.reset(); plotWtView.reset(); plot2View.reset(); plot4View.reset(); plot5View.reset(); plot6View.reset();
+  redrawAll();
+}
+
+document.getElementById('btn-simulate').addEventListener('click', () => { stopSim(); startSim(); });
+document.getElementById('btn-stop').addEventListener('click', stopSim);
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1 / 1.13 : 1.13;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const sz = canvas.width;
+  mainView.offX = (mx - sz * 0.5) * (1 - factor) + mainView.offX * factor;
+  mainView.offY = (my - sz * 0.5) * (1 - factor) + mainView.offY * factor;
+  mainView.zoom *= factor;
+  redrawAll();
+}, { passive: false });
+
+{
+  let mainDrag = false, mlx = 0, mly = 0;
+  canvas.addEventListener('mousedown', e => { mainDrag = true; mlx = e.clientX; mly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!mainDrag) return;
+    const rect = canvas.getBoundingClientRect();
+    const scX = canvas.width / rect.width, scY = canvas.height / rect.height;
+    mainView.offX += (e.clientX - mlx) * scX;
+    mainView.offY += (e.clientY - mly) * scY;
+    mlx = e.clientX; mly = e.clientY;
+    redrawAll();
+  });
+  window.addEventListener('mouseup', () => { mainDrag = false; });
+  canvas.addEventListener('dblclick', () => {
+    mainView.offX = MAIN_VIEW_OFFX_DEFAULT;
+    mainView.offY = MAIN_VIEW_OFFY_DEFAULT;
+    mainView.zoom = MAIN_VIEW_ZOOM_DEFAULT;
+    redrawAll();
+  });
+}
+
+function setupCollapse(btnId, panelId, openArrow, closeArrow) {
+  const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+  let collapsed = false;
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    btn.textContent = collapsed ? closeArrow : openArrow;
+    setTimeout(() => { resize(); redrawAll(); }, 270);
+  });
+}
+
+function setupResizer(resizerId, panelId, side, maxVwFrac = 0.45) {
+  const panel = document.getElementById(panelId), rz = document.getElementById(resizerId);
+  let startX, startW;
+  rz.addEventListener('mousedown', e => {
+    e.preventDefault(); startX = e.clientX; startW = panel.offsetWidth;
+    rz.classList.add('dragging');
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e) {
+    const delta = side === 'left' ? (e.clientX - startX) : (startX - e.clientX);
+    const w = Math.max(parseInt(getComputedStyle(panel).minWidth) || 180, Math.min(startW + delta, window.innerWidth * maxVwFrac));
+    panel.style.width = w + 'px'; resize(); redrawAll();
+  }
+  function onUp() { rz.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+}
+setupResizer('left-resizer', 'left-panel', 'left');
+setupResizer('right-resizer', 'right-panel', 'right', 0.56);
+
+async function initApp() {
+  if (window.__eccDiskIrregInit) return;
+  window.__eccDiskIrregInit = true;
+  try {
+    if (window.MathJax && MathJax.typeset) MathJax.typeset();
+  } catch (e) { /* optional */ }
+  setupPanZoom('plot1-canvas', plot1View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot-wt-canvas', plotWtView, PLOT_PAD, redrawAll);
+  setupPanZoom('plot2-canvas', plot2View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot4-canvas', plot4View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot5-canvas', plot5View, PLOT_PAD, redrawAll);
+  setupPanZoom('plot6-canvas', plot6View, PLOT_PAD, redrawAll);
+  setupCollapse('right-collapse', 'right-panel', '\u25B6', '\u25C0');
+
+  document.querySelectorAll('.section-title.collapsible').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const bodyId = hdr.id.replace('hdr-', 'body-');
+      const body = document.getElementById(bodyId);
+      const toggle = hdr.querySelector('.sec-toggle');
+      body.classList.toggle('collapsed');
+      toggle.textContent = body.classList.contains('collapsed') ? '\u25B6' : '\u25BC';
+    });
+  });
+
+  readParams();
+  state = { theta: params.th0, omega: params.w0 };
+  resize(); redrawAll();
+
+  function syncThemeFromCheckbox() {
+    document.body.classList.toggle('theme-day', document.getElementById('theme-day').checked);
+  }
+  document.getElementById('theme-day').addEventListener('change', () => {
+    syncThemeFromCheckbox();
+    redrawAll();
+  });
+  syncThemeFromCheckbox();
+
+  const eqOv = document.getElementById('eq-overlay');
+  document.getElementById('eq-close').addEventListener('click', () => eqOv.classList.add('hidden'));
+  eqOv.addEventListener('click', e => { if (e.target === eqOv) eqOv.classList.add('hidden'); });
+  document.getElementById('btn-show-equations').addEventListener('click', () => {
+    eqOv.classList.remove('hidden');
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('eq-content')]).catch(() => {});
+  });
+}
+
+resize();
+redrawAll();
+setTimeout(() => { if (!window.__eccDiskIrregInit) initApp(); }, 2500);
+
+window.addEventListener('resize', () => { resize(); redrawAll(); });
+</script>
+</body>
+</html>
